@@ -18,7 +18,7 @@ FROM ethereumoptimism/foundry:latest as foundry
 FROM op-geth as op-geth
 FROM op-node as op-node
 
-FROM node:16-alpine3.14 as base
+FROM node:18-alpine3.14 as base
 
 COPY --from=op-geth /usr/local/bin/geth /usr/local/bin/geth
 COPY --from=op-node /usr/local/bin/op-node /usr/local/bin/op-node
