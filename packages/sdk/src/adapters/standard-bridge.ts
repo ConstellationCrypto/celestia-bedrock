@@ -14,9 +14,9 @@ import {
 } from '@ethersproject/abstract-provider'
 import { predeploys } from '@eth-optimism/contracts'
 import { hexStringEquals } from '@eth-optimism/core-utils'
-import l1StandardBridgeArtifact from '@eth-optimism/contracts-bedrock/forge-artifacts/L1StandardBridge.sol/L1StandardBridge.json'
-import l2StandardBridgeArtifact from '@eth-optimism/contracts-bedrock/forge-artifacts/L2StandardBridge.sol/L2StandardBridge.json'
-import optimismMintableERC20 from '@eth-optimism/contracts-bedrock/forge-artifacts/OptimismMintableERC20.sol/OptimismMintableERC20.json'
+import l1StandardBridgeArtifact from '@constellation-labs/contracts-bedrock/forge-artifacts/L1StandardBridge.sol/L1StandardBridge.json'
+import l2StandardBridgeArtifact from '@constellation-labs/contracts-bedrock/forge-artifacts/L2StandardBridge.sol/L2StandardBridge.json'
+import optimismMintableERC20 from '@constellation-labs/contracts-bedrock/forge-artifacts/OptimismMintableERC20.sol/OptimismMintableERC20.json'
 
 import { CrossChainMessenger } from '../cross-chain-messenger'
 import {
@@ -26,7 +26,7 @@ import {
   TokenBridgeMessage,
   MessageDirection,
 } from '../interfaces'
-import { toAddress } from '../utils'
+import { toAddress, omit } from '../utils'
 
 /**
  * Bridge adapter for any token bridge that uses the standard token bridge interface.
@@ -84,8 +84,9 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         // Specifically filter out ETH. ETH deposits and withdrawals are handled by the ETH bridge
         // adapter. Bridges that are not the ETH bridge should not be able to handle or even
         // present ETH deposits or withdrawals.
+        // Exception: ETH is bridged to L1_ETH if FPE is enabled.
         return (
-          !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
+        // !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
           !hexStringEquals(event.args.l2Token, predeploys.OVM_ETH)
         )
       })
@@ -127,8 +128,9 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         // Specifically filter out ETH. ETH deposits and withdrawals are handled by the ETH bridge
         // adapter. Bridges that are not the ETH bridge should not be able to handle or even
         // present ETH deposits or withdrawals.
+        // Exception: L1_ETH withdraws to ETH if FPE is enabled.
         return (
-          !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
+        // !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
           !hexStringEquals(event.args.l2Token, predeploys.OVM_ETH)
         )
       })
@@ -157,18 +159,43 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
     l2Token: AddressLike
   ): Promise<boolean> {
     try {
+      const l1Zero = hexStringEquals(toAddress(l1Token), ethers.constants.AddressZero)
+      const l2Zero = hexStringEquals(toAddress(l2Token), ethers.constants.AddressZero)
+
+      if ((l1Zero && l2Zero) || hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH))
+        return false
+
+      // Can use either the l1 or l2 bridge - both store the token information.
+      if (l2Zero) {
+        // Make sure the L1 token matches
+        try {
+          return hexStringEquals(await this.l1Bridge.LOCAL_TOKEN(), toAddress(l1Token))
+        } catch(error) { // LOCAL_TOKEN() may not exist
+          console.log(error)
+          return false
+        }
+      }
+
+      if (l1Zero) {
+        // Make sure the L2 token matches
+        try {
+          return hexStringEquals(await this.l1Bridge.REMOTE_TOKEN(), toAddress(l2Token))
+        } catch(error) { // REMOTE_TOKEN() may not exist
+          console.log(error)
+          return false
+        }
+      }
+
+      // Don't support ETH deposits or withdrawals via this bridge.
+      if (hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH)) {
+        return false
+      }
+
       const contract = new Contract(
         toAddress(l2Token),
         optimismMintableERC20.abi,
         this.messenger.l2Provider
       )
-      // Don't support ETH deposits or withdrawals via this bridge.
-      if (
-        hexStringEquals(toAddress(l1Token), ethers.constants.AddressZero) ||
-        hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH)
-      ) {
-        return false
-      }
 
       // Make sure the L1 token matches.
       const remoteL1Token = await contract.l1Token()
@@ -308,7 +335,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           opts?.l2GasLimit || 200_000, // Default to 200k gas limit.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: (hexStringEquals(toAddress(l1Token), ethers.constants.AddressZero) ? amount : 0),
+          }
         )
       } else {
         return this.l1Bridge.populateTransaction.depositERC20To(
@@ -318,7 +348,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           opts?.l2GasLimit || 200_000, // Default to 200k gas limit.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: (hexStringEquals(toAddress(l1Token), ethers.constants.AddressZero) ? amount : 0),
+          }
         )
       }
     },
@@ -342,7 +375,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           0, // L1 gas not required.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: (hexStringEquals(toAddress(l2Token), ethers.constants.AddressZero) ? amount : 0),
+          }
         )
       } else {
         return this.l2Bridge.populateTransaction.withdrawTo(
@@ -351,7 +387,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           0, // L1 gas not required.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: (hexStringEquals(toAddress(l2Token), ethers.constants.AddressZero) ? amount : 0),
+          }
         )
       }
     },

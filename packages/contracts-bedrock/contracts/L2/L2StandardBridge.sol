@@ -53,9 +53,11 @@ contract L2StandardBridge is StandardBridge, Semver {
     /// @custom:semver 1.1.1
     /// @notice Constructs the L2StandardBridge contract.
     /// @param _otherBridge Address of the L1StandardBridge.
-    constructor(address payable _otherBridge)
+    /// @param _fpeToken Address of the L1 FPE token that bridges to native ETH, 0 if disabled
+    constructor(address payable _otherBridge, address _fpeToken)
         Semver(1, 1, 1)
-        StandardBridge(payable(Predeploys.L2_CROSS_DOMAIN_MESSENGER), _otherBridge)
+        StandardBridge(payable(Predeploys.L2_CROSS_DOMAIN_MESSENGER), _otherBridge,
+        _fpeToken == address(0) ? address(0) : Predeploys.L1_ETH, _fpeToken, 1)
     {}
 
     /// @notice Allows EOAs to bridge ETH by sending directly to the bridge.
@@ -157,12 +159,22 @@ contract L2StandardBridge is StandardBridge, Semver {
         uint32 _minGasLimit,
         bytes memory _extraData
     ) internal {
-        if (_l2Token == Predeploys.LEGACY_ERC20_ETH) {
+        if (_l2Token == address(0)) {
+            _initiateBridgeERC20(_l2Token, REMOTE_TOKEN, _from, _to, _amount, _minGasLimit, _extraData);
+        } else if (_l2Token == Predeploys.LEGACY_ERC20_ETH) {
             _initiateBridgeETH(_from, _to, _amount, _minGasLimit, _extraData);
         } else {
             address l1Token = OptimismMintableERC20(_l2Token).l1Token();
             _initiateBridgeERC20(_l2Token, l1Token, _from, _to, _amount, _minGasLimit, _extraData);
         }
+    }
+
+    function _sendMessage(
+      bytes memory _message,
+      uint32 _minGasLimit,
+      uint256
+    ) internal override {
+      MESSENGER.sendMessage{value: msg.value}(address(OTHER_BRIDGE), _message, _minGasLimit, msg.value);
     }
 
     /// @notice Emits the legacy WithdrawalInitiated event followed by the ETHBridgeInitiated event.

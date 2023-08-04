@@ -4,6 +4,9 @@ pragma solidity 0.8.15;
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
 import { Semver } from "../universal/Semver.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /// @custom:proxied
 /// @title L1StandardBridge
@@ -15,7 +18,9 @@ import { Semver } from "../universal/Semver.sol";
 ///         NOTE: this contract is not intended to support all variations of ERC20 tokens. Examples
 ///         of some token types that may not be properly supported by this contract include, but are
 ///         not limited to: tokens with transfer fees, rebasing tokens, and tokens with blocklists.
-contract L1StandardBridge is StandardBridge, Semver {
+contract L1StandardBridge is StandardBridge, Semver, Initializable {
+    using SafeERC20 for IERC20;
+
     /// @custom:legacy
     /// @notice Emitted whenever a deposit of ETH from L1 into L2 is initiated.
     /// @param from      Address of the depositor.
@@ -79,10 +84,21 @@ contract L1StandardBridge is StandardBridge, Semver {
     /// @custom:semver 1.1.1
     /// @notice Constructs the L1StandardBridge contract.
     /// @param _messenger Address of the L1CrossDomainMessenger.
-    constructor(address payable _messenger)
+    /// @param _fpeToken Address of the L1 FPE token that bridges to native ETH, 0 if disabled
+    /// @param _fpeDecimalMultiplier 10**(18-fpeTokenDecimals)
+    constructor(address payable _messenger, address _fpeToken, uint256 _fpeDecimalMultiplier)
         Semver(1, 1, 1)
-        StandardBridge(_messenger, payable(Predeploys.L2_STANDARD_BRIDGE))
-    {}
+        StandardBridge(_messenger, payable(Predeploys.L2_STANDARD_BRIDGE), _fpeToken,
+        _fpeToken == address(0) ? address(0) : Predeploys.L1_ETH, _fpeDecimalMultiplier)
+    {
+    }
+
+    /// @notice Initializes the contract.
+    function initialize() public initializer {
+        if (LOCAL_TOKEN != address(0)) {
+          IERC20(LOCAL_TOKEN).safeApprove(address(MESSENGER), ~uint256(0));
+        }
+    }
 
     /// @notice Allows EOAs to bridge ETH by sending directly to the bridge.
     receive() external payable override onlyEOA {
@@ -133,7 +149,7 @@ contract L1StandardBridge is StandardBridge, Semver {
         uint256 _amount,
         uint32 _minGasLimit,
         bytes calldata _extraData
-    ) external virtual onlyEOA {
+    ) external payable virtual onlyEOA {
         _initiateERC20Deposit(
             _l1Token,
             _l2Token,
@@ -162,7 +178,7 @@ contract L1StandardBridge is StandardBridge, Semver {
         uint256 _amount,
         uint32 _minGasLimit,
         bytes calldata _extraData
-    ) external virtual {
+    ) external payable virtual {
         _initiateERC20Deposit(
             _l1Token,
             _l2Token,
@@ -247,6 +263,14 @@ contract L1StandardBridge is StandardBridge, Semver {
         bytes memory _extraData
     ) internal {
         _initiateBridgeERC20(_l1Token, _l2Token, _from, _to, _amount, _minGasLimit, _extraData);
+    }
+
+    function _sendMessage(
+      bytes memory _message,
+      uint32 _minGasLimit,
+      uint256 _value
+    ) internal override {
+      MESSENGER.sendMessage(address(OTHER_BRIDGE), _message, _minGasLimit, _value);
     }
 
     /// @inheritdoc StandardBridge

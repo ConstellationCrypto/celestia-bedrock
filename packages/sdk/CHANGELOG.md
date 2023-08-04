@@ -12,7 +12,7 @@
 - Updated dependencies [d6388be4a]
 - Updated dependencies [af292562f]
   - @eth-optimism/core-utils@0.12.1
-  - @eth-optimism/contracts-bedrock@0.15.0
+  - @constellation-labs/contracts-bedrock@0.15.0
 
 ## 2.1.0
 
@@ -30,7 +30,7 @@
 - Updated dependencies [197884eae]
 - Updated dependencies [6eb05430d]
 - Updated dependencies [5063a69fb]
-  - @eth-optimism/contracts-bedrock@0.14.0
+  - @constellation-labs/contracts-bedrock@0.14.0
   - @eth-optimism/contracts@0.6.0
 
 ## 2.0.2
@@ -41,7 +41,7 @@
 - Updated dependencies [b16067a9f]
 - Updated dependencies [9a02079eb]
 - Updated dependencies [98fbe9d22]
-  - @eth-optimism/contracts-bedrock@0.13.2
+  - @constellation-labs/contracts-bedrock@0.13.2
 
 ## 2.0.1
 
@@ -50,7 +50,7 @@
 - 66cafc00a: Update migrated withdrawal gaslimit calculation
 - Updated dependencies [22c3885f5]
 - Updated dependencies [f52c07529]
-  - @eth-optimism/contracts-bedrock@0.13.1
+  - @constellation-labs/contracts-bedrock@0.13.1
 
 ## 2.0.0
 
@@ -61,14 +61,14 @@
 ### Patch Changes
 
 - Updated dependencies [cb19e2f9c]
-  - @eth-optimism/contracts-bedrock@0.13.0
+  - @constellation-labs/contracts-bedrock@0.13.0
 
 ## 1.10.4
 
 ### Patch Changes
 
 - Updated dependencies [80f2271f5]
-  - @eth-optimism/contracts-bedrock@0.12.1
+  - @constellation-labs/contracts-bedrock@0.12.1
 
 ## 1.10.3
 
@@ -78,7 +78,7 @@
 - Updated dependencies [2865dd9b4]
 - Updated dependencies [efc98d261]
 - Updated dependencies [388f2c25a]
-  - @eth-optimism/contracts-bedrock@0.12.0
+  - @constellation-labs/contracts-bedrock@0.12.0
 
 ## 1.10.2
 
@@ -86,14 +86,14 @@
 
 - 5372c9f5b: Remove assert node builtin from sdk
 - Updated dependencies [3c22333b8]
-  - @eth-optimism/contracts-bedrock@0.11.4
+  - @constellation-labs/contracts-bedrock@0.11.4
 
 ## 1.10.1
 
 ### Patch Changes
 
 - Updated dependencies [4964be480]
-  - @eth-optimism/contracts-bedrock@0.11.3
+  - @constellation-labs/contracts-bedrock@0.11.3
 
 ## 1.10.0
 
@@ -106,7 +106,7 @@
 ### Patch Changes
 
 - Updated dependencies [8784bc0bc]
-  - @eth-optimism/contracts-bedrock@0.11.2
+  - @constellation-labs/contracts-bedrock@0.11.2
 
 ## 1.9.0
 
@@ -126,7 +126,7 @@
 - Updated dependencies [0f8fc58ad]
 - Updated dependencies [89f70c591]
 - Updated dependencies [03940c3cb]
-  - @eth-optimism/contracts-bedrock@0.11.1
+  - @constellation-labs/contracts-bedrock@0.11.1
   - @eth-optimism/contracts@0.5.40
 
 ## 1.8.0
@@ -148,7 +148,7 @@
 - Updated dependencies [136ea1785]
 - Updated dependencies [4d13f0afe]
 - Updated dependencies [7300a7ca7]
-  - @eth-optimism/contracts-bedrock@0.11.0
+  - @constellation-labs/contracts-bedrock@0.11.0
   - @eth-optimism/contracts@0.5.39
   - @eth-optimism/core-utils@0.12.0
 
@@ -167,7 +167,7 @@
 - Updated dependencies [f49b71d50]
 - Updated dependencies [1bfe79f20]
 - Updated dependencies [ccaf5bc83]
-  - @eth-optimism/contracts-bedrock@0.10.0
+  - @constellation-labs/contracts-bedrock@0.10.0
 
 ## 1.6.11
 
@@ -177,7 +177,7 @@
 - Updated dependencies [13bfafb21]
 - Updated dependencies [eeae96941]
 - Updated dependencies [427831d86]
-  - @eth-optimism/contracts-bedrock@0.9.1
+  - @constellation-labs/contracts-bedrock@0.9.1
 
 ## 1.6.10
 
@@ -191,7 +191,7 @@
 - Updated dependencies [31c91ea74]
 - Updated dependencies [87702c741]
   - @eth-optimism/core-utils@0.11.0
-  - @eth-optimism/contracts-bedrock@0.9.0
+  - @constellation-labs/contracts-bedrock@0.9.0
   - @eth-optimism/contracts@0.5.38
 
 ## 1.6.9
@@ -200,14 +200,14 @@
 
 - Updated dependencies [db84317b]
 - Updated dependencies [9b90c732]
-  - @eth-optimism/contracts-bedrock@0.8.3
+  - @constellation-labs/contracts-bedrock@0.8.3
 
 ## 1.6.8
 
 ### Patch Changes
 
 - Updated dependencies [7d7d9ba8]
-  - @eth-optimism/contracts-bedrock@0.8.2
+  - @constellation-labs/contracts-bedrock@0.8.2
 
 ## 1.6.7
 
@@ -218,7 +218,7 @@
 - Updated dependencies [35a7bb5e]
 - Updated dependencies [a5e715c3]
 - Updated dependencies [d18b8aa3]
-  - @eth-optimism/contracts-bedrock@0.8.1
+  - @constellation-labs/contracts-bedrock@0.8.1
 
 ## 1.6.6
 
@@ -231,7 +231,7 @@
 - Updated dependencies [740e1bcc]
 - Updated dependencies [a6cbfee2]
 - Updated dependencies [394a26ec]
-  - @eth-optimism/contracts-bedrock@0.8.0
+  - @constellation-labs/contracts-bedrock@0.8.0
   - @eth-optimism/contracts@0.5.37
 
 ## 1.6.5
@@ -244,7 +244,7 @@
 - Updated dependencies [e2faaa8b]
 - Updated dependencies [d28ad592]
 - Updated dependencies [76c8ee2d]
-  - @eth-optimism/contracts-bedrock@0.7.0
+  - @constellation-labs/contracts-bedrock@0.7.0
 
 ## 1.6.4
 
@@ -264,7 +264,7 @@
 - Updated dependencies [88dde7c8]
 - Updated dependencies [8790156c]
 - Updated dependencies [515685f4]
-  - @eth-optimism/contracts-bedrock@0.6.3
+  - @constellation-labs/contracts-bedrock@0.6.3
   - @eth-optimism/contracts@0.5.36
   - @eth-optimism/core-utils@0.10.1
 
@@ -273,7 +273,7 @@
 ### Patch Changes
 
 - Updated dependencies [651a2883]
-  - @eth-optimism/contracts-bedrock@0.6.2
+  - @constellation-labs/contracts-bedrock@0.6.2
 
 ## 1.6.2
 
@@ -284,7 +284,7 @@
 - Updated dependencies [593f1cfb]
 - Updated dependencies [334a3eb0]
 - Updated dependencies [f78eb056]
-  - @eth-optimism/contracts-bedrock@0.6.1
+  - @constellation-labs/contracts-bedrock@0.6.1
   - @eth-optimism/contracts@0.5.35
 
 ## 1.6.1
@@ -297,7 +297,7 @@
 - Updated dependencies [dbfea116]
 - Updated dependencies [63ef1949]
 - Updated dependencies [299157e7]
-  - @eth-optimism/contracts-bedrock@0.6.0
+  - @constellation-labs/contracts-bedrock@0.6.0
   - @eth-optimism/core-utils@0.10.0
   - @eth-optimism/contracts@0.5.34
 
@@ -329,7 +329,7 @@
 - Updated dependencies [329d21b6]
 - Updated dependencies [35eafed0]
 - Updated dependencies [3cde9205]
-  - @eth-optimism/contracts-bedrock@0.5.4
+  - @constellation-labs/contracts-bedrock@0.5.4
   - @eth-optimism/contracts@0.5.33
 
 ## 1.5.0
@@ -363,7 +363,7 @@
 - Updated dependencies [8ae39154]
 - Updated dependencies [af96563a]
 - Updated dependencies [dac4a9f0]
-  - @eth-optimism/contracts-bedrock@0.5.3
+  - @constellation-labs/contracts-bedrock@0.5.3
   - @eth-optimism/core-utils@0.9.3
   - @eth-optimism/contracts@0.5.32
 

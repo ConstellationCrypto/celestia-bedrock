@@ -32,7 +32,7 @@ def main():
     devnet_dir = pjoin(monorepo_dir, '.devnet')
     contracts_bedrock_dir = pjoin(monorepo_dir, 'packages', 'contracts-bedrock')
     deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'devnetL1')
-    op_node_dir = pjoin(args.monorepo_dir, 'op-node')
+    op_chain_ops_dir = pjoin(args.monorepo_dir, 'op-chain-ops')
     ops_bedrock_dir=pjoin(monorepo_dir, 'ops-bedrock')
 
     paths = Bunch(
@@ -41,7 +41,7 @@ def main():
       contracts_bedrock_dir=contracts_bedrock_dir,
       deployment_dir=deployment_dir,
       deploy_config_dir=pjoin(contracts_bedrock_dir, 'deploy-config'),
-      op_node_dir=op_node_dir,
+      op_chain_ops_dir=op_chain_ops_dir,
       ops_bedrock_dir=ops_bedrock_dir,
       genesis_l1_path=pjoin(devnet_dir, 'genesis-l1.json'),
       genesis_l2_path=pjoin(devnet_dir, 'genesis-l2.json'),
@@ -85,7 +85,7 @@ def devnet_prestate(paths):
         outfile_l2 = paths.genesis_l2_path
         outfile_rollup = paths.rollup_config_path
 
-        run_command(['go', 'run', 'cmd/main.go', 'genesis', 'devnet', '--deploy-config', temp_deploy_config, '--outfile.l1', outfile_l1, '--outfile.l2', outfile_l2, '--outfile.rollup', outfile_rollup], cwd=paths.op_node_dir)
+        run_command(['go', 'run', 'cmd/genesis/main.go', 'genesis', 'devnet', '--deploy-config', temp_deploy_config, '--outfile.l1', outfile_l1, '--outfile.l2', outfile_l2, '--outfile.rollup', outfile_rollup], cwd=paths.op_chain_ops_dir)
         write_json(done_file, {})
 
     log.info('Bringing up L1.')
@@ -178,13 +178,13 @@ def devnet_deploy(paths):
     else:
         log.info('Generating L2 genesis and rollup configs.')
         run_command([
-            'go', 'run', 'cmd/main.go', 'genesis', 'l2',
+            'go', 'run', 'cmd/genesis/main.go', 'genesis', 'l2',
             '--l1-rpc', 'http://localhost:8545',
             '--deploy-config', devnet_cfg_orig,
             '--deployment-dir', paths.deployment_dir,
             '--outfile.l2', pjoin(paths.devnet_dir, 'genesis-l2.json'),
             '--outfile.rollup', pjoin(paths.devnet_dir, 'rollup.json')
-        ], cwd=paths.op_node_dir)
+        ], cwd=paths.op_chain_ops_dir)
 
     rollup_config = read_json(paths.rollup_config_path)
 

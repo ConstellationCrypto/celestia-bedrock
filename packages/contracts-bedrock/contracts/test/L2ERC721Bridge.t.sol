@@ -104,7 +104,8 @@ contract L2ERC721Bridge_Test is Messenger_Initializer {
                             hex"5678"
                         )
                     ),
-                    1234
+                    1234,
+                    0
                 )
             )
         );
@@ -188,7 +189,8 @@ contract L2ERC721Bridge_Test is Messenger_Initializer {
                         L1ERC721Bridge.finalizeBridgeERC721,
                         (address(remoteToken), address(localToken), alice, bob, tokenId, hex"5678")
                     ),
-                    1234
+                    1234,
+                    0
                 )
             )
         );

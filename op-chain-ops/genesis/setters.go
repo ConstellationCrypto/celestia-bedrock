@@ -82,6 +82,9 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 
 	// Set the storage values
 	if storageConfig, ok := storage[name]; ok {
+		if name == "L1ETH" {
+			name = "OptimismMintableERC20" // hack to get the right storage layout
+		}
 		log.Info("Setting storage", "name", name, "address", proxyAddr)
 		if err := state.SetStorage(name, proxyAddr, storageConfig, db); err != nil {
 			return err

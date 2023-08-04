@@ -12,6 +12,8 @@ import { SecureMerkleTrie } from "../libraries/trie/SecureMerkleTrie.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { ResourceMetering } from "./ResourceMetering.sol";
 import { Semver } from "../universal/Semver.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @custom:proxied
 /// @title OptimismPortal
@@ -19,6 +21,8 @@ import { Semver } from "../universal/Semver.sol";
 ///         and L2. Messages sent directly to the OptimismPortal have no form of replayability.
 ///         Users are encouraged to use the L1CrossDomainMessenger for a higher-level interface.
 contract OptimismPortal is Initializable, ResourceMetering, Semver {
+    using SafeERC20 for IERC20;
+
     /// @notice Represents a proven withdrawal.
     /// @custom:field outputRoot    Root of the L2 output this was proven against.
     /// @custom:field timestamp     Timestamp at whcih the withdrawal was proven.
@@ -40,6 +44,12 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
 
     /// @notice Address of the SystemConfig contract.
     SystemConfig public immutable SYSTEM_CONFIG;
+
+    /// @notice Address of the L1 FPE Token
+    address public immutable L1_FPE_TOKEN;
+
+    /// @notice FPE token decimal multiplier
+    uint256 public immutable FPE_DECIMAL_MULTIPLIER;
 
     /// @notice Address that has the ability to pause and unpause withdrawals.
     address public immutable GUARDIAN;
@@ -113,11 +123,15 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         L2OutputOracle _l2Oracle,
         address _guardian,
         bool _paused,
-        SystemConfig _config
-    ) Semver(1, 7, 2) {
+        SystemConfig _config,
+        address _l1FpeToken,
+        uint256 _fpeDecimalMultiplier
+    ) Semver(2, 7, 2) {
         L2_ORACLE = _l2Oracle;
         GUARDIAN = _guardian;
         SYSTEM_CONFIG = _config;
+        L1_FPE_TOKEN = _l1FpeToken;
+        FPE_DECIMAL_MULTIPLIER = _fpeDecimalMultiplier;
         initialize(_paused);
     }
 
@@ -157,6 +171,7 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
     ///         funds be deposited to their address on L2. This is intended as a convenience
     ///         function for EOAs. Contracts should call the depositTransaction() function directly
     ///         otherwise any deposited funds will be lost due to address aliasing.
+    ///         This function reverts if L1_FPE_TOKEN is set.
     // solhint-disable-next-line ordering
     receive() external payable {
         depositTransaction(msg.sender, msg.value, RECEIVE_DEFAULT_GAS_LIMIT, false, bytes(""));
@@ -347,7 +362,18 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         //   2. The amount of gas provided to the execution context of the target is at least the
         //      gas limit specified by the user. If there is not enough gas in the current context
         //      to accomplish this, `callWithMinGas` will revert.
-        bool success = SafeCall.callWithMinGas(_tx.target, _tx.gasLimit, _tx.value, _tx.data);
+
+        uint256 value = _tx.value;
+        if (L1_FPE_TOKEN != address(0)) {
+          value /= FPE_DECIMAL_MULTIPLIER;
+          // only perform the ERC20 transfer if necessary
+          if (value > 0) {
+            IERC20(L1_FPE_TOKEN).safeTransfer(_tx.target, value);
+            value = 0;
+          }
+        }
+
+        bool success = SafeCall.callWithMinGas(_tx.target, _tx.gasLimit, value, _tx.data);
 
         // Reset the l2Sender back to the default value.
         l2Sender = Constants.DEFAULT_L2_SENDER;
@@ -364,17 +390,34 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         }
     }
 
+    // Compatibility layer
+    function depositTransaction(
+        address _to,
+        uint256 _value,
+        uint64 _gasLimit,
+        bool _isCreation,
+        bytes memory _data
+    ) public payable {
+      if (L1_FPE_TOKEN == address(0)) {
+        rawDepositTransaction(_to, msg.value, _value, _gasLimit, _isCreation, _data);
+      } else {
+        rawDepositTransaction(_to, _value, _value * FPE_DECIMAL_MULTIPLIER, _gasLimit, _isCreation, _data);
+      }
+    }
+
     /// @notice Accepts deposits of ETH and data, and emits a TransactionDeposited event for use in
     ///         deriving deposit transactions. Note that if a deposit is made by a contract, its
     ///         address will be aliased when retrieved using `tx.origin` or `msg.sender`. Consider
     ///         using the CrossDomainMessenger contracts for a simpler developer experience.
     /// @param _to         Target address on L2.
-    /// @param _value      ETH value to send to the recipient.
+    /// @param _mint       FPE value to use for minting (multiplied by FPE_DECIMAL_MULTIPLIER on the L2)
+    /// @param _value      ETH value to send to the recipient (not multiplied by FPE_DECIMAL_MULTIPLIER on the L2)
     /// @param _gasLimit   Amount of L2 gas to purchase by burning gas on L1.
     /// @param _isCreation Whether or not the transaction is a contract creation.
     /// @param _data       Data to trigger the recipient with.
-    function depositTransaction(
+    function rawDepositTransaction(
         address _to,
+        uint256 _mint,
         uint256 _value,
         uint64 _gasLimit,
         bool _isCreation,
@@ -402,6 +445,17 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         // transactions are not gossipped over the p2p network.
         require(_data.length <= 120_000, "OptimismPortal: data too large");
 
+        if (L1_FPE_TOKEN != address(0)) {
+          require(msg.value == 0, "OptimismPortal: must deposit ERC20 token instead of ETH");
+          // only perform the ERC20 transfer if necessary
+          if (_mint > 0) {
+            IERC20(L1_FPE_TOKEN).safeTransferFrom(msg.sender, address(this), _mint);
+            _mint *= FPE_DECIMAL_MULTIPLIER;
+          }
+        } else {
+          require(msg.value == _mint, "OptimismPortal: wrong amount of ETH for mint");
+        }
+
         // Transform the from-address to its alias if the caller is a contract.
         address from = msg.sender;
         if (msg.sender != tx.origin) {
@@ -412,8 +466,8 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         // We use opaque data so that we can update the TransactionDeposited event in the future
         // without breaking the current interface.
         bytes memory opaqueData = abi.encodePacked(
-            msg.value,
-            _value,
+            _mint, // mint amount
+            _value, // txn value
             _gasLimit,
             _isCreation,
             _data

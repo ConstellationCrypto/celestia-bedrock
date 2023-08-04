@@ -169,18 +169,27 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			deployment.Args[1].(common.Address),
 			deployment.Args[2].(bool),
 			deployment.Args[3].(common.Address),
+			// TODO: add support for FPE token to the l1 predeploy
+			common.Address{},
+			big.NewInt(1),
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
 			opts,
 			backend,
 			predeploys.DevOptimismPortalAddr,
+			// TODO: add support for FPE token to the l1 predeploy
+			common.Address{},
+			big.NewInt(1),
 		)
 	case "L1StandardBridge":
 		_, tx, _, err = bindings.DeployL1StandardBridge(
 			opts,
 			backend,
 			predeploys.DevL1CrossDomainMessengerAddr,
+			// TODO: add support for FPE token to the l1 predeploy
+			common.Address{},
+			big.NewInt(1),
 		)
 	case "OptimismMintableERC20Factory":
 		_, tx, _, err = bindings.DeployOptimismMintableERC20Factory(

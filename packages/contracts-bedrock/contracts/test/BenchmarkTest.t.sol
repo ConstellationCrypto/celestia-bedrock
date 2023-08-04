@@ -91,7 +91,7 @@ contract GasBenchMark_OptimismPortal is Portal_Initializer {
     function test_depositTransaction_benchmark() external {
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             NON_ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -102,7 +102,7 @@ contract GasBenchMark_OptimismPortal is Portal_Initializer {
         setPrevBaseFee(vm, address(op), 1 gwei);
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             NON_ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -127,7 +127,7 @@ contract GasBenchMark_L1CrossDomainMessenger is Messenger_Initializer {
         bytes
             memory data = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
         vm.resumeGasMetering();
-        L1Messenger.sendMessage(bob, data, uint32(100));
+        L1Messenger.sendMessage(bob, data, uint32(100), 0);
     }
 
     function test_sendMessage_benchmark_1() external {
@@ -137,7 +137,7 @@ contract GasBenchMark_L1CrossDomainMessenger is Messenger_Initializer {
         bytes
             memory data = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
         vm.resumeGasMetering();
-        L1Messenger.sendMessage(bob, data, uint32(100));
+        L1Messenger.sendMessage(bob, data, uint32(100), 0);
     }
 }
 

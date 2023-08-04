@@ -14,7 +14,7 @@ yarn-error.log
 .pnp.*
 
 dist
-artifacts
+artifacts/
 cache
 
 packages/contracts-periphery/coverage*
@@ -45,6 +45,7 @@ coverage.out
 
 # Ignore bedrock go bindings local output files
 op-bindings/bin
+op-bindings/bindings/
 op-exporter
 
 

@@ -18,7 +18,12 @@ import { OptimismMintableERC20 } from "./OptimismMintableERC20.sol";
 abstract contract StandardBridge {
     using SafeERC20 for IERC20;
 
-    /// @notice The L2 gas limit set when eth is depoisited using the receive() function.
+    // @notice address of the local token and remote tokens that bridge to native ETH.
+    address public immutable LOCAL_TOKEN;
+    address public immutable REMOTE_TOKEN;
+    uint256 public immutable LOCAL_DECIMAL_MULTIPLIER;
+
+    /// @notice The L2 gas limit set when eth is deposited using the receive() function.
     uint32 internal constant RECEIVE_DEFAULT_GAS_LIMIT = 200_000;
 
     /// @notice Messenger contract on this domain.
@@ -38,6 +43,7 @@ abstract contract StandardBridge {
     address private spacer_1_0_20;
 
     /// @notice Mapping that stores deposits for a given pair of local and remote tokens.
+    /// deposits[FPE_TOKEN][0] on the L1 StandardBridge is a fake entry that has no meaning.
     mapping(address => mapping(address => uint256)) public deposits;
 
     /// @notice Reserve extra slots (to a total of 50) in the storage layout for future upgrades.
@@ -124,9 +130,12 @@ abstract contract StandardBridge {
 
     /// @param _messenger   Address of CrossDomainMessenger on this network.
     /// @param _otherBridge Address of the other StandardBridge contract.
-    constructor(address payable _messenger, address payable _otherBridge) {
+    constructor(address payable _messenger, address payable _otherBridge, address _localToken, address _remoteToken, uint256 _localDecimalMultiplier) {
         MESSENGER = CrossDomainMessenger(_messenger);
         OTHER_BRIDGE = StandardBridge(_otherBridge);
+        LOCAL_TOKEN = _localToken;
+        REMOTE_TOKEN = _remoteToken;
+        LOCAL_DECIMAL_MULTIPLIER = _localDecimalMultiplier;
     }
 
     /// @notice Allows EOAs to bridge ETH by sending directly to the bridge.
@@ -186,7 +195,7 @@ abstract contract StandardBridge {
         uint256 _amount,
         uint32 _minGasLimit,
         bytes calldata _extraData
-    ) public virtual onlyEOA {
+    ) public virtual payable onlyEOA {
         _initiateBridgeERC20(
             _localToken,
             _remoteToken,
@@ -217,7 +226,7 @@ abstract contract StandardBridge {
         uint256 _amount,
         uint32 _minGasLimit,
         bytes calldata _extraData
-    ) public virtual {
+    ) public virtual payable {
         _initiateBridgeERC20(
             _localToken,
             _remoteToken,
@@ -243,6 +252,8 @@ abstract contract StandardBridge {
         uint256 _amount,
         bytes calldata _extraData
     ) public payable onlyOtherBridge {
+        require(LOCAL_TOKEN == address(0) && REMOTE_TOKEN == address(0), "StandardBridge: bridging ETH disabled");
+
         require(msg.value == _amount, "StandardBridge: amount sent does not match amount required");
         require(_to != address(this), "StandardBridge: cannot send to self");
         require(_to != address(MESSENGER), "StandardBridge: cannot send to messenger");
@@ -272,15 +283,28 @@ abstract contract StandardBridge {
         address _to,
         uint256 _amount,
         bytes calldata _extraData
-    ) public onlyOtherBridge {
-        if (_isOptimismMintableERC20(_localToken)) {
-            require(
-                _isCorrectTokenPair(_localToken, _remoteToken),
-                "StandardBridge: wrong remote token for Optimism Mintable ERC20 local token"
-            );
+    ) public payable onlyOtherBridge {
+        if (_localToken == address(0)) {
+          require(REMOTE_TOKEN != address(0), "StandardBridge: bridging from 0 disabled");
+          require(_remoteToken == REMOTE_TOKEN, "StandardBridge: invalid remote token");
+          require(_to != address(this), "StandardBridge: cannot send to self");
+          require(_to != address(MESSENGER), "StandardBridge: cannot send to messenger");
+          // msg.value is 0 on the L1 and _amount on the L2.
+          bool success = SafeCall.call(_to, gasleft(), _amount, hex"");
+          require(success, "StandardBridge: ETH transfer failed");
+        } else if (_isOptimismMintableERC20(_localToken)) {
+          // require(msg.value == 0)
+          require(
+              _isCorrectTokenPair(_localToken, _remoteToken),
+              "StandardBridge: wrong remote token for Optimism Mintable ERC20 local token"
+          );
 
-            OptimismMintableERC20(_localToken).mint(_to, _amount);
+          OptimismMintableERC20(_localToken).mint(_to, _amount);
         } else {
+            // require(msg.value == 0)
+            if (_localToken == LOCAL_TOKEN) {
+              _amount /= LOCAL_DECIMAL_MULTIPLIER;
+            }
             deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
             IERC20(_localToken).safeTransfer(_to, _amount);
         }
@@ -306,6 +330,11 @@ abstract contract StandardBridge {
         bytes memory _extraData
     ) internal {
         require(
+           LOCAL_TOKEN == address(0) && REMOTE_TOKEN == address(0),
+           "StandardBridge: bridging ETH disabled, must use ERC20 bridge instead"
+        );
+
+        require(
             msg.value == _amount,
             "StandardBridge: bridging ETH must include sufficient ETH value"
         );
@@ -323,7 +352,8 @@ abstract contract StandardBridge {
                 _amount,
                 _extraData
             ),
-            _minGasLimit
+            _minGasLimit,
+            _amount
         );
     }
 
@@ -345,24 +375,39 @@ abstract contract StandardBridge {
         uint32 _minGasLimit,
         bytes memory _extraData
     ) internal {
-        if (_isOptimismMintableERC20(_localToken)) {
-            require(
-                _isCorrectTokenPair(_localToken, _remoteToken),
-                "StandardBridge: wrong remote token for Optimism Mintable ERC20 local token"
-            );
-
-            OptimismMintableERC20(_localToken).burn(_from, _amount);
+        if (_localToken == address(0)) {
+          require(REMOTE_TOKEN != address(0), "StandardBridge: bridging from 0 disabled");
+          require(_remoteToken == REMOTE_TOKEN, "StandardBridge: invalid remote token");
+          require(msg.value == _amount, "StandardBridge: bridging ETH must include sufficient ETH value");
         } else {
-            IERC20(_localToken).safeTransferFrom(_from, address(this), _amount);
-            deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
+          require(msg.value == 0, "StandardBridge: cannot include ETH when bridging ERC20");
+          if (_isOptimismMintableERC20(_localToken)) {
+              require(
+                  _isCorrectTokenPair(_localToken, _remoteToken),
+                  "StandardBridge: wrong remote token for Optimism Mintable ERC20 local token"
+              );
+
+              OptimismMintableERC20(_localToken).burn(_from, _amount);
+          } else {
+              IERC20(_localToken).safeTransferFrom(_from, address(this), _amount);
+              deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
+          }
         }
 
         // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
         // contracts may override this function in order to emit legacy events as well.
         _emitERC20BridgeInitiated(_localToken, _remoteToken, _from, _to, _amount, _extraData);
 
-        MESSENGER.sendMessage(
-            address(OTHER_BRIDGE),
+        // l1_fpe_value is used by L1 bridge _sendMessage function. L2 bridge uses msg.value instead.
+        uint256 l1_fpe_value = 0;
+        if (_remoteToken == address(0)) {
+            //require(LOCAL_TOKEN != address(0), "StandardBridge: bridging to 0 disabled");
+            require(_localToken == LOCAL_TOKEN, "StandardBridge: invalid local token");
+            l1_fpe_value = _amount;
+            _amount *= LOCAL_DECIMAL_MULTIPLIER;
+        }
+
+        _sendMessage(
             abi.encodeWithSelector(
                 this.finalizeBridgeERC20.selector,
                 // Because this call will be executed on the remote chain, we reverse the order of
@@ -375,7 +420,8 @@ abstract contract StandardBridge {
                 _amount,
                 _extraData
             ),
-            _minGasLimit
+            _minGasLimit,
+            l1_fpe_value
         );
     }
 
@@ -408,6 +454,14 @@ abstract contract StandardBridge {
             return _otherToken == IOptimismMintableERC20(_mintableToken).remoteToken();
         }
     }
+
+    // sends msg.value eth to MESSENGER on the l2
+    // and _value fpe to MESSENGER on the l1
+    function _sendMessage(
+      bytes memory _message,
+      uint32 _minGasLimit,
+      uint256 _value
+    ) internal virtual;
 
     /// @notice Emits the ETHBridgeInitiated event and if necessary the appropriate legacy event
     ///         when an ETH bridge is finalized on this chain.

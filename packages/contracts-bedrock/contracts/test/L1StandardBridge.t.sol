@@ -63,7 +63,8 @@ contract L1StandardBridge_Receive_Test is Bridge_Initializer {
                     100,
                     hex""
                 ),
-                200_000
+                200_000,
+                100
             )
         );
 
@@ -113,7 +114,8 @@ contract PreBridgeETH is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L2Bridge),
                 message,
-                50000
+                50000,
+                500
             )
         );
 
@@ -246,7 +248,8 @@ contract PreBridgeETHTo is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L2Bridge),
                 message,
-                60000
+                60000,
+                600
             )
         );
 
@@ -379,7 +382,8 @@ contract L1StandardBridge_DepositERC20_Test is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L2Bridge),
                 message,
-                10000
+                10000,
+                0
             )
         );
 
@@ -524,7 +528,8 @@ contract L1StandardBridge_DepositERC20To_Test is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L2Bridge),
                 message,
-                10000
+                10000,
+                0
             )
         );
         // The L1 XDM should call OptimismPortal.depositTransaction

@@ -4,21 +4,27 @@ ARG VERSION=v0.0.0
 
 RUN apk add --no-cache make gcc musl-dev linux-headers git jq bash
 
+COPY ./op-geth/go.mod /app/op-geth/go.mod
+COPY ./op-geth/go.sum /app/op-geth/go.sum
+WORKDIR /app/op-geth
+RUN go mod download
+
+COPY ./go.mod /app/go.mod
+COPY ./go.sum /app/go.sum
+WORKDIR /app
+RUN go mod download
+
 # build op-batcher with the shared go.mod & go.sum files
 COPY ./op-batcher /app/op-batcher
 COPY ./op-celestia /app/op-celestia
-COPY ./op-bindings /app/op-bindings
+COPY --from=bedrock-deployer /app/op-bindings /app/op-bindings
 COPY ./op-geth /app/op-geth
 COPY ./op-node /app/op-node
 COPY ./op-service /app/op-service
 COPY ./op-signer /app/op-signer
 COPY ./go-ethereum-kms-signer /app/go-ethereum-kms-signer
-COPY ./go.mod /app/go.mod
-COPY ./go.sum /app/go.sum
 
 WORKDIR /app/op-batcher
-
-RUN go mod download
 
 ARG TARGETOS TARGETARCH
 

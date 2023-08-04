@@ -16,9 +16,10 @@ build_tag_push () {
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION
 }
 
-build_tag_push op-batcher .
-build_tag_push op-proposer .
-build_tag_push op-node .
 build_tag_push op-geth op-geth
-# bedrock-deployer depends on the op-node, op-geth images
+# bedrock-deployer depends on the op-geth image
 build_tag_push bedrock-deployer .
+# op-node, op-proposer, and op-batcher depend on the bedrock-deployer image
+build_tag_push op-node .
+build_tag_push op-proposer .
+build_tag_push op-batcher .

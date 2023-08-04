@@ -267,7 +267,9 @@ contract Deploy is Deployer {
     function deployL1CrossDomainMessenger() broadcast() public returns (address) {
         address portal = mustGetAddress("OptimismPortalProxy");
         L1CrossDomainMessenger messenger = new L1CrossDomainMessenger({
-            _portal: OptimismPortal(payable(portal))
+            _portal: OptimismPortal(payable(portal)),
+            _l1FpeToken: cfg.l1FpeToken(),
+            _fpeDecimalMultiplier: cfg.fpeDecimalMultiplier()
         });
 
         require(address(messenger.PORTAL()) == portal);
@@ -292,7 +294,9 @@ contract Deploy is Deployer {
             _l2Oracle: L2OutputOracle(l2OutputOracleProxy),
             _guardian: guardian,
             _paused: true,
-            _config: SystemConfig(systemConfigProxy)
+            _config: SystemConfig(systemConfigProxy),
+            _l1FpeToken: cfg.l1FpeToken(),
+            _fpeDecimalMultiplier: cfg.fpeDecimalMultiplier()
         });
 
         require(address(portal.L2_ORACLE()) == l2OutputOracleProxy);
@@ -397,7 +401,9 @@ contract Deploy is Deployer {
         address l1CrossDomainMessengerProxy = mustGetAddress("L1CrossDomainMessengerProxy");
 
         L1StandardBridge bridge = new L1StandardBridge({
-            _messenger: payable(l1CrossDomainMessengerProxy)
+            _messenger: payable(l1CrossDomainMessengerProxy),
+            _fpeToken: cfg.l1FpeToken(),
+            _fpeDecimalMultiplier: cfg.fpeDecimalMultiplier()
         });
 
         require(address(bridge.MESSENGER()) == l1CrossDomainMessengerProxy);
@@ -520,9 +526,10 @@ contract Deploy is Deployer {
         }
         require(uint256(proxyAdmin.proxyType(l1StandardBridgeProxy)) == uint256(ProxyAdmin.ProxyType.CHUGSPLASH));
 
-        proxyAdmin.upgrade({
+        proxyAdmin.upgradeAndCall({
             _proxy: payable(l1StandardBridgeProxy),
-            _implementation: l1StandardBridge
+            _implementation: l1StandardBridge,
+            _data: abi.encodeCall(L1StandardBridge.initialize, ())
         });
 
         string memory version = L1StandardBridge(payable(l1StandardBridgeProxy)).version();

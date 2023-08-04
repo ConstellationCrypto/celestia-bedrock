@@ -16,6 +16,8 @@ contract DeployConfig is Script {
     address public finalSystemOwner;
     address public controller;
     address public portalGuardian;
+    address public l1FpeToken;
+    uint256 public fpeDecimalMultiplier;
     uint256 public l1ChainID;
     uint256 public l2ChainID;
     uint256 public l2BlockTime;
@@ -55,6 +57,8 @@ contract DeployConfig is Script {
         finalSystemOwner = stdJson.readAddress(_json, "$.finalSystemOwner");
         controller = stdJson.readAddress(_json, "$.controller");
         portalGuardian = stdJson.readAddress(_json, "$.portalGuardian");
+        l1FpeToken = stdJson.readAddress(_json, "$.l1FpeToken");
+        fpeDecimalMultiplier = stdJson.readUint(_json, "$.fpeDecimalMultiplier");
         l1ChainID = stdJson.readUint(_json, "$.l1ChainID");
         l2ChainID = stdJson.readUint(_json, "$.l2ChainID");
         l2BlockTime = stdJson.readUint(_json, "$.l2BlockTime");

@@ -36,9 +36,9 @@
   "dependencies": {
     "@eth-optimism/common-ts": "0.8.2",
     "@eth-optimism/contracts-periphery": "1.0.8",
-    "@eth-optimism/contracts-bedrock": "0.15.0",
+    "@constellation-labs/contracts-bedrock": "^1.0.0",
     "@eth-optimism/core-utils": "0.12.1",
-    "@eth-optimism/sdk": "3.0.0",
+    "@constellation-labs/bedrock-sdk": "^1.0.0",
     "ethers": "^5.7.0",
     "@types/dateformat": "^5.0.0",
     "chai-as-promised": "^7.1.1",

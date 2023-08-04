@@ -77,6 +77,9 @@ func BuildOptimism(immutable ImmutableConfig) (DeploymentResults, error) {
 			Name: "L1Block",
 		},
 		{
+			Name: "L1ETH",
+		},
+		{
 			Name: "L2CrossDomainMessenger",
 			Args: []interface{}{
 				immutable["L2CrossDomainMessenger"]["otherMessenger"],
@@ -86,6 +89,7 @@ func BuildOptimism(immutable ImmutableConfig) (DeploymentResults, error) {
 			Name: "L2StandardBridge",
 			Args: []interface{}{
 				immutable["L2StandardBridge"]["otherBridge"],
+				immutable["L2StandardBridge"]["l1FpeToken"],
 			},
 		},
 		{
@@ -175,6 +179,8 @@ func l2Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 	case "L1Block":
 		// No arguments required for the L1Block contract
 		_, tx, _, err = bindings.DeployL1Block(opts, backend)
+	case "L1ETH":
+		_, tx, _, err = bindings.DeployOptimismMintableERC20(opts, backend, predeploys.L2StandardBridgeAddr, common.Address{}, "", "") // token name and symbol are ignored since they are not immutable - they are set in storage instead.
 	case "L2CrossDomainMessenger":
 		otherMessenger, ok := deployment.Args[0].(common.Address)
 		if !ok {
@@ -186,7 +192,11 @@ func l2Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		if !ok {
 			return nil, fmt.Errorf("invalid type for otherBridge")
 		}
-		_, tx, _, err = bindings.DeployL2StandardBridge(opts, backend, otherBridge)
+		l1FpeToken, ok := deployment.Args[1].(common.Address)
+		if !ok {
+			return nil, fmt.Errorf("invalid type for l1FpeToken")
+		}
+		_, tx, _, err = bindings.DeployL2StandardBridge(opts, backend, otherBridge, l1FpeToken)
 	case "L2ToL1MessagePasser":
 		// No arguments required for L2ToL1MessagePasser
 		_, tx, _, err = bindings.DeployL2ToL1MessagePasser(opts, backend)

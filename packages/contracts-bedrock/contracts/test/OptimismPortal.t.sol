@@ -264,7 +264,7 @@ contract OptimismPortal_Test is Portal_Initializer {
             address(this),
             NON_ZERO_ADDRESS,
             NON_ZERO_VALUE,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -272,7 +272,7 @@ contract OptimismPortal_Test is Portal_Initializer {
 
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             NON_ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -287,7 +287,7 @@ contract OptimismPortal_Test is Portal_Initializer {
             AddressAliasHelper.applyL1ToL2Alias(address(this)),
             NON_ZERO_ADDRESS,
             NON_ZERO_VALUE,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -295,7 +295,7 @@ contract OptimismPortal_Test is Portal_Initializer {
 
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             NON_ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             false,
             NON_ZERO_DATA
@@ -312,7 +312,7 @@ contract OptimismPortal_Test is Portal_Initializer {
             address(this),
             ZERO_ADDRESS,
             NON_ZERO_VALUE,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             true,
             hex""
@@ -320,7 +320,7 @@ contract OptimismPortal_Test is Portal_Initializer {
 
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             true,
             hex""
@@ -335,7 +335,7 @@ contract OptimismPortal_Test is Portal_Initializer {
             AddressAliasHelper.applyL1ToL2Alias(address(this)),
             ZERO_ADDRESS,
             NON_ZERO_VALUE,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             true,
             NON_ZERO_DATA
@@ -343,7 +343,7 @@ contract OptimismPortal_Test is Portal_Initializer {
 
         op.depositTransaction{ value: NON_ZERO_VALUE }(
             ZERO_ADDRESS,
-            ZERO_VALUE,
+            NON_ZERO_VALUE,
             NON_ZERO_GASLIMIT,
             true,
             NON_ZERO_DATA
@@ -1222,7 +1222,7 @@ contract OptimismPortalResourceFuzz_Test is Portal_Initializer {
         // Do a deposit, should not revert
         op.depositTransaction{ gas: MAX_GAS_LIMIT }({
             _to: address(0x20),
-            _value: 0x40,
+            _value: 0x0,
             _gasLimit: _gasLimit,
             _isCreation: false,
             _data: hex""

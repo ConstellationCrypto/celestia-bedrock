@@ -3,6 +3,7 @@ package genesis
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -51,6 +52,10 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 		if addr == predeploys.GovernanceTokenAddr && !config.EnableGovernance {
 			// there is no governance token configured, so skip the governance token predeploy
 			log.Warn("Governance is not enabled, skipping governance token predeploy.")
+			continue
+		}
+		if addr == predeploys.L1ETHAddr && config.L1FpeToken == (common.Address{}) {
+			log.Info("FPE token is disabled, skipping L1 ETH predeploy.")
 			continue
 		}
 		codeAddr := addr

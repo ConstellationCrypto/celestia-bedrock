@@ -19,7 +19,7 @@ contract L2CrossDomainMessenger is CrossDomainMessenger, Semver {
     /// @param _l1CrossDomainMessenger Address of the L1CrossDomainMessenger contract.
     constructor(address _l1CrossDomainMessenger)
         Semver(1, 4, 1)
-        CrossDomainMessenger(_l1CrossDomainMessenger)
+        CrossDomainMessenger(_l1CrossDomainMessenger, 1)
     {
         initialize();
     }
@@ -39,14 +39,14 @@ contract L2CrossDomainMessenger is CrossDomainMessenger, Semver {
 
     /// @inheritdoc CrossDomainMessenger
     function _sendMessage(
-        address _to,
         uint64 _gasLimit,
         uint256 _value,
         bytes memory _data
     ) internal override {
+        require(msg.value == _value, "CrossDomainMessenger: wrong amount of ETH included");
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER)).initiateWithdrawal{
             value: _value
-        }(_to, _gasLimit, _data);
+        }(OTHER_MESSENGER, _gasLimit, _data);
     }
 
     /// @inheritdoc CrossDomainMessenger
@@ -57,5 +57,15 @@ contract L2CrossDomainMessenger is CrossDomainMessenger, Semver {
     /// @inheritdoc CrossDomainMessenger
     function _isUnsafeTarget(address _target) internal view override returns (bool) {
         return _target == address(this) || _target == address(Predeploys.L2_TO_L1_MESSAGE_PASSER);
+    }
+
+    /// FPE transfer not supported on the L2
+    function _handleFpeTransfer(address, uint256) internal pure override returns (bool) {
+      return false;
+    }
+
+    /// TODO: return 0 if FPE_TOKEN is disabled. low priority, excess gas on the l1 is refunded.
+    function _fpeGas() internal pure override returns (uint32) {
+      return 200_000;
     }
 }

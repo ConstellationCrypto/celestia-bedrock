@@ -99,6 +99,8 @@ type DeployConfig struct {
 	L1FeeVaultWithdrawalNetwork uint8 `json:"l1FeeVaultWithdrawalNetwork"`
 	// Withdrawal network for the SequencerFeeVault
 	SequencerFeeVaultWithdrawalNetwork uint8 `json:"sequencerFeeVaultWithdrawalNetwork"`
+	// L1 FPE token (0 if native ETH)
+	L1FpeToken common.Address `json:"l1FpeToken"`
 	// L1StandardBridge proxy address on L1
 	L1StandardBridgeProxy common.Address `json:"l1StandardBridgeProxy"`
 	// L1CrossDomainMessenger proxy address on L1
@@ -425,6 +427,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 
 	immutable["L2StandardBridge"] = immutables.ImmutableValues{
 		"otherBridge": config.L1StandardBridgeProxy,
+		"l1FpeToken":  config.L1FpeToken,
 	}
 	immutable["L2CrossDomainMessenger"] = immutables.ImmutableValues{
 		"otherMessenger": config.L1CrossDomainMessengerProxy,
@@ -495,6 +498,10 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"name":     "Wrapped Ether",
 		"symbol":   "WETH",
 		"decimals": 18,
+	}
+	storage["L1ETH"] = state.StorageValues{
+		"_name":   "L1 ETH",
+		"_symbol": "ETH",
 	}
 	if config.EnableGovernance {
 		storage["GovernanceToken"] = state.StorageValues{

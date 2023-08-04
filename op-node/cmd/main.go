@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	opnode "github.com/ethereum-optimism/optimism/op-node"
-	"github.com/ethereum-optimism/optimism/op-node/cmd/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/cmd/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/ethereum-optimism/optimism/op-node/heartbeat"
@@ -63,10 +62,6 @@ func main() {
 		{
 			Name:        "p2p",
 			Subcommands: p2p.Subcommands,
-		},
-		{
-			Name:        "genesis",
-			Subcommands: genesis.Subcommands,
 		},
 		{
 			Name:        "doc",

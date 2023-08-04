@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 )
 
 var Subcommands = cli.Commands{
@@ -45,7 +44,7 @@ var Subcommands = cli.Commands{
 		},
 		Action: func(ctx *cli.Context) error {
 			deployConfig := ctx.String("deploy-config")
-			config, err := genesis.NewDeployConfig(deployConfig)
+			config, err := NewDeployConfig(deployConfig)
 			if err != nil {
 				return err
 			}
@@ -81,7 +80,7 @@ var Subcommands = cli.Commands{
 			}
 
 			// Build the developer L2 genesis block
-			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock)
+			l2Genesis, err := BuildL2Genesis(config, l1StartBlock)
 			if err != nil {
 				return fmt.Errorf("error creating l2 developer genesis: %w", err)
 			}

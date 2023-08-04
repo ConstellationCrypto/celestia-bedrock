@@ -5,9 +5,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
+# push:
   workflow_dispatch:
 
+# fix this later - need to generate op-bindings for the tests to work
 jobs:
   go-test:
     runs-on: ubuntu-latest
@@ -31,6 +32,8 @@ jobs:
 
       - name: op-e2e tests
         run: make -C ./op-e2e test
+
+# forge test --no-match-path *invariants* runs reasonably fast
 
 # TODO: fix this later on
 #  ts-test:

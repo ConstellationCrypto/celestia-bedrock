@@ -5,7 +5,7 @@ BEDROCK_TAGS_REMOTE?=origin
 build: build-go build-ts
 .PHONY: build
 
-build-go: submodules op-node op-proposer op-batcher
+build-go: submodules op-bindings op-node op-proposer op-batcher
 .PHONY: build-go
 
 build-ts: submodules

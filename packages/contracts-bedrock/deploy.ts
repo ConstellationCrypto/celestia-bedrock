@@ -69,12 +69,24 @@ const main = async () => {
     const BLOCKHASH = block.hash
     const TIMESTAMP = block.timestamp
 
+    let fpeDecimalMultiplier = 1
+    if (process.env.L1_FPE_TOKEN && process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero) {
+      const token = new ethers.Contract(
+        process.env.L1_FPE_TOKEN,
+        ['function decimals() public view returns (uint8)'],
+        provider
+      )
+      fpeDecimalMultiplier = 10 ** (18 - (await token.decimals()))
+    }
+
     const json = {
       numDeployConfirmations: Number(process.env.NUM_DEPLOY_CONFIRMATIONS), // 1
 
       finalSystemOwner: ADMIN,
       portalGuardian: ADMIN,
       controller: DEPLOYER,
+      l1FpeToken: process.env.L1_FPE_TOKEN || ethers.constants.AddressZero,
+      fpeDecimalMultiplier,
 
       l1StartingBlockTag: BLOCKHASH,
 
@@ -114,16 +126,16 @@ const main = async () => {
       sequencerFeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
 
       gasPriceOracleOverhead: Number(process.env.GAS_PRICE_ORACLE_OVERHEAD), // 2100
-      gasPriceOracleScalar: Number(process.env.GAS_PRICE_ORACLE_SCALAR), // 1000000
+      gasPriceOracleScalar: Math.ceil(1e6 / Number(process.env.L2_ETH_PRICE)), // 1000000
 
       enableGovernance: false, // do not predeploy the governance token onto the l2
       governanceTokenSymbol: 'OP', // unused
       governanceTokenName: 'Optimism', // unused
       governanceTokenOwner: ADMIN, // unused
 
-      l2GenesisBlockGasLimit: '0x1c9c380',
+      l2GenesisBlockGasLimit: '0x1c9c380', // 30000000 gas
       l2GenesisBlockBaseFeePerGas: '0x3b9aca00', // 1 gwei
-      l2GenesisRegolithTimeOffset: '0x0',
+      l2GenesisRegolithTimeOffset: '0x0', // seconds after genesis block that Regolith hard fork activates
 
       eip1559Denominator: Number(process.env.EIP1559Denominator), // 50
       eip1559Elasticity: Number(process.env.EIP1559Elasticity), // 10

@@ -15,7 +15,10 @@ import { Semver } from "../universal/Semver.sol";
 ///         of the L2 output to reduce the cost of proving the existence of sent messages.
 contract L2ToL1MessagePasser is Semver {
     /// @notice The L1 gas limit set when eth is withdrawn using the receive() function.
-    uint256 internal constant RECEIVE_DEFAULT_GAS_LIMIT = 100_000;
+    /// increased to 200k to account for the FPE token transfer
+    /// TODO: reduce this to 100_000 when FPE is disabled, the contact is currently not aware of the FPE token.
+    /// low priority, excess gas on the L1 is refunded.
+    uint256 internal constant RECEIVE_DEFAULT_GAS_LIMIT = 200_000;
 
     /// @notice The current message version identifier.
     uint16 public constant MESSAGE_VERSION = 1;

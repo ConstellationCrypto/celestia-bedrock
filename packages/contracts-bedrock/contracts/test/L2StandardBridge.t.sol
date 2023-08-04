@@ -93,7 +93,8 @@ contract L2StandardBridge_Test is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L1Bridge),
                 message,
-                200_000 // StandardBridge's RECEIVE_DEFAULT_GAS_LIMIT
+                200_000, // StandardBridge's RECEIVE_DEFAULT_GAS_LIMIT
+                100
             )
         );
 
@@ -215,7 +216,8 @@ contract PreBridgeERC20 is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L1Bridge),
                 message,
-                1000
+                1000,
+                0
             )
         );
 
@@ -405,7 +407,8 @@ contract PreBridgeERC20To is Bridge_Initializer {
                 CrossDomainMessenger.sendMessage.selector,
                 address(L1Bridge),
                 message,
-                1000
+                1000,
+                0
             )
         );
 

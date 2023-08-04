@@ -211,7 +211,9 @@ contract Portal_Initializer is L2OutputOracle_Initializer {
             _l2Oracle: oracle,
             _guardian: guardian,
             _paused: true,
-            _config: systemConfig
+            _config: systemConfig,
+            _l1FpeToken: address(0),
+            _fpeDecimalMultiplier: 1
         });
 
         Proxy proxy = new Proxy(multisig);
@@ -274,7 +276,7 @@ contract Messenger_Initializer is Portal_Initializer {
         addressManager = new AddressManager();
 
         // Setup implementation
-        L1CrossDomainMessenger L1MessengerImpl = new L1CrossDomainMessenger(op);
+        L1CrossDomainMessenger L1MessengerImpl = new L1CrossDomainMessenger(op, address(0), 1);
 
         // Setup the address manager and proxy
         vm.prank(multisig);
@@ -411,7 +413,7 @@ contract Bridge_Initializer is Messenger_Initializer {
             abi.encode(true)
         );
         vm.startPrank(multisig);
-        proxy.setCode(address(new L1StandardBridge(payable(address(L1Messenger)))).code);
+        proxy.setCode(address(new L1StandardBridge(payable(address(L1Messenger)),address(0),1)).code);
         vm.clearMockedCalls();
         address L1Bridge_Impl = proxy.getImplementation();
         vm.stopPrank();
@@ -423,7 +425,7 @@ contract Bridge_Initializer is Messenger_Initializer {
 
         // Deploy the L2StandardBridge, move it to the correct predeploy
         // address and then initialize it
-        L2StandardBridge l2B = new L2StandardBridge(payable(proxy));
+        L2StandardBridge l2B = new L2StandardBridge(payable(proxy),address(0));
         vm.etch(Predeploys.L2_STANDARD_BRIDGE, address(l2B).code);
         L2Bridge = L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE));
 

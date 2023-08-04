@@ -20,6 +20,7 @@ const (
 	ProxyAdmin                    = "0x4200000000000000000000000000000000000018"
 	BaseFeeVault                  = "0x4200000000000000000000000000000000000019"
 	L1FeeVault                    = "0x420000000000000000000000000000000000001a"
+	L1ETH                         = "0x42000000000000000000000000000000000000fF"
 )
 
 var (
@@ -40,6 +41,7 @@ var (
 	ProxyAdminAddr                    = common.HexToAddress(ProxyAdmin)
 	BaseFeeVaultAddr                  = common.HexToAddress(BaseFeeVault)
 	L1FeeVaultAddr                    = common.HexToAddress(L1FeeVault)
+	L1ETHAddr                         = common.HexToAddress(L1ETH)
 
 	Predeploys = make(map[string]*common.Address)
 )
@@ -49,6 +51,7 @@ func IsProxied(predeployAddr common.Address) bool {
 	switch predeployAddr {
 	case WETH9Addr:
 	case GovernanceTokenAddr:
+	case L1ETHAddr:
 	default:
 		return true
 	}
@@ -73,4 +76,5 @@ func init() {
 	Predeploys["ProxyAdmin"] = &ProxyAdminAddr
 	Predeploys["BaseFeeVault"] = &BaseFeeVaultAddr
 	Predeploys["L1FeeVault"] = &L1FeeVaultAddr
+	Predeploys["L1ETH"] = &L1ETHAddr
 }

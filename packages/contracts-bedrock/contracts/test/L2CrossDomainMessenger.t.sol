@@ -69,15 +69,15 @@ contract L2CrossDomainMessenger_Test is Messenger_Initializer {
         );
 
         vm.prank(alice);
-        L2Messenger.sendMessage(recipient, hex"ff", uint32(100));
+        L2Messenger.sendMessage(recipient, hex"ff", uint32(100), 0);
     }
 
     /// @dev Tests that `sendMessage` can be called twice and that
     ///      the nonce increments correctly.
     function test_sendMessage_twice_succeeds() external {
         uint256 nonce = L2Messenger.messageNonce();
-        L2Messenger.sendMessage(recipient, hex"aa", uint32(500_000));
-        L2Messenger.sendMessage(recipient, hex"aa", uint32(500_000));
+        L2Messenger.sendMessage(recipient, hex"aa", uint32(500_000), 0);
+        L2Messenger.sendMessage(recipient, hex"aa", uint32(500_000), 0);
         // the nonce increments for each message sent
         assertEq(nonce + 2, L2Messenger.messageNonce());
     }

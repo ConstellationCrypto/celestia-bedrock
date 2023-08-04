@@ -5,6 +5,9 @@ script = 'scripts'
 optimizer = true
 optimizer_runs = 999999
 
+# slow tests
+no_match_path = "contracts/test/invariants/{OptimismPortal.t.sol,Burn.Gas.t.sol,ResourceMetering.t.sol}"
+
 remappings = [
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
