@@ -601,14 +601,24 @@ export class CrossChainMessenger {
       // TokenBridgeMessage events are triggered and then a SentMessage event is triggered. Our
       // goal here is therefore to find the first SentMessage event that comes after the input
       // event.
-      const found = messages
-        .sort((a, b) => {
-          // Sort all messages in ascending order by log index.
-          return a.logIndex - b.logIndex
-        })
-        .find((m) => {
-          return m.logIndex > (message as TokenBridgeMessage).logIndex
-        })
+      // prebedrock contracts flip the event order - they emit SentMessage before the bridge event.
+      const found = this.bedrock
+        ? messages
+            .sort((a, b) => {
+              // Sort all messages in ascending order by log index.
+              return a.logIndex - b.logIndex
+            })
+            .find((m) => {
+              return m.logIndex > (message as TokenBridgeMessage).logIndex
+            })
+        : messages
+            .sort((a, b) => {
+              // Sort all messages in descending order by log index.
+              return b.logIndex - a.logIndex
+            })
+            .find((m) => {
+              return m.logIndex < (message as TokenBridgeMessage).logIndex
+            })
 
       if (!found) {
         throw new Error(`could not find SentMessage event for message`)
