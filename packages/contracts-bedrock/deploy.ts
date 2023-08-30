@@ -82,7 +82,7 @@ const main = async () => {
       l2BlockTime: Number(process.env.L2_BLOCK_TIME), // 2
 
       maxSequencerDrift: 600,
-      sequencerWindowSize: 3600,
+      sequencerWindowSize: 21600, // 72 hours
       channelTimeout: 300,
 
       p2pSequencerAddress: SEQUENCER,
