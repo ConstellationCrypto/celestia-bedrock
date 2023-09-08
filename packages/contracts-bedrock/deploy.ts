@@ -61,6 +61,7 @@ const main = async () => {
     const PROPOSER = process.env.PROPOSER_ADDRESS
     const BATCHER = process.env.BATCHER_ADDRESS
     const SEQUENCER = process.env.SEQUENCER_ADDRESS
+    const FEE_WALLET = process.env.FEE_WALLET_ADDRESS
     const L1_RPC = process.env.L1_RPC
 
     const provider = new ethers.providers.JsonRpcProvider(L1_RPC)
@@ -89,7 +90,7 @@ const main = async () => {
       batchInboxAddress: '0x' + randomBytes(20).toString('hex'), // 0xff00000000000000000000000000000000042069
       batchSenderAddress: BATCHER,
 
-      l2OutputOracleSubmissionInterval: 120,
+      l2OutputOracleSubmissionInterval: Number(process.env.L2_OUTPUT_ORACLE_SUBMISSION_INTERVAL), // 120
       l2OutputOracleStartingBlockNumber: 0,
       l2OutputOracleStartingTimestamp: TIMESTAMP,
 
@@ -101,9 +102,9 @@ const main = async () => {
       ), // 12
 
       proxyAdminOwner: ADMIN,
-      baseFeeVaultRecipient: ADMIN,
-      l1FeeVaultRecipient: ADMIN,
-      sequencerFeeVaultRecipient: ADMIN,
+      baseFeeVaultRecipient: FEE_WALLET,
+      l1FeeVaultRecipient: FEE_WALLET,
+      sequencerFeeVaultRecipient: FEE_WALLET,
 
       baseFeeVaultMinimumWithdrawalAmount: '0x8ac7230489e80000', // 10 ETH
       l1FeeVaultMinimumWithdrawalAmount: '0x8ac7230489e80000', // 10 ETH
