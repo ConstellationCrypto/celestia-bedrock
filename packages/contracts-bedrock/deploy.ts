@@ -106,9 +106,9 @@ const main = async () => {
       l1FeeVaultRecipient: FEE_WALLET,
       sequencerFeeVaultRecipient: FEE_WALLET,
 
-      baseFeeVaultMinimumWithdrawalAmount: '0x8ac7230489e80000', // 10 ETH
-      l1FeeVaultMinimumWithdrawalAmount: '0x8ac7230489e80000', // 10 ETH
-      sequencerFeeVaultMinimumWithdrawalAmount: '0x8ac7230489e80000', // 10 ETH
+      baseFeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
+      l1FeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
+      sequencerFeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
       baseFeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
       l1FeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
       sequencerFeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2

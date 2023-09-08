@@ -47,7 +47,7 @@ func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, daCfg *rollup.DACo
 }
 
 // OpenData returns a DataIter. This struct implements the `Next` function.
-func (ds *DataSourceFactory) OpenData(ctx context.Context, id eth.BlockID, batcherAddr common.Address) (DataIter, error) {
+func (ds *DataSourceFactory) OpenData(ctx context.Context, id eth.BlockID, batcherAddr common.Address) DataIter {
 	return NewDataSource(ctx, ds.log, ds.cfg, ds.daCfg, ds.fetcher, id, batcherAddr)
 }
 
@@ -70,8 +70,12 @@ type DataSource struct {
 
 // NewDataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
-func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, daCfg *rollup.DAConfig, fetcher L1TransactionFetcher, block eth.BlockID, batcherAddr common.Address) (DataIter, error) {
+func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, daCfg *rollup.DAConfig, fetcher L1TransactionFetcher, block eth.BlockID, batcherAddr common.Address) DataIter {
+	var data []eth.Data
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, block.Hash)
+	if err != nil {
+		data, err = DataFromEVMTransactions(ctx, cfg, daCfg, batcherAddr, txs, log.New("origin", block))
+	}
 	if err != nil {
 		return &DataSource{
 			open:        false,
@@ -81,24 +85,11 @@ func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, daCf
 			fetcher:     fetcher,
 			log:         log,
 			batcherAddr: batcherAddr,
-		}, nil
-	} else {
-		data, err := DataFromEVMTransactions(ctx, cfg, daCfg, batcherAddr, txs, log.New("origin", block))
-		if err != nil {
-			return &DataSource{
-				open:        false,
-				id:          block,
-				cfg:         cfg,
-				daCfg:       daCfg,
-				fetcher:     fetcher,
-				log:         log,
-				batcherAddr: batcherAddr,
-			}, err
 		}
-		return &DataSource{
-			open: true,
-			data: data,
-		}, nil
+	}
+	return &DataSource{
+		open: true,
+		data: data,
 	}
 }
 
@@ -202,9 +193,9 @@ func DataFromEVMTransactions(ctx context.Context, config *rollup.Config, daCfg *
 				out = append(out, tx.Data()[1:])
 
 			case celestia.CurrentVersion: // 2
-				if daCfg == nil {
-					log.Error("missing DA_RPC url")
-					return nil, NewCriticalError(errors.New("missing DA_RPC url"))
+				if daCfg == nil || daCfg.S3Client == nil {
+					log.Error("missing s3 client")
+					return nil, NewCriticalError(errors.New("missing s3 client"))
 				}
 
 				frameRef := celestia.FrameRef{}
@@ -219,6 +210,10 @@ func DataFromEVMTransactions(ctx context.Context, config *rollup.Config, daCfg *
 				data, err := downloadS3Data(ctx, daCfg, tx.Data())
 				if err != nil {
 					log.Error("aws request failed", "err", err)
+					if daCfg.Client == nil {
+						log.Error("missing celestia client")
+						return nil, NewTemporaryError(errors.New("missing celestia client"))
+					}
 					log.Info("requesting data from celestia", "namespace", hex.EncodeToString(daCfg.Namespace), "height", frameRef.BlockHeight, "commitment", hex.EncodeToString(frameRef.TxCommitment))
 					txblob, err = daCfg.Client.Blob.Get(ctx, frameRef.BlockHeight, daCfg.Namespace, frameRef.TxCommitment)
 					if err != nil {
