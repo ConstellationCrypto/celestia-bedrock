@@ -202,7 +202,7 @@ func (s *L2Batcher) ActL2BatchSubmit(t Testing, txOpts ...func(tx *types.Dynamic
 		To:        &s.rollupCfg.BatchInboxAddress,
 		GasTipCap: gasTipCap,
 		GasFeeCap: gasFeeCap,
-		Data:      data.Bytes(),
+		Data:      append([]byte{1}, data.Bytes()...),
 	}
 	for _, opt := range txOpts {
 		opt(rawTx)

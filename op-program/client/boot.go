@@ -17,7 +17,6 @@ const (
 	L2ClaimBlockNumberLocalIndex
 	L2ChainConfigLocalIndex
 	RollupConfigLocalIndex
-  DaConfigLocalIndex
 )
 
 type BootInfo struct {
@@ -57,11 +56,9 @@ func (br *BootstrapClient) BootInfo() *BootInfo {
 	if err != nil {
 		panic("failed to bootstrap rollup config")
 	}
-  daConfig := new(rollup.DAConfig)
-  err = json.Unmarshal(br.r.Get(DaConfigLocalIndex), daConfig)
-  if err != nil {
-    panic("failed to bootstrap da config")
-  }
+
+	// TODO: make DAConfig customizable later on otherwise the fault
+	// prover will not work properly when celestia is enabled.
 
 	return &BootInfo{
 		L1Head:             l1Head,
@@ -70,6 +67,6 @@ func (br *BootstrapClient) BootInfo() *BootInfo {
 		L2ClaimBlockNumber: l2ClaimBlockNumber,
 		L2ChainConfig:      l2ChainConfig,
 		RollupConfig:       rollupConfig,
-    DAConfig: daConfig,
+		DAConfig:           nil,
 	}
 }

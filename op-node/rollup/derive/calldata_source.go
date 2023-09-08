@@ -222,7 +222,8 @@ func DataFromEVMTransactions(ctx context.Context, config *rollup.Config, daCfg *
 					log.Info("requesting data from celestia", "namespace", hex.EncodeToString(daCfg.Namespace), "height", frameRef.BlockHeight, "commitment", hex.EncodeToString(frameRef.TxCommitment))
 					txblob, err = daCfg.Client.Blob.Get(ctx, frameRef.BlockHeight, daCfg.Namespace, frameRef.TxCommitment)
 					if err != nil {
-						return nil, NewTemporaryError(fmt.Errorf("failed to resolve frame from celestia: %w", err))
+						log.Error("celestia request failed", "err", err)
+						return nil, NewTemporaryError(err)
 					}
 				} else {
 					txblob, err = blob.NewBlobV0(daCfg.Namespace, data)
@@ -237,7 +238,7 @@ func DataFromEVMTransactions(ctx context.Context, config *rollup.Config, daCfg *
 					return nil, NewTemporaryError(err)
 				}
 				if !bytes.Equal(com, frameRef.TxCommitment) {
-					log.Error("invalid celestia commitment", "err", err)
+					log.Error("invalid celestia commitment")
 					return nil, NewCriticalError(errors.New("invalid celestia commitment"))
 				}
 				out = append(out, txblob.Data)
