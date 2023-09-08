@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"math/rand"
@@ -38,7 +39,7 @@ func (tx *testTx) Create(t *testing.T, signer types.Signer, rng *rand.Rand) *typ
 		Gas:       100_000,
 		To:        tx.to,
 		Value:     big.NewInt(int64(tx.value)),
-		Data:      testutils.RandomData(rng, tx.dataLen),
+		Data:      append([]byte{1}, testutils.RandomData(rng, tx.dataLen)...),
 	})
 	require.NoError(t, err)
 	return out
@@ -117,11 +118,11 @@ func TestDataFromEVMTransactions(t *testing.T) {
 		for i, tx := range tc.txs {
 			txs = append(txs, tx.Create(t, signer, rng))
 			if tx.good {
-				expectedData = append(expectedData, txs[i].Data())
+				expectedData = append(expectedData, txs[i].Data()[1:]) // ignore version byte
 			}
 		}
 
-		out, err := DataFromEVMTransactions(cfg, nil, batcherAddr, txs, testlog.Logger(t, log.LvlCrit))
+		out, err := DataFromEVMTransactions(context.Background(), cfg, nil, batcherAddr, txs, testlog.Logger(t, log.LvlWarn))
 		require.ElementsMatch(t, expectedData, out)
 		require.NoError(t, err)
 	}
