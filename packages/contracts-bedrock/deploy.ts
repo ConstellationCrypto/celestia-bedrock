@@ -135,7 +135,7 @@ const main = async () => {
     const FORGE_CMD =
       'DEPLOYMENT_CONTEXT=deployer forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC'
     execSync(
-      `${FORGE_CMD} --broadcast --private-key $PRIVATE_KEY_DEPLOYER && ${FORGE_CMD} --sig 'sync()'`,
+      `${FORGE_CMD} --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.FORGE_FLAGS ?? ""} && ${FORGE_CMD} --sig 'sync()'`,
       { stdio: 'inherit' }
     )
     console.log('generating rollup.json, genesis.json files')
