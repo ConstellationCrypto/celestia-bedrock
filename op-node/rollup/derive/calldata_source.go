@@ -71,25 +71,24 @@ type DataSource struct {
 // NewDataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
 func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, daCfg *rollup.DAConfig, fetcher L1TransactionFetcher, block eth.BlockID, batcherAddr common.Address) DataIter {
-	var data []eth.Data
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, block.Hash)
-	if err != nil {
-		data, err = DataFromEVMTransactions(ctx, cfg, daCfg, batcherAddr, txs, log.New("origin", block))
-	}
-	if err != nil {
-		return &DataSource{
-			open:        false,
-			id:          block,
-			cfg:         cfg,
-			daCfg:       daCfg,
-			fetcher:     fetcher,
-			log:         log,
-			batcherAddr: batcherAddr,
+	if err == nil {
+		data, err := DataFromEVMTransactions(ctx, cfg, daCfg, batcherAddr, txs, log.New("origin", block))
+		if err == nil {
+			return &DataSource{
+				open: true,
+				data: data,
+			}
 		}
 	}
 	return &DataSource{
-		open: true,
-		data: data,
+		open:        false,
+		id:          block,
+		cfg:         cfg,
+		daCfg:       daCfg,
+		fetcher:     fetcher,
+		log:         log,
+		batcherAddr: batcherAddr,
 	}
 }
 
