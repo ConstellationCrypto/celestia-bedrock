@@ -563,7 +563,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 		c.Rollup.LogDescription(cfg.Loggers[name], chaincfg.L2ChainIDToNetworkName)
 
-		daCfg, err := rollup.NewDAConfig("http://127.0.0.1:26658", "", "0000e8e5f679bf7116cb", "null", "us-west-2")
+		daCfg, err := rollup.NewDAConfig("", "", "0000e8e5f679bf7116cb", "null", "us-west-2")
 		if err != nil {
 			return nil, err
 		}
