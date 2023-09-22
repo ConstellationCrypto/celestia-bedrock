@@ -1,6 +1,6 @@
 {
-  "name": "@eth-optimism/contracts-bedrock",
-  "version": "0.15.0",
+  "name": "@constellation-labs/contracts-bedrock",
+  "version": "2.1.2",
   "description": "Contracts for Optimism Specs",
   "license": "MIT",
   "files": [
