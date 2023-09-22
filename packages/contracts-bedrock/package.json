@@ -1,6 +1,6 @@
 {
   "name": "@constellation-labs/contracts-bedrock-celestia",
-  "version": "0.15.0",
+  "version": "2.1.2",
   "description": "Contracts for Optimism Specs",
   "license": "MIT",
   "files": [
