@@ -1,5 +1,6 @@
 {
   "name": "@eth-optimism/common-ts",
+  "private": true,
   "version": "0.8.2",
   "description": "[Optimism] Advanced typescript tooling used by various services",
   "main": "dist/index",

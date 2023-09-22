@@ -1,5 +1,6 @@
 {
   "name": "@eth-optimism/sdk",
+  "private": true,
   "version": "3.0.0",
   "description": "[Optimism] Tools for working with Optimism",
   "main": "dist/index",
