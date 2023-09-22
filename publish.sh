@@ -9,7 +9,7 @@ REGION=us-west-2
 TAG=celestia-$VERSION
 
 make build-ts
-pnpm lerna publish $VERSION --preid=celestia --no-private --force-publish @constellation-labs/bedrock-sdk --force-publish @constellation-labs/contracts-bedrock --ignore-changes '**'
+pnpm lerna publish $VERSION --canary --preid celestia --pre-dist-tag $VERSION --no-private --force-publish @constellation-labs/bedrock-sdk --force-publish @constellation-labs/contracts-bedrock --ignore-changes '**'
 
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
 
