@@ -365,6 +365,7 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
 
         uint256 value = _tx.value;
         if (L1_FPE_TOKEN != address(0)) {
+          require(_tx.target != L1_FPE_TOKEN, "cannot withdraw to fee token address");
           value /= FPE_DECIMAL_MULTIPLIER;
           // only perform the ERC20 transfer if necessary
           if (value > 0) {
