@@ -54,6 +54,7 @@
     "fs-extra": "^11.1.1"
   },
   "devDependencies": {
+    "@types/node": "^16.18.39",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "ds-test": "github:dapphub/ds-test#c9ce3f25bde29fc5eb9901842bf02850dfd2d084",

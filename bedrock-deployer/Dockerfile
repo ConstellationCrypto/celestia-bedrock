@@ -43,19 +43,16 @@ COPY ./go.sum /app/go.sum
 WORKDIR /app
 RUN go mod download
 
-# install npm packages
-RUN npm install pnpm --global
-COPY pnpm-lock.yaml pnpm-workspace.yaml .nvmrc package.json .
-COPY packages/contracts-bedrock/package.json packages/contracts-bedrock/package.json
-RUN pnpm install --frozen-lockfile --filter contracts-bedrock
-
 # install foundry
-COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin
+COPY --from=ghcr.io/foundry-rs/foundry:nightly-ba6c85112f4c34fc8eb081645bad278f48343ec4 /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin
 
 # build contracts
-COPY packages/contracts-bedrock packages/contracts-bedrock
 WORKDIR /app/packages/contracts-bedrock
-RUN pnpm clean && pnpm build
+COPY packages/contracts-bedrock/package.json packages/contracts-bedrock/yarn.lock .
+RUN yarn install --frozen-lockfile
+COPY packages/contracts-bedrock .
+RUN forge build
+RUN npx tsc --noEmit
 
 # generate l2 predeploy contracts
 COPY op-bindings /app/op-bindings
@@ -72,11 +69,8 @@ RUN go build -o /usr/local/bin/op-node ./cmd/genesis
 # copy op-geth
 COPY --from=op-geth /usr/local/bin/geth /usr/local/bin/geth
 
-# copy tsconfig.json
-COPY tsconfig.json /app/tsconfig.json
-
 # remove go files (except for op-bindings which is exported to other containers)
-RUN rm -rf /root/go /root/.cache/go-build /usr/local/go /app/op-geth /app/op-node /app/op-chain-ops /app/op-service
+# RUN rm -rf /root/go /root/.cache/go-build /usr/local/go /app/op-geth /app/op-node /app/op-chain-ops /app/op-service
 
 WORKDIR /app/packages/contracts-bedrock
 CMD ["npx", "ts-node", "deploy.ts"]

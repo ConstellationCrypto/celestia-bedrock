@@ -65,7 +65,7 @@ const main = async () => {
     const L1_RPC = process.env.L1_RPC
 
     const provider = new ethers.providers.JsonRpcProvider(L1_RPC)
-    const block = await provider.getBlock('finalized')
+    const block = await provider.getBlock(process.env.L1_BLOCK_NUMBER ?? 'finalized')
     const BLOCKHASH = block.hash
     const TIMESTAMP = block.timestamp
 
@@ -142,12 +142,10 @@ const main = async () => {
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
-    // TODO: set up automatic contract verification with etherscan
-    // "--verify --verifier sourcify" works for sourcify.
     const FORGE_CMD =
-      'DEPLOYMENT_CONTEXT=deployer forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC'
+      `DEPLOYMENT_CONTEXT=deployer forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --chain-id ${process.env.CHAIN_ID}`
     execSync(
-      `${FORGE_CMD} --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.FORGE_FLAGS ?? ""} && ${FORGE_CMD} --sig 'sync()'`,
+      `${FORGE_CMD} --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""} && ${FORGE_CMD} --sig 'sync()'`,
       { stdio: 'inherit' }
     )
     console.log('generating rollup.json, genesis.json files')

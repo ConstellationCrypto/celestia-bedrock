@@ -1,11 +1,33 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "module": "commonjs",
+    "target": "es2017",
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "composite": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "noImplicitAny": false,
+    "removeComments": true,
+    "noLib": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "typeRoots": [
+      "node_modules/@types"
+    ]
   },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "deploy-config/getting-started.json"
+  ],
   "include": [
     "deploy-config/**/*",
     "deploy-config/**/*.json",
-    "scripts/**/*"
+    "scripts/**/*",
+    "layout-lock.json",
+    "deploy.ts"
   ]
 }
