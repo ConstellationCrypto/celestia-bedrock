@@ -195,6 +195,33 @@ const main = async () => {
         await s3.send(command)
       }
     }
+    if (process.env.REFUND_ADDRESS) {
+      console.log('draining deployer wallet to refund address')
+      const wallet = new ethers.Wallet(process.env.PRIVATE_KEY_DEPLOYER, provider)
+      const balance = await wallet.getBalance();
+      console.log(wallet.address, "balance=" + ethers.utils.formatEther(balance))
+      const gasPrice = (await provider.getGasPrice()).mul(15).div(10);
+      const gas = gasPrice.mul(21000)
+      console.log("gas=" + ethers.utils.formatEther(gas))
+      if (balance.lt(gas)) {
+        console.log("wallet balance too low")
+      } else {
+        // no need for EIP-1559 since we're draining the wallet - give extra fees to the miner instead
+        const tx = await wallet.sendTransaction({
+          type: 0,
+          to: process.env.REFUND_ADDRESS,
+          value: balance.sub(gas),
+          gasPrice: gasPrice,
+          gasLimit: 21000
+        })
+        console.log("tx hash", tx.hash)
+        const receipt = await tx.wait(1)
+        if (receipt.status !== 1)
+          console.warn("transaction reverted")
+        const remaining = await wallet.getBalance();
+        console.log(wallet.address, "remaining=" + ethers.utils.formatEther(remaining));
+      }
+    }
   }
   console.log('clearing /root/config')
   emptyDirSync('/root/config')
