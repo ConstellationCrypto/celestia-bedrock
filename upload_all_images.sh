@@ -4,7 +4,7 @@ set -e #u
 if [ "$#" -ne 1 ]; then echo "Usage: ./upload_all_images VERSION_TAG"; exit; fi
 
 VERSION=$1
-ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+ACCOUNT=001138754299 #$(aws sts get-caller-identity --query Account --output text)
 REGION=us-west-2
 
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com

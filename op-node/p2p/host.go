@@ -17,7 +17,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/sec/insecure"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoreds"
-	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	tls "github.com/libp2p/go-libp2p/p2p/security/tls"
@@ -268,10 +267,6 @@ func addrFromIPAndPort(ip net.IP, port uint16) (ma.Multiaddr, error) {
 
 func YamuxC() libp2p.Option {
 	return libp2p.Muxer("/yamux/1.0.0", yamux.DefaultTransport)
-}
-
-func MplexC() libp2p.Option {
-	return libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
 }
 
 func NoiseC() libp2p.Option {

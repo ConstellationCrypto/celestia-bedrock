@@ -17,8 +17,8 @@ func TestEncodeDecodeFrameRef(t *testing.T) {
 	}{
 		{
 			"valid frame reference",
-			"d20400000000000068656c6c6f20776f726c64", // 1234 + "hello world"
-			FrameRef{BlockHeight: 1234, TxCommitment: []byte{0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64}},
+			"02d20400000000000068656c6c6f20776f726c64", // 1234 + "hello world"
+			FrameRef{Version: 2, BlockHeight: 1234, TxCommitment: []byte{0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64}},
 			true,
 			nil,
 		},

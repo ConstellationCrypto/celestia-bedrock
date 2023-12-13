@@ -95,7 +95,7 @@ func TestP2PFull(t *testing.T) {
 		ListenIP:            net.IP{127, 0, 0, 1},
 		ListenTCPPort:       0, // bind to any available port
 		StaticPeers:         nil,
-		HostMux:             []libp2p.Option{YamuxC(), MplexC()},
+		HostMux:             []libp2p.Option{YamuxC()}, // MplexC()},
 		HostSecurity:        []libp2p.Option{NoiseC(), TlsC()},
 		NoTransportSecurity: false,
 		PeersLo:             1,
@@ -241,7 +241,7 @@ func TestDiscovery(t *testing.T) {
 		ListenIP:            net.IP{127, 0, 0, 1},
 		ListenTCPPort:       0, // bind to any available port
 		StaticPeers:         nil,
-		HostMux:             []libp2p.Option{YamuxC(), MplexC()},
+		HostMux:             []libp2p.Option{YamuxC()}, // MplexC()},
 		HostSecurity:        []libp2p.Option{NoiseC(), TlsC()},
 		NoTransportSecurity: false,
 		PeersLo:             1,
