@@ -228,7 +228,7 @@ func (m *SimpleTxManager) payForBlob(ctx context.Context, txData []byte) ([]byte
 		m.l.Error("unable to wait for celestia header sync", "err", err)
 		return nil, err
 	}
-	height, err := m.daClient.Blob.Submit(ctx, []*blob.Blob{dataBlob})
+	height, err := m.daClient.Blob.Submit(ctx, []*blob.Blob{dataBlob}, openrpc.DefaultSubmitOptions())
 	if err != nil {
 		m.l.Error("unable to publish tx to celestia", "err", err)
 		return nil, err
