@@ -41,6 +41,7 @@ const (
 // new = old * (100 + priceBump) / 100
 var priceBumpPercent = big.NewInt(100 + priceBump)
 var oneHundred = big.NewInt(100)
+var ninetyNine = big.NewInt(99)
 
 // TxManager is an interface that allows callers to reliably publish txs,
 // bumping the gas price if needed, and obtain the receipt of the resulting tx.
@@ -662,9 +663,10 @@ func (m *SimpleTxManager) suggestGasPriceCaps(ctx context.Context) (*big.Int, *b
 	return tip, head.BaseFee, nil
 }
 
-// calcThresholdValue returns x * priceBumpPercent / 100
+// calcThresholdValue returns (x * priceBumpPercent + 99) / 100
 func calcThresholdValue(x *big.Int) *big.Int {
 	threshold := new(big.Int).Mul(priceBumpPercent, x)
+	threshold = threshold.Add(threshold, ninetyNine)
 	threshold = threshold.Div(threshold, oneHundred)
 	return threshold
 }
