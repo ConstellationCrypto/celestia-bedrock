@@ -271,15 +271,11 @@ func (m *SimpleTxManager) payForBlob(ctx context.Context, txData []byte) ([]byte
 
 // send performs the actual transaction creation and sending.
 func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error) {
-	if m.cfg.TxSendTimeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.cfg.TxSendTimeout)
-		defer cancel()
-	}
-
 	if m.isBatcher {
 		isCelestia := false
 		if m.daClient != nil {
+			ctx, cancel := context.WithTimeout(ctx, m.cfg.PayForBlobTimeout)
+			defer cancel()
 			if frameRefData, err := m.payForBlob(ctx, candidate.TxData); err == nil {
 				intrinsicGas, err := core.IntrinsicGas(frameRefData, nil, false, true, true, false)
 				if err != nil {
@@ -296,6 +292,12 @@ func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*typ
 			candidate.TxData = append([]byte{1}, candidate.TxData...)
 			candidate.GasLimit += params.TxDataNonZeroGasEIP2028
 		}
+	}
+
+	if m.cfg.TxSendTimeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, m.cfg.TxSendTimeout)
+		defer cancel()
 	}
 
 	tx, err := m.craftTx(ctx, candidate)

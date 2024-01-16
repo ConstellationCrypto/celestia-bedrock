@@ -30,6 +30,7 @@ const (
 	ResubmissionTimeoutFlagName       = "resubmission-timeout"
 	NetworkTimeoutFlagName            = "network-timeout"
 	TxSendTimeoutFlagName             = "txmgr.send-timeout"
+	PayForBlobTimeoutFlagName         = "pay-for-blob-timeout"
 	TxNotInMempoolTimeoutFlagName     = "txmgr.not-in-mempool-timeout"
 	ReceiptQueryIntervalFlagName      = "txmgr.receipt-query-interval"
 	DaRpcFlagName                     = "da-rpc"
@@ -106,6 +107,12 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			EnvVars: prefixEnvVars("TXMGR_TX_SEND_TIMEOUT"),
 		},
 		&cli.DurationFlag{
+			Name:    PayForBlobTimeoutFlagName,
+			Usage:   "Timeout for the celestia PayForBlob request",
+			Value:   3 * time.Minute,
+			EnvVars: prefixEnvVars("PAY_FOR_BLOB_TIMEOUT"),
+		},
+		&cli.DurationFlag{
 			Name:    TxNotInMempoolTimeoutFlagName,
 			Usage:   "Timeout for aborting a tx send if the tx does not make it to the mempool.",
 			Value:   2 * time.Minute,
@@ -135,6 +142,7 @@ type CLIConfig struct {
 	ReceiptQueryInterval      time.Duration
 	NetworkTimeout            time.Duration
 	TxSendTimeout             time.Duration
+	PayForBlobTimeout         time.Duration
 	TxNotInMempoolTimeout     time.Duration
 	DaRpc                     string
 	NamespaceId               string
@@ -190,6 +198,7 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		ReceiptQueryInterval:      ctx.Duration(ReceiptQueryIntervalFlagName),
 		NetworkTimeout:            ctx.Duration(NetworkTimeoutFlagName),
 		TxSendTimeout:             ctx.Duration(TxSendTimeoutFlagName),
+		PayForBlobTimeout:         ctx.Duration(PayForBlobTimeoutFlagName),
 		TxNotInMempoolTimeout:     ctx.Duration(TxNotInMempoolTimeoutFlagName),
 		DaRpc:                     ctx.String(DaRpcFlagName),
 		NamespaceId:               ctx.String(NamespaceIdFlagName),
@@ -256,6 +265,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		TxSendTimeout:             cfg.TxSendTimeout,
 		TxNotInMempoolTimeout:     cfg.TxNotInMempoolTimeout,
 		NetworkTimeout:            cfg.NetworkTimeout,
+		PayForBlobTimeout:         cfg.PayForBlobTimeout,
 		ReceiptQueryInterval:      cfg.ReceiptQueryInterval,
 		NumConfirmations:          cfg.NumConfirmations,
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
@@ -279,6 +289,9 @@ type Config struct {
 	// TxSendTimeout is how long to wait for sending a transaction.
 	// By default it is unbounded. If set, this is recommended to be at least 20 minutes.
 	TxSendTimeout time.Duration
+
+	// PayForBlobTimeout is how long to wait for the celestia PayForBlob request to finish.
+	PayForBlobTimeout time.Duration
 
 	// TxNotInMempoolTimeout is how long to wait before aborting a transaction send if the transaction does not
 	// make it to the mempool. If the tx is in the mempool, TxSendTimeout is used instead.
