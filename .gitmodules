@@ -5,4 +5,4 @@
 	branch = v3.1.0
 [submodule "op-geth"]
 	path = op-geth
-	url = https://github.com/ConstellationCrypto/op-geth.git
+	url = git@github.com:ConstellationCrypto/op-geth.git
