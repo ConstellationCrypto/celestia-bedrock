@@ -19,69 +19,6 @@ import (
 
 var Subcommands = cli.Commands{
 	{
-		Name:  "devnet",
-		Usage: "Initialize new L1 and L2 genesis files and rollup config suitable for a local devnet",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "deploy-config",
-				Usage: "Path to hardhat deploy config file",
-			},
-			&cli.StringFlag{
-				Name:  "outfile.l1",
-				Usage: "Path to L1 genesis output file",
-			},
-			&cli.StringFlag{
-				Name:  "outfile.l2",
-				Usage: "Path to L2 genesis output file",
-			},
-			&cli.StringFlag{
-				Name:  "outfile.rollup",
-				Usage: "Path to rollup output file",
-			},
-		},
-		Action: func(ctx *cli.Context) error {
-			deployConfig := ctx.String("deploy-config")
-			config, err := genesis.NewDeployConfig(deployConfig)
-			if err != nil {
-				return err
-			}
-
-			// Add the developer L1 addresses to the config
-			if err := config.InitDeveloperDeployedAddresses(); err != nil {
-				return err
-			}
-
-			if err := config.Check(); err != nil {
-				return err
-			}
-
-			l1Genesis, err := genesis.BuildL1DeveloperGenesis(config)
-			if err != nil {
-				return err
-			}
-
-			l1StartBlock := l1Genesis.ToBlock()
-			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock)
-			if err != nil {
-				return err
-			}
-
-			l2GenesisBlock := l2Genesis.ToBlock()
-			rollupConfig, err := config.RollupConfig(l1StartBlock, l2GenesisBlock.Hash(), l2GenesisBlock.Number().Uint64())
-			if err != nil {
-				return err
-			}
-
-			if err := writeGenesisFile(ctx.String("outfile.l1"), l1Genesis); err != nil {
-				return err
-			}
-			if err := writeGenesisFile(ctx.String("outfile.l2"), l2Genesis); err != nil {
-				return err
-			}
-			return writeGenesisFile(ctx.String("outfile.rollup"), rollupConfig)
-		},
-	},
-	{
 		Name:  "l2",
 		Usage: "Generates an L2 genesis file and rollup config suitable for a deployed network",
 		Flags: []cli.Flag{
