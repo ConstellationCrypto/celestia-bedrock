@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends
 
 # install go
-COPY --from=golang:1.19.9-alpine3.16 /usr/local/go/ /usr/local/go/
+COPY --from=golang:1.20.13-alpine3.19 /usr/local/go/ /usr/local/go/
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # download op-geth modules
