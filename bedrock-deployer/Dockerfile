@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends
 
 # install go
-COPY --from=golang:1.20.13-alpine3.19 /usr/local/go/ /usr/local/go/
+COPY --from=golang:1.21.5-alpine3.19 /usr/local/go/ /usr/local/go/
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # download op-geth modules
@@ -61,6 +61,7 @@ RUN make clean bindings-build
 
 # build op-node genesis subcommand
 COPY op-node /app/op-node
+COPY op-celestia /app/op-celestia
 COPY op-service /app/op-service
 COPY op-chain-ops /app/op-chain-ops
 WORKDIR /app/op-chain-ops
