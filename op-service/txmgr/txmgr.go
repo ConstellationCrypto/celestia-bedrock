@@ -617,8 +617,8 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	gas, err := m.backend.EstimateGas(ctx, ethereum.CallMsg{
 		From:      m.cfg.From,
 		To:        rawTx.To,
-		GasFeeCap: bumpedTip,
-		GasTipCap: bumpedFee,
+		GasFeeCap: bumpedFee,
+		GasTipCap: bumpedTip,
 		Data:      rawTx.Data,
 	})
 	if err != nil {
