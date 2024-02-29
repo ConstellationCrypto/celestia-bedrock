@@ -285,7 +285,7 @@ func AvailableReceiptsFetchingMethods(kind RPCProviderKind) ReceiptsFetchingMeth
 	case RPCKindErigon:
 		return ErigonGetBlockReceiptsByBlockHash | EthGetTransactionReceiptBatch
 	case RPCKindBasic:
-		return EthGetTransactionReceiptBatch
+		return EthGetBlockReceipts | EthGetTransactionReceiptBatch
 	case RPCKindAny:
 		// if it's any kind of RPC provider, then try all methods
 		return AlchemyGetTransactionReceipts | EthGetBlockReceipts |
