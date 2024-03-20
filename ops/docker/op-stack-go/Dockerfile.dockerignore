@@ -11,6 +11,7 @@
 !/op-challenger
 !/packages/contracts-bedrock/snapshots
 !/op-dispute-mon
+!/op-geth
 !/op-conductor
 !/op-heartbeat
 !/op-node
