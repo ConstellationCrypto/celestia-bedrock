@@ -10,6 +10,7 @@
 !/op-chain-ops
 !/op-challenger
 !/op-dispute-mon
+!/op-geth
 !/op-conductor
 !/op-heartbeat
 !/op-node

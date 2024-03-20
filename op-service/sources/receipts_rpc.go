@@ -339,17 +339,17 @@ func AvailableReceiptsFetchingMethods(kind RPCProviderKind) ReceiptsFetchingMeth
 		return DebugGetRawReceipts | EthGetTransactionReceiptBatch
 	case RPCKindErigon:
 		return ErigonGetBlockReceiptsByBlockHash | EthGetTransactionReceiptBatch
-	case RPCKindBasic:
-		return EthGetTransactionReceiptBatch
 	case RPCKindAny:
 		// if it's any kind of RPC provider, then try all methods
 		return AlchemyGetTransactionReceipts | EthGetBlockReceipts |
 			DebugGetRawReceipts | ErigonGetBlockReceiptsByBlockHash |
 			ParityGetBlockReceipts | EthGetTransactionReceiptBatch
+	case RPCKindBasic:
+		fallthrough
 	case RPCKindStandard:
-		return EthGetBlockReceipts | EthGetTransactionReceiptBatch
+		fallthrough
 	default:
-		return EthGetTransactionReceiptBatch
+		return EthGetBlockReceipts | EthGetTransactionReceiptBatch
 	}
 }
 

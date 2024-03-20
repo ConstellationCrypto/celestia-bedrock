@@ -11,6 +11,8 @@ WORKDIR /app
 RUN echo "go mod cache: $(go env GOMODCACHE)"
 RUN echo "go build cache: $(go env GOCACHE)"
 
+COPY op-geth/go.mod /app/op-geth/go.mod
+COPY op-geth/go.sum /app/op-geth/go.sum
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
 
 # NOTE: the Dockerfile.dockerignore file effectively describes all dependencies
