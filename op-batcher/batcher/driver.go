@@ -1,6 +1,7 @@
 package batcher
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -389,7 +392,7 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 		}
 		l.Metr.RecordBlobUsedBytes(len(data))
 	} else {
-		candidate = l.calldataTxCandidate(data)
+		candidate = l.calldataTxCandidate(ctx, data)
 	}
 
 	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
@@ -416,16 +419,54 @@ func (l *BatchSubmitter) blobTxCandidate(data []byte) (*txmgr.TxCandidate, error
 	}, nil
 }
 
-func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
+func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, txData []byte) error {
+	_, err := l.DAClient.S3Client.PutObject(ctx, &s3.PutObjectInput{
+		Body:   bytes.NewReader(txData),
+		Bucket: &l.DAClient.S3Bucket,
+		Key:    aws.String(fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData)),
+	})
+	return err
+}
+
+func (l *BatchSubmitter) calldataTxCandidate(ctx context.Context, data []byte) *txmgr.TxCandidate {
 	l.Log.Info("building Calldata transaction candidate", "size", len(data))
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Duration(l.RollupConfig.BlockTime)*time.Second)
-	ids, _, err := l.DAClient.Client.Submit(ctx, [][]byte{data}, -1)
-	cancel()
-	if err == nil && len(ids) == 1 {
-		l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(ids[0]))
-		data = append([]byte{celestia.DerivationVersionCelestia}, ids[0]...)
-	} else {
-		l.Log.Info("celestia: blob submission failed; falling back to eth", "err", err)
+	if l.DAClient != nil && l.DAClient.Client != nil {
+		commit, err := celestia.CreateCommitment(data, l.DAClient.Namespace)
+		if err == nil {
+			ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+			ids, err := l.DAClient.Client.Submit(ctx2, [][]byte{data}, -1, l.DAClient.Namespace)
+			cancel()
+			if err == nil && len(ids) == 1 && len(ids[0]) == 40 && bytes.Equal(commit, ids[0][8:]) {
+				l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(ids[0]))
+				ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+				proofs, err := l.DAClient.Client.GetProofs(ctx2, ids, l.DAClient.Namespace)
+				cancel()
+				if err == nil && len(proofs) == 1 {
+					ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+					valids, err := l.DAClient.Client.Validate(ctx2, ids, proofs, l.DAClient.Namespace)
+					cancel()
+					if err == nil && len(valids) == 1 && valids[0] == true {
+						ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+            frame := append([]byte{celestia.DerivationVersionCelestia}, ids[0]...)
+						err = l.uploadS3Data(ctx2, frame, data)
+						cancel()
+						if err == nil {
+							data = frame
+						} else {
+							l.Log.Error("celestia: failed to upload data to s3", "err", err)
+						}
+					} else {
+						l.Log.Error("celestia: failed to validate proof", "err", err, "valid", valids)
+					}
+				} else {
+					l.Log.Error("celestia: failed to get proof", "err", err)
+				}
+			} else {
+				l.Log.Info("celestia: blob submission failed; falling back to eth", "err", err, "ids", ids, "commit", commit)
+			}
+		} else {
+			l.Log.Info("celestia: failed to create commitment", "err", err)
+		}
 	}
 	return &txmgr.TxCandidate{
 		To:     &l.RollupConfig.BatchInboxAddress,
