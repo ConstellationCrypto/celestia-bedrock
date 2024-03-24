@@ -86,7 +86,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
 
-	data, hashes, err := dataAndHashesFromTxs(txs, &ds.dsCfg, ds.batcherAddr)
+	data, hashes, err := dataAndHashesFromTxs(ctx, txs, &ds.dsCfg, ds.batcherAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
+func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
 	data := []blobOrCalldata{}
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
@@ -131,7 +131,7 @@ func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batc
 		}
 		// handle non-blob batcher transactions by extracting their calldata
 		if tx.Type() != types.BlobTxType {
-			calldata, err := DataFromEVMTransactions(*config, batcherAddr, types.Transactions{tx}, logger)
+			calldata, err := DataFromEVMTransactions(ctx, *config, batcherAddr, types.Transactions{tx}, logger)
 			if err != nil {
 				return nil, nil, err
 			}
