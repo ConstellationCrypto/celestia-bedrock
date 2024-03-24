@@ -15,6 +15,7 @@ COPY ./op-signer /app/op-signer
 COPY ./go-ethereum-kms-signer /app/go-ethereum-kms-signer
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
+COPY ./celestia-openrpc /app/celestia-openrpc
 
 WORKDIR /app/op-batcher
 

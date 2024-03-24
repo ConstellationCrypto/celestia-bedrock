@@ -1,6 +1,8 @@
 module github.com/ethereum-optimism/optimism
 
-go 1.19
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.21.2
@@ -35,7 +37,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
 	github.com/prometheus/client_golang v1.14.0
-	github.com/rollkit/celestia-openrpc v0.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.7
 	golang.org/x/crypto v0.14.0
@@ -44,6 +45,8 @@ require (
 	golang.org/x/term v0.13.0
 	golang.org/x/time v0.3.0
 )
+
+require github.com/rollkit/celestia-openrpc v0.4.0-rc1
 
 require (
 	cosmossdk.io/math v1.1.2 // indirect
@@ -74,7 +77,7 @@ require (
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/celestiaorg/go-fraud v0.2.0 // indirect
-	github.com/celestiaorg/go-header v0.4.0 // indirect
+	github.com/celestiaorg/go-header v0.4.1 // indirect
 	github.com/celestiaorg/merkletree v0.0.0-20210714075610-a84dc3ddbbe4 // indirect
 	github.com/celestiaorg/nmt v0.20.0 // indirect
 	github.com/celestiaorg/rsmt2d v0.11.0 // indirect
@@ -227,6 +230,8 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/rollkit/celestia-openrpc => ./celestia-openrpc
 
 replace github.com/ethereum/go-ethereum v1.11.6 => ./op-geth
 
