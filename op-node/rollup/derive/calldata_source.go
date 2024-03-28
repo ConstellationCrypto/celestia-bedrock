@@ -165,7 +165,6 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 					out = append(out, blob)
 				default: // case 0
 					out = append(out, data)
-					log.Info("celestia: using eth fallback")
 				}
 			}
 		}

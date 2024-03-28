@@ -323,7 +323,7 @@ func (bs *BatcherService) initPlasmaDA(cfg *CLIConfig) error {
 }
 
 func (bs *BatcherService) initDA(cfg *CLIConfig) error {
-	client, err := celestia.NewDAClient(cfg.DaConfig)
+	client, err := celestia.NewDAClient(cfg.DaConfig, true)
 	if err != nil {
 		return err
 	}

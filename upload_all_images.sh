@@ -16,6 +16,7 @@ build_tag_push () {
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION
 }
 
+docker build -t us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:latest -f ops/docker/op-stack-go/Dockerfile .
 build_tag_push op-batcher .
 build_tag_push op-proposer .
 build_tag_push op-node .

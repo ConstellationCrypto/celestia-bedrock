@@ -1,37 +1,12 @@
 package celestia
 
 import (
-	"errors"
-	"fmt"
-	"net"
 	"time"
 
 	"github.com/urfave/cli/v2"
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 )
-
-var (
-	ErrInvalidPort = errors.New("invalid port")
-)
-
-func Check(address string) error {
-	_, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return err
-	}
-
-	if port == "" {
-		return ErrInvalidPort
-	}
-
-	_, err = net.LookupPort("tcp", port)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func CLIFlags(envPrefix string) []cli.Flag {
 	return []cli.Flag{
@@ -81,12 +56,6 @@ type CLIConfig struct {
 }
 
 func (c CLIConfig) Check() error {
-	if c.DaRpc != "" {
-		if err := Check(c.DaRpc); err != nil {
-			return fmt.Errorf("invalid da rpc: %w", err)
-		}
-	}
-
 	return nil
 }
 
