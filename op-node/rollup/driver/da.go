@@ -6,7 +6,7 @@ import (
 )
 
 func SetDAClient(cfg celestia.CLIConfig) error {
-	client, err := celestia.NewDAClient(cfg)
+	client, err := celestia.NewDAClient(cfg, false)
 	if err != nil {
 		return err
 	}

@@ -1,10 +1,12 @@
 package celestia
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/inclusion"
@@ -22,7 +24,7 @@ type DAClient struct {
 	GetTimeout time.Duration
 }
 
-func NewDAClient(cfg CLIConfig) (*DAClient, error) {
+func NewDAClient(cfg CLIConfig, auth bool) (*DAClient, error) {
 	nsBytes, err := hex.DecodeString(cfg.Namespace)
 	if err != nil {
 		return nil, err
@@ -37,10 +39,22 @@ func NewDAClient(cfg CLIConfig) (*DAClient, error) {
 			return nil, err
 		}
 	}
+	var s3Client *s3.Client
+	if auth {
+		awscfg, err := config.LoadDefaultConfig(context.Background(),
+			config.WithRegion(cfg.S3Region),
+		)
+		if err != nil {
+			return nil, err
+		}
+		s3Client = s3.NewFromConfig(awscfg)
+	} else {
+		s3Client = s3.New(s3.Options{Region: cfg.S3Region})
+	}
 	return &DAClient{
 		Client:     client,
 		Namespace:  append(make([]byte, 19), nsBytes...),
-		S3Client:   s3.New(s3.Options{Region: cfg.S3Region}),
+		S3Client:   s3Client,
 		S3Bucket:   cfg.S3Bucket,
 		GetTimeout: cfg.Timeout,
 	}, nil
