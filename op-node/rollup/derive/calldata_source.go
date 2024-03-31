@@ -108,12 +108,10 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 }
 
 func downloadS3Data(ctx context.Context, frameRefData []byte) ([]byte, error) {
-	ctx2, cancel := context.WithTimeout(ctx, daClient.GetTimeout)
-	resp, err := daClient.S3Client.GetObject(ctx2, &s3.GetObjectInput{
+	resp, err := daClient.S3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &daClient.S3Bucket,
 		Key:    aws.String(fmt.Sprintf("%x/%x", daClient.Namespace, frameRefData)),
 	})
-	cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +145,9 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 						return nil, NewCriticalError(fmt.Errorf("celestia: invalid calldata length: %d", len(data)))
 					}
 					log.Info("celestia: blob request", "id", hex.EncodeToString(data[1:]))
-					blob, err := downloadS3Data(ctx, data)
+					ctx2, cancel := context.WithTimeout(ctx, daClient.GetTimeout)
+					blob, err := downloadS3Data(ctx2, data)
+					cancel()
 					if err != nil {
 						log.Error("aws request failed", "err", err)
 						ctx2, cancel := context.WithTimeout(ctx, daClient.GetTimeout)
