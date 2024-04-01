@@ -6,3 +6,6 @@
 [submodule "op-geth"]
 	path = op-geth
 	url = git@github.com:ConstellationCrypto/op-geth.git
+[submodule "celestia-openrpc"]
+	path = celestia-openrpc
+	url = git@github.com:ConstellationCrypto/celestia-openrpc.git
