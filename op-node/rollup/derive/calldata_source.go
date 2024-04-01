@@ -131,15 +131,17 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 			case 0:
 				out = append(out, data)
 			default:
+				version := data[0]
 				if celestiaLegacyMode {
-					if data[0] == 1 { // legacy eth data
+					if data[0] == 1 && len(data) > 1 { // legacy eth data
 						data = data[1:]
+						version = data[0]
 					}
 					if data[0] == 2 { // legacy celestia data
-						data[0] = celestia.DerivationVersionCelestia
+						version = celestia.DerivationVersionCelestia
 					}
 				}
-				switch data[0] {
+				switch version {
 				case celestia.DerivationVersionCelestia:
 					if len(data) != 41 {
 						return nil, NewCriticalError(fmt.Errorf("celestia: invalid calldata length: %d", len(data)))

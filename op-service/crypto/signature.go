@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
+	kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 )
 
@@ -45,10 +46,31 @@ type SignerFactory func(chainID *big.Int) SignerFn
 // SignerFactoryFromConfig considers three ways that signers are created & then creates single factory from those config options.
 // It can either take a remote signer (via opsigner.CLIConfig) or it can be provided either a mnemonic + derivation path or a private key.
 // It prefers the remote signer, then the mnemonic or private key (only one of which can be provided).
-func SignerFactoryFromConfig(l log.Logger, privateKey, mnemonic, hdPath string, signerConfig opsigner.CLIConfig) (SignerFactory, common.Address, error) {
+func SignerFactoryFromConfig(l log.Logger, privateKey, mnemonic, hdPath string, signerConfig opsigner.CLIConfig, kmsConfig kmssigner.CLIConfig) (SignerFactory, common.Address, error) {
 	var signer SignerFactory
 	var fromAddress common.Address
-	if signerConfig.Enabled() {
+	if kmsConfig.Enabled() {
+		kmsClient, err := kmssigner.NewKmsClientFromConfig(context.Background(), kmsConfig)
+		if err != nil {
+			l.Error("Unable to create KMS Client", "error", err)
+			return nil, common.Address{}, fmt.Errorf("failed to create the kms client: %w", err)
+		}
+		fromAddress, err = kmssigner.GetAddress(kmsClient, kmsConfig.Id)
+		if err != nil {
+			l.Error("Unable to get KMS address", "error", err)
+			return nil, common.Address{}, fmt.Errorf("failed to get the kms address: %w", err)
+		}
+		signer = func(chainID *big.Int) SignerFn {
+			return func(ctx context.Context, address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+				bindTransactor, err := kmssigner.NewAwsKmsTransactorWithChainIDCtx(ctx, kmsClient, kmsConfig.Id, chainID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create the KMS transactor: %w", err)
+				}
+				return bindTransactor.Signer(address, tx)
+			}
+		}
+
+	} else if signerConfig.Enabled() {
 		signerClient, err := opsigner.NewSignerClientFromConfig(l, signerConfig)
 		if err != nil {
 			l.Error("Unable to create Signer Client", "error", err)
