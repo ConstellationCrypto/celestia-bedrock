@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -197,6 +198,7 @@ type CLIConfig struct {
 	L2OutputHDPath            string
 	PrivateKey                string
 	SignerCLIConfig           opsigner.CLIConfig
+	KMSCLIConfig              kmssigner.CLIConfig
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
 	FeeLimitMultiplier        uint64
@@ -225,6 +227,7 @@ func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
 		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		SignerCLIConfig:           opsigner.NewCLIConfig(),
+		KMSCLIConfig:              kmssigner.NewCLIConfig(),
 	}
 }
 
@@ -260,6 +263,9 @@ func (m CLIConfig) Check() error {
 	if err := m.SignerCLIConfig.Check(); err != nil {
 		return err
 	}
+	if err := m.KMSCLIConfig.Check(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -272,6 +278,7 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		L2OutputHDPath:            ctx.String(L2OutputHDPathFlag.Name),
 		PrivateKey:                ctx.String(PrivateKeyFlagName),
 		SignerCLIConfig:           opsigner.ReadCLIConfig(ctx),
+		KMSCLIConfig:              kmssigner.ReadCLIConfig(ctx),
 		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
 		SafeAbortNonceTooLowCount: ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
 		FeeLimitMultiplier:        ctx.Uint64(FeeLimitMultiplierFlagName),
@@ -313,7 +320,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		hdPath = cfg.L2OutputHDPath
 	}
 
-	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
+	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig, cfg.KMSCLIConfig)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not init signer: %w", err)
 	}
