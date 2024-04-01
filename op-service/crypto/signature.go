@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
+	kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
-  kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
 )
 
 func PrivateKeySignerFn(key *ecdsa.PrivateKey, chainID *big.Int) bind.SignerFn {
