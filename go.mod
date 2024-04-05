@@ -55,7 +55,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/crypto v0.20.0
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.7.0
 	golang.org/x/term v0.17.0
 	golang.org/x/time v0.5.0
 	gorm.io/driver/postgres v1.5.6
