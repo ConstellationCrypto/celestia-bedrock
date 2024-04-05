@@ -74,7 +74,7 @@ func AddressToCodeNamespace(addr common.Address) (common.Address, error) {
 }
 
 func IsL2DevPredeploy(addr common.Address) bool {
-	return bytes.Equal(addr[0:2], []byte{0x42, 0x00})
+	return bytes.Equal(addr[0:2], []byte{0x42, 0x00}) || bytes.Equal(addr[0:2], []byte{0x19, 0x00}) || bytes.Equal(addr[0:2], []byte{0x88, 0x00})
 }
 
 // GetBlockFromTag will resolve a Block given an rpc block tag
