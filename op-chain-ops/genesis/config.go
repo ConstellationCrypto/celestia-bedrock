@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -922,6 +923,15 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 	storage["ProxyAdmin"] = state.StorageValues{
 		"_owner": config.ProxyAdminOwner,
 	}
+	for i := 1; i < 82; i++ {
+		storage["Ecosystem"+strconv.Itoa(i)] = state.StorageValues{
+			"name":     "Wrapped Ecosystem" + strconv.Itoa(i),
+			"symbol":   "Ecosystem" + strconv.Itoa(i),
+			"decimals": 18,
+		}
+		log.Info("Ecosystem" + strconv.Itoa(i))
+	}
+
 	return storage, nil
 }
 

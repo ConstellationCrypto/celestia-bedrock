@@ -21,41 +21,53 @@ import (
 
 // BuildL2Genesis will build the L2 genesis block.
 func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Genesis, error) {
+	log.Info("here we are")
 	genspec, err := NewL2Genesis(config, l1StartBlock)
 	if err != nil {
 		return nil, err
 	}
-
+	log.Info("here we are genspec", "genspec", genspec, "alloc", genspec.Alloc)
 	db := state.NewMemoryStateDB(genspec)
+	log.Info("inspecting alloc agian", "alloc", genspec.Alloc)
 	if config.FundDevAccounts {
 		log.Info("Funding developer accounts in L2 genesis")
 		FundDevAccounts(db)
 	}
-
+	log.Info("SetPrecompileBalances")
 	SetPrecompileBalances(db)
-
+	log.Info("inspecting alloc agian2", "alloc", genspec.Alloc)
+	log.Info("NewL2StorageConfig")
 	storage, err := NewL2StorageConfig(config, l1StartBlock)
 	if err != nil {
 		return nil, err
 	}
-
 	immutableConfig, err := NewL2ImmutableConfig(config, l1StartBlock)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set up the proxies
+	// Set up the proxies for Optimism Predeploys
 	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespace, 2048)
 	if err != nil {
 		return nil, err
 	}
 
+	// Set up the proxies for Story Predeploys PT and Ecosystem
+	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespacePT, 2048)
+	if err != nil {
+		return nil, err
+	}
+	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespaceEcosystem, 2048)
+	if err != nil {
+		return nil, err
+	}
 	// Set up the implementations that contain immutables
 	deployResults, err := immutables.Deploy(immutableConfig)
 	if err != nil {
 		return nil, err
 	}
 	for name, predeploy := range predeploys.Predeploys {
+
 		if predeploy.Enabled != nil && !predeploy.Enabled(config) {
 			log.Warn("Skipping disabled predeploy.", "name", name, "address", predeploy.Address)
 			continue
@@ -91,21 +103,25 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 			db.CreateAccount(codeAddr)
 		default:
 			if !predeploy.ProxyDisabled {
+				log.Info("!predeploy.ProxyDisabled", "name", name, "predeploy", predeploy.Address)
 				codeAddr, err = AddressToCodeNamespace(predeploy.Address)
+				log.Info("!predeploy.ProxyDisabled", "codeAddr", codeAddr)
 				if err != nil {
 					return nil, fmt.Errorf("error converting to code namespace: %w", err)
 				}
 				db.CreateAccount(codeAddr)
+				log.Info("eth.AddressAsLeftPaddedHash(codeAddr)", "hash", eth.AddressAsLeftPaddedHash(codeAddr))
 				db.SetState(predeploy.Address, ImplementationSlot, eth.AddressAsLeftPaddedHash(codeAddr))
 				log.Info("Set proxy", "name", name, "address", predeploy.Address, "implementation", codeAddr)
 			}
 		}
-
+		log.Info("are we here tho? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`")
 		if predeploy.ProxyDisabled && db.Exist(predeploy.Address) {
 			db.DeleteState(predeploy.Address, AdminSlot)
 		}
 
 		if err := setupPredeploy(db, deployResults, storage, name, predeploy.Address, codeAddr); err != nil {
+			log.Info("are we here tho????? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`")
 			return nil, err
 		}
 		code := db.GetCode(codeAddr)

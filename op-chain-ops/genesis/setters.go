@@ -30,6 +30,7 @@ func FundDevAccounts(db vm.StateDB) {
 }
 
 func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int, count uint64) error {
+	log.Info("now we try this")
 	depBytecode, err := bindings.GetDeployedBytecode("Proxy")
 	if err != nil {
 		return err
@@ -41,7 +42,6 @@ func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int
 	for i := uint64(0); i <= count; i++ {
 		bigAddr := new(big.Int).Or(namespace, new(big.Int).SetUint64(i))
 		addr := common.BigToAddress(bigAddr)
-
 		if !db.Exist(addr) {
 			db.CreateAccount(addr)
 		}
@@ -71,8 +71,10 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 		log.Info("Setting deployed bytecode with immutables", "name", name, "address", implAddr)
 		db.SetCode(implAddr, bytecode)
 	} else {
+
 		depBytecode, err := bindings.GetDeployedBytecode(name)
 		if err != nil {
+			log.Info("THIS DIDNT WORK for name ", "name", name)
 			return err
 		}
 		log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)
