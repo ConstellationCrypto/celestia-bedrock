@@ -46,6 +46,14 @@
   ],
   "remote": [
     {
+      "name": "Storage",
+      "verified": true,
+      "deployments": {
+        "op": "0xD2467927f55c98fd5baD1E6bd001d61Ebc9be60C",
+        "eth": "0x00000000E8d620cAcbe5C82417F8fa723847a06E"
+      }
+    },
+    {
       "name": "MultiCall3",
       "verified": true,
       "deployments": {

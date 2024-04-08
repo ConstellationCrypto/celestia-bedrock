@@ -74,7 +74,6 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 
 		depBytecode, err := bindings.GetDeployedBytecode(name)
 		if err != nil {
-			log.Info("THIS DIDNT WORK for name ", "name", name)
 			return err
 		}
 		log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)

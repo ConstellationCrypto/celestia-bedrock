@@ -103,25 +103,25 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 			db.CreateAccount(codeAddr)
 		default:
 			if !predeploy.ProxyDisabled {
-				log.Info("!predeploy.ProxyDisabled", "name", name, "predeploy", predeploy.Address)
+
 				codeAddr, err = AddressToCodeNamespace(predeploy.Address)
-				log.Info("!predeploy.ProxyDisabled", "codeAddr", codeAddr)
+
 				if err != nil {
 					return nil, fmt.Errorf("error converting to code namespace: %w", err)
 				}
 				db.CreateAccount(codeAddr)
-				log.Info("eth.AddressAsLeftPaddedHash(codeAddr)", "hash", eth.AddressAsLeftPaddedHash(codeAddr))
+
 				db.SetState(predeploy.Address, ImplementationSlot, eth.AddressAsLeftPaddedHash(codeAddr))
-				log.Info("Set proxy", "name", name, "address", predeploy.Address, "implementation", codeAddr)
+
 			}
 		}
-		log.Info("are we here tho? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`")
+
 		if predeploy.ProxyDisabled && db.Exist(predeploy.Address) {
 			db.DeleteState(predeploy.Address, AdminSlot)
 		}
 
 		if err := setupPredeploy(db, deployResults, storage, name, predeploy.Address, codeAddr); err != nil {
-			log.Info("are we here tho????? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`")
+
 			return nil, err
 		}
 		code := db.GetCode(codeAddr)

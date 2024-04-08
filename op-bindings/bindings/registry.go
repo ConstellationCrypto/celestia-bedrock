@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-bindings/solc"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // layouts represents the set of storage layouts. It is populated in an init function.
@@ -39,7 +38,11 @@ func init() {
 
 // GetStorageLayout returns the storage layout of a contract by name.
 func GetStorageLayout(name string) (*solc.StorageLayout, error) {
-	layout := layouts[name]
+	layout := layouts["Storage"]
+	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") {
+		layout = layouts[name]
+	}
+
 	if layout == nil {
 		return nil, fmt.Errorf("%s: storage layout not found", name)
 	}
@@ -48,8 +51,12 @@ func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 
 // GetDeployedBytecode returns the deployed bytecode of a contract by name.
 func GetDeployedBytecode(name string) ([]byte, error) {
-	bc := deployedBytecodes[name]
-	log.Info("deployedBytecodesdeployedBytecodesdeployedBytecodesdeployedBytecodes", "deployedBytecodes", deployedBytecodes)
+
+	bc := deployedBytecodes["Storage"]
+	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") {
+		bc = deployedBytecodes[name]
+	}
+
 	if bc == "" {
 		return nil, fmt.Errorf("%s: deployed bytecode not found", name)
 	}

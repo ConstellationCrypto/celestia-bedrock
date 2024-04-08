@@ -96,7 +96,7 @@ func (generator *BindGenGeneratorRemote) processContracts(contracts []RemoteCont
 		var err error
 		switch contract.Name {
 		case "MultiCall3", "Safe_v130", "SafeL2_v130", "MultiSendCallOnly_v130",
-			"EntryPoint", "SafeSingletonFactory", "DeterministicDeploymentProxy":
+			"EntryPoint", "SafeSingletonFactory", "DeterministicDeploymentProxy", "Storage":
 			err = generator.standardHandler(&contractMetadata)
 		case "Create2Deployer":
 			err = generator.create2DeployerHandler(&contractMetadata)
