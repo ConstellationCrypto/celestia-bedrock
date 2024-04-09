@@ -21,22 +21,18 @@ import (
 
 // BuildL2Genesis will build the L2 genesis block.
 func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Genesis, error) {
-	log.Info("here we are")
 	genspec, err := NewL2Genesis(config, l1StartBlock)
 	if err != nil {
 		return nil, err
 	}
-	log.Info("here we are genspec", "genspec", genspec, "alloc", genspec.Alloc)
 	db := state.NewMemoryStateDB(genspec)
-	log.Info("inspecting alloc agian", "alloc", genspec.Alloc)
+
 	if config.FundDevAccounts {
 		log.Info("Funding developer accounts in L2 genesis")
 		FundDevAccounts(db)
 	}
-	log.Info("SetPrecompileBalances")
+
 	SetPrecompileBalances(db)
-	log.Info("inspecting alloc agian2", "alloc", genspec.Alloc)
-	log.Info("NewL2StorageConfig")
 	storage, err := NewL2StorageConfig(config, l1StartBlock)
 	if err != nil {
 		return nil, err
@@ -57,7 +53,7 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 	if err != nil {
 		return nil, err
 	}
-	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespaceEcosystem, 2048)
+	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespaceEcosystemAndIP, 2048)
 	if err != nil {
 		return nil, err
 	}

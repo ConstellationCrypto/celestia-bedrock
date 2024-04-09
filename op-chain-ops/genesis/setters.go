@@ -30,7 +30,6 @@ func FundDevAccounts(db vm.StateDB) {
 }
 
 func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int, count uint64) error {
-	log.Info("now we try this")
 	depBytecode, err := bindings.GetDeployedBytecode("Proxy")
 	if err != nil {
 		return err

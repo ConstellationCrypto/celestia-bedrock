@@ -27,9 +27,9 @@ var (
 	// BigL2PredeployNamespace represents the predeploy namespace as a big.Int
 	BigL2PredeployNamespacePT = new(big.Int).SetBytes(l2PredeployNamespacePT.Bytes())
 
-	l2PredeployNamespaceEcosystem = common.HexToAddress("0x1900000000000000000000000000000000000000")
+	l2PredeployNamespaceEcosystemAndIP = common.HexToAddress("0x1900000000000000000000000000000000000000")
 	// BigL2PredeployNamespace represents the predeploy namespace as a big.Int
-	BigL2PredeployNamespaceEcosystem = new(big.Int).SetBytes(l2PredeployNamespaceEcosystem.Bytes())
+	BigL2PredeployNamespaceEcosystemAndIP = new(big.Int).SetBytes(l2PredeployNamespaceEcosystemAndIP.Bytes())
 
 	// ImplementationSlot represents the EIP 1967 implementation storage slot
 	ImplementationSlot = common.HexToHash("0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc")

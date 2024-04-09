@@ -39,7 +39,7 @@ func init() {
 // GetStorageLayout returns the storage layout of a contract by name.
 func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 	layout := layouts["Storage"]
-	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") {
+	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") && !strings.HasPrefix(name, "IP") {
 		layout = layouts[name]
 	}
 
@@ -53,7 +53,7 @@ func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 func GetDeployedBytecode(name string) ([]byte, error) {
 
 	bc := deployedBytecodes["Storage"]
-	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") {
+	if !strings.HasPrefix(name, "Ecosystem") && !strings.HasPrefix(name, "PT") && !strings.HasPrefix(name, "IP") {
 		bc = deployedBytecodes[name]
 	}
 
