@@ -29,4 +29,4 @@
 [submodule "op-geth"]
 	path = op-geth
 	url = https://github.com/ConstellationCrypto/op-geth
-  branch = inomurko/story_genesis_addresses
+  branch = optimism
