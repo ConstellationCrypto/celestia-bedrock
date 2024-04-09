@@ -28,5 +28,4 @@
 	url = https://github.com/ethereum-optimism/lib-keccak
 [submodule "op-geth"]
 	path = op-geth
-	url = https://github.com/ConstellationCrypto/op-geth
-  branch = optimism
+	url = https://github.com/ethereum-optimism/op-geth.git
