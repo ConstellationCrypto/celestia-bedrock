@@ -28,4 +28,5 @@
 	url = https://github.com/ethereum-optimism/lib-keccak
 [submodule "op-geth"]
 	path = op-geth
-	url = https://github.com/ethereum-optimism/op-geth.git
+	url = https://github.com/ConstellationCrypto/op-geth
+  branch = inomurko/story_genesis_addresses
