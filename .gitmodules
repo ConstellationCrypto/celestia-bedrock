@@ -28,4 +28,5 @@
 	url = https://github.com/ethereum-optimism/lib-keccak
 [submodule "op-geth"]
 	path = op-geth
-	url = https://github.com/ethereum-optimism/op-geth.git
+	url = git@github.com:ConstellationCrypto/op-geth.git
+  branch = inomurko/celestia-bedrock+eip7212
