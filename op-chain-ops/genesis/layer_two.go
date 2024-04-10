@@ -48,12 +48,13 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 		return nil, err
 	}
 
+	var StoryAdmin = common.HexToAddress("0x27BAb37f2328D29544FD36f351BF115e398106f0")
 	// Set up the proxies for Story Predeploys PT and Ecosystem
-	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespacePT, 2048)
+	err = setProxies(db, StoryAdmin, BigL2PredeployNamespacePT, 2048)
 	if err != nil {
 		return nil, err
 	}
-	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespaceEcosystemAndIP, 2048)
+	err = setProxies(db, StoryAdmin, BigL2PredeployNamespaceEcosystemAndIP, 2048)
 	if err != nil {
 		return nil, err
 	}
