@@ -58,11 +58,13 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 	if err != nil {
 		return nil, err
 	}
+
 	// Set up the implementations that contain immutables
 	deployResults, err := immutables.Deploy(immutableConfig)
 	if err != nil {
 		return nil, err
 	}
+
 	for name, predeploy := range predeploys.Predeploys {
 
 		if predeploy.Enabled != nil && !predeploy.Enabled(config) {
@@ -100,10 +102,11 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 			db.CreateAccount(codeAddr)
 		default:
 			if !predeploy.ProxyDisabled {
-
+				//L2StandardBridge,PT17,Ecosystem17
 				codeAddr, err = AddressToCodeNamespace(predeploy.Address)
 
 				if err != nil {
+
 					return nil, fmt.Errorf("error converting to code namespace: %w", err)
 				}
 				db.CreateAccount(codeAddr)
@@ -118,19 +121,16 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 		}
 
 		if err := setupPredeploy(db, deployResults, storage, name, predeploy.Address, codeAddr); err != nil {
-
-			return nil, err
+			return nil, fmt.Errorf("setupPredeploy fucked %w", err)
 		}
 		code := db.GetCode(codeAddr)
 		if len(code) == 0 {
 			return nil, fmt.Errorf("code not set for %s", name)
 		}
 	}
-
 	if err := PerformUpgradeTxs(db); err != nil {
 		return nil, fmt.Errorf("failed to perform upgrade txs: %w", err)
 	}
-
 	return db.Genesis(), nil
 }
 
