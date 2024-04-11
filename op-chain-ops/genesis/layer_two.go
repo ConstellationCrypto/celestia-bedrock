@@ -121,7 +121,7 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 		}
 
 		if err := setupPredeploy(db, deployResults, storage, name, predeploy.Address, codeAddr); err != nil {
-			return nil, fmt.Errorf("setupPredeploy fucked %w", err)
+			return nil, err
 		}
 		code := db.GetCode(codeAddr)
 		if len(code) == 0 {
