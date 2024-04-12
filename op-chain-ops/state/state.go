@@ -50,6 +50,9 @@ func EncodeStorage(entry solc.StorageLayoutEntry, value any, storageType solc.St
 // address and the storage values
 func SetStorage(name string, address common.Address, values StorageValues, db vm.StateDB) error {
 	layout, err := bindings.GetStorageLayout(name)
+	if name == "L1Block" {
+		log.Info("SetStorage Layout", "layout", layout)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot set storage: %w", err)
 	}

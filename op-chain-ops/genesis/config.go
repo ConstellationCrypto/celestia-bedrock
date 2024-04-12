@@ -922,9 +922,6 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 	storage["ProxyAdmin"] = state.StorageValues{
 		"_owner": config.ProxyAdminOwner,
 	}
-	// for i := 1; i < 82; i++ {
-	// 	storage["Ecosystem"+strconv.Itoa(i)] = state.StorageValues{}
-	// }
 
 	return storage, nil
 }

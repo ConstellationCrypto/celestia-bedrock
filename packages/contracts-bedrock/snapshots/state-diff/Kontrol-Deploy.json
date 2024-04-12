@@ -933,6 +933,23 @@
       "value": 0
     },
     {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x068E44eB31e111028c41598E4535be7468674D0A",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
       "accessor": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "account": "0x068E44eB31e111028c41598E4535be7468674D0A",
       "chainInfo": {
@@ -1617,6 +1634,23 @@
       "data": "0x",
       "deployedCode": "0x",
       "initialized": true,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0xfbfD64a6C0257F613feFCe050Aa30ecC3E3d7C3F",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
       "kind": "Resume",
       "newBalance": 0,
       "oldBalance": 0,
@@ -3274,6 +3308,23 @@
       "value": 0
     },
     {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x8887E7568E81405c4E0D4cAaabdda949e3B9d4E4",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
       "accessor": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "account": "0x8887E7568E81405c4E0D4cAaabdda949e3B9d4E4",
       "chainInfo": {
@@ -3702,6 +3753,23 @@
       "value": 0
     },
     {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x71fA82Ea96672797954C28032b337aA40AAFC99f",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
       "accessor": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "account": "0x71fA82Ea96672797954C28032b337aA40AAFC99f",
       "chainInfo": {
@@ -4037,6 +4105,23 @@
       "data": "0x",
       "deployedCode": "0x",
       "initialized": true,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x19652082F846171168Daf378C4fD3ee85a0D4A60",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
       "kind": "Resume",
       "newBalance": 0,
       "oldBalance": 0,
@@ -4554,6 +4639,23 @@
       "data": "0x",
       "deployedCode": "0x",
       "initialized": true,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0xffbA8944650e26653823658d76A122946F27e2f2",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
       "kind": "Resume",
       "newBalance": 0,
       "oldBalance": 0,
@@ -5301,6 +5403,23 @@
       "value": 0
     },
     {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x0Da314776B267D898dEE57F6Ede357ae28b3b83c",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
       "accessor": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "account": "0x0Da314776B267D898dEE57F6Ede357ae28b3b83c",
       "chainInfo": {
@@ -5612,6 +5731,23 @@
       "data": "0x",
       "deployedCode": "0x",
       "initialized": true,
+      "kind": "Resume",
+      "newBalance": 0,
+      "oldBalance": 0,
+      "reverted": false,
+      "storageAccesses": [],
+      "value": 0
+    },
+    {
+      "accessor": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "account": "0x44637A4292E0CD2B17A55d5F6B2F05AFcAcD0586",
+      "chainInfo": {
+        "chainId": 31337,
+        "forkId": 0
+      },
+      "data": "0x",
+      "deployedCode": "0x",
+      "initialized": false,
       "kind": "Resume",
       "newBalance": 0,
       "oldBalance": 0,

@@ -51,11 +51,12 @@ contract L1Block is ISemver {
 
     /// @notice size of historyHashes.
     uint256 public constant HISTORY_SIZE = 8192;
+
     /// @notice The 8191 history L1 blockhashes and 1 latest L1 blockhash.
     bytes32[HISTORY_SIZE] public historyHashes;
 
-    /// @custom:semver 1.2.0
-    string public constant version = "1.2.0";
+    /// @custom:semver 1.3.0
+    string public constant version = "1.3.0";
 
     /// @custom:legacy
     /// @notice Updates the L1 block values.
@@ -89,7 +90,6 @@ contract L1Block is ISemver {
         batcherHash = _batcherHash;
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
-
         historyHashes[number % HISTORY_SIZE] = hash;
     }
 

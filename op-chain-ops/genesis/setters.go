@@ -75,12 +75,20 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 		if err != nil {
 			return err
 		}
-		log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)
+
+		if name == "L1Block" {
+			log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr, "depBytecode", common.Bytes2Hex(depBytecode))
+		} else {
+			log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)
+		}
 		db.SetCode(implAddr, depBytecode)
 	}
 
 	// Set the storage values
 	if storageConfig, ok := storage[name]; ok {
+		if name == "L1Block" {
+			log.Info("Setting storage", "name", name, "proxyAddr", proxyAddr, "storageConfig", storageConfig)
+		}
 		log.Info("Setting storage", "name", name, "address", proxyAddr)
 		if err := state.SetStorage(name, proxyAddr, storageConfig, db); err != nil {
 			return err
