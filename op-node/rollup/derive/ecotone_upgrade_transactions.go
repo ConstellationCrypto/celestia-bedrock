@@ -44,22 +44,22 @@ var (
 func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns := make([]hexutil.Bytes, 0, 5)
 
-	deployL1BlockTransaction, err := types.NewTx(&types.DepositTx{
-		SourceHash:          deployL1BlockSource.SourceHash(),
-		From:                L1BlockDeployerAddress,
-		To:                  nil,
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 375_000,
-		IsSystemTransaction: false,
-		Data:                l1BlockDeploymentBytecode,
-	}).MarshalBinary()
+	// deployL1BlockTransaction, err := types.NewTx(&types.DepositTx{
+	// 	SourceHash:          deployL1BlockSource.SourceHash(),
+	// 	From:                L1BlockDeployerAddress,
+	// 	To:                  nil,
+	// 	Mint:                big.NewInt(0),
+	// 	Value:               big.NewInt(0),
+	// 	Gas:                 375_000,
+	// 	IsSystemTransaction: false,
+	// 	Data:                l1BlockDeploymentBytecode,
+	// }).MarshalBinary()
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	upgradeTxns = append(upgradeTxns, deployL1BlockTransaction)
+	// upgradeTxns = append(upgradeTxns, deployL1BlockTransaction)
 
 	deployGasPriceOracle, err := types.NewTx(&types.DepositTx{
 		SourceHash:          deployGasPriceOracleSource.SourceHash(),
