@@ -43,7 +43,8 @@ var (
 
 func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns := make([]hexutil.Bytes, 0, 5)
-
+	// Gas needed to be bumped because keeping L1 hashes is more complex
+	// than just plain L1Block
 	deployL1BlockTransaction, err := types.NewTx(&types.DepositTx{
 		SourceHash:          deployL1BlockSource.SourceHash(),
 		From:                L1BlockDeployerAddress,
