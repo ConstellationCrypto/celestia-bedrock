@@ -90,7 +90,6 @@ contract L1Block is ISemver {
         batcherHash = _batcherHash;
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
-        historyHashes[number % HISTORY_SIZE] = hash;
     }
 
     /// @notice Updates the L1 block values for an Ecotone upgraded chain.
