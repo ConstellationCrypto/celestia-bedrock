@@ -223,14 +223,16 @@ const main = async () => {
   }
   console.log('clearing /root/config')
   emptyDirSync('/root/config')
-  console.log('clearing /root/datadir')
-  emptyDirSync('/root/datadir')
-  console.log('clearing /root/datadir2')
-  emptyDirSync('/root/datadir2')
   console.log('copying rollup.json to /root/config')
   copyFileSync('rollup.json', '/root/config/rollup.json')
-  console.log('copying constracts.json to /root/config')
+  console.log('copying contracts.json to /root/config')
   copyFileSync('contracts.json', '/root/config/contracts.json')
+  console.log('copying genesis.json to /root/config')
+  copyFileSync('genesis.json', '/root/config/genesis.json')
+  console.log('writing password')
+  writeFileSync('/root/config/password', 'pwd')
+  console.log('writing block signer key')
+  writeFileSync('/root/config/block-signer-key', process.env.SEQUENCER_PRIVATE_KEY)
   console.log('creating l2oo-address.txt')
   writeFileSync(
     '/root/config/l2oo-address.txt',
@@ -238,19 +240,6 @@ const main = async () => {
   )
   console.log('creating jwt token')
   writeFileSync('/root/config/jwt.txt', randomBytes(32).toString('hex'))
-  console.log('initializing geth datadir')
-  writeFileSync('/root/datadir/password', 'pwd')
-  writeFileSync('block-signer-key', process.env.SEQUENCER_PRIVATE_KEY)
-  execSync(
-    'geth account import --datadir=/root/datadir --password=/root/datadir/password block-signer-key',
-    { stdio: 'inherit' }
-  )
-  execSync('geth init --datadir=/root/datadir genesis.json', {
-    stdio: 'inherit',
-  })
-  console.log('copy datadir to datadir2')
-  copySync('/root/datadir', '/root/datadir2')
-  console.log('Done')
 }
 
 main()
