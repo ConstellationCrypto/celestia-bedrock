@@ -32,12 +32,12 @@ RUN mkdir manifests && \
 
 FROM op-geth as op-geth
 FROM op-node as op-node
-FROM ghcr.io/foundry-rs/foundry:latest as foundry
+FROM ghcr.io/foundry-rs/foundry:nightly-63fff3510408b552f11efb8196f48cfe6c1da664 as foundry
 # bullseye-slim is debian based
 # we use it rather than alpien because it's not much
 # bigger and alpine is often missing packages for node applications
 # alpine is not officially supported by node.js
-FROM node:16.16.0-bullseye-slim as base
+FROM node:22.0.0-bullseye-slim as base
 
 RUN apt-get update && apt-get install -y \
   curl \
@@ -69,6 +69,7 @@ WORKDIR /opt/optimism
 # preparation for `pnpm install`.
 COPY --from=manifests /tmp/manifests  ./
 COPY *.json ./
+COPY .pnpmfile.cjs .
 
 RUN pnpm install --frozen-lockfile --filter contracts-bedrock
 COPY ./packages/contracts-bedrock ./packages/contracts-bedrock

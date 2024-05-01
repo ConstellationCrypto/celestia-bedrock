@@ -689,7 +689,8 @@ contract Deploy is Deployer {
 
     function deployDelayedWETH() public broadcast returns (address addr_) {
         console.log("Deploying DelayedWETH implementation");
-        DelayedWETH weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
+        DelayedWETH weth = DelayedWETH(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(DelayedWETH).creationCode))));
+        if (address(weth).code.length == 0) weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
         save("DelayedWETH", address(weth));
         console.log("DelayedWETH deployed at %s", address(weth));
 
@@ -729,7 +730,7 @@ contract Deploy is Deployer {
     /// @notice Deploy the PreimageOracle
     function deployPreimageOracle() public broadcast returns (address addr_) {
         console.log("Deploying PreimageOracle implementation");
-        PreimageOracle preimageOracle = PreimageOracle(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(PreimageOracle).creationCode, abi.encode(cfg.preimageOracleMinProposalSize(), cfg.preimageOracleChallengePeriod(), cfg.preimageOracleCancunActivationTimestamp())))));
+        PreimageOracle preimageOracle = PreimageOracle(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(PreimageOracle).creationCode, abi.encode(cfg.preimageOracleMinProposalSize(), cfg.preimageOracleChallengePeriod())))));
         if (address(preimageOracle).code.length == 0) preimageOracle = new PreimageOracle{ salt: _implSalt() }({
             _minProposalSize: cfg.preimageOracleMinProposalSize(),
             _challengePeriod: cfg.preimageOracleChallengePeriod()
@@ -754,8 +755,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the AnchorStateRegistry
     function deployAnchorStateRegistry() public broadcast returns (address addr_) {
         console.log("Deploying AnchorStateRegistry implementation");
-        AnchorStateRegistry anchorStateRegistry =
-            new AnchorStateRegistry{ salt: _implSalt() }(DisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
+        AnchorStateRegistry anchorStateRegistry = AnchorStateRegistry(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(AnchorStateRegistry).creationCode, abi.encode(mustGetAddress("DisputeGameFactoryProxy"))))));
+        if (address(anchorStateRegistry).code.length == 0) anchorStateRegistry = new AnchorStateRegistry{ salt: _implSalt() }(DisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
         save("AnchorStateRegistry", address(anchorStateRegistry));
         console.log("AnchorStateRegistry deployed at %s", address(anchorStateRegistry));
 

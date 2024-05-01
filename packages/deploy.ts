@@ -146,7 +146,6 @@ const main = async () => {
       faultGameSplitDepth: 32, // ??
       preimageOracleMinProposalSize: 1800000, // ??
       preimageOracleChallengePeriod: Number(process.env.PREIMAGE_ORACLE_CHALLENGE_PERIOD) || 120, // 2 minutes
-      preimageOracleCancunActivationTimestamp: 0,
 
       proofMaturityDelaySeconds: Number(process.env.PROOF_MATURITY_DELAY_SECONDS) || 12,
       disputeGameFinalityDelaySeconds: Number(process.env.DISPUTE_GAME_FINALITY_DELAY_SECONDS) || 6,
