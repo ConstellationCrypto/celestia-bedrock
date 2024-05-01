@@ -608,7 +608,7 @@ contract Deploy is Deployer {
             uint32(cfg.respectedGameType()) == cfg.respectedGameType(), "Deploy: respectedGameType must fit into uint32"
         );
 
-        OptimismPortal2 portal = OptimismPortal2(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds(), GameType.wrap(uint32(cfg.respectedGameType()))))))));
+        OptimismPortal2 portal = OptimismPortal2(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds()))))));
         if (address(portal).code.length == 0) portal = new OptimismPortal2{ salt: _implSalt() }({
             _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
             _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
@@ -689,7 +689,7 @@ contract Deploy is Deployer {
 
     function deployDelayedWETH() public broadcast returns (address addr_) {
         console.log("Deploying DelayedWETH implementation");
-        DelayedWETH weth = DelayedWETH(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(DelayedWETH).creationCode))));
+        DelayedWETH weth = DelayedWETH(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(DelayedWETH).creationCode, abi.encode(cfg.faultGameWithdrawalDelay()))))));
         if (address(weth).code.length == 0) weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
         save("DelayedWETH", address(weth));
         console.log("DelayedWETH deployed at %s", address(weth));

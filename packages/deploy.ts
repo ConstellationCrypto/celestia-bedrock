@@ -138,12 +138,14 @@ const main = async () => {
 
       fundDevAccounts: false,
 
-      faultGameAbsolutePrestate: "0x035ac9f319e41b6dc184bf1153c9dbaead5d1e89c5ecc4212808ff5cc8f33b08",
+      faultGameAbsolutePrestate: "0x035ac9f319e41b6dc184bf1153c9dbaead5d1e89c5ecc4212808ff5cc8f33b08", // ??
       faultGameMaxDepth: 73, // ??
-      faultGameMaxDuration: Number(process.env.FAULT_GAME_MAX_DURATION) || 1200, // 20 mins,
+      faultGameClockExtension: Number(process.env.FAULT_GAME_CLOCK_EXTENSION) || 120, // 2 mins
+      faultGameMaxClockDuration: Number(process.env.FAULT_GAME_MAX_DURATION) || 1200, // 20 mins,
       faultGameGenesisBlock: 0,
       faultGameGenesisOutputRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
       faultGameSplitDepth: 32, // ??
+      faultGameWithdrawalDelay: Number(process.env.FAULT_GAME_WITHDRAWAL_DELAY) || 1200, // 20 mins,
       preimageOracleMinProposalSize: 1800000, // ??
       preimageOracleChallengePeriod: Number(process.env.PREIMAGE_ORACLE_CHALLENGE_PERIOD) || 120, // 2 minutes
 
@@ -158,8 +160,14 @@ const main = async () => {
     execSync(`DEPLOYMENT_CONTEXT=deployer forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --chain-id ${process.env.CHAIN_ID} --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
+    console.log('generating allocs-l2-raw')
+    execSync(`DEPLOYMENT_CONTEXT=deployer CONTRACT_ADDRESSES_PATH=deployments/deployer/.deploy STATE_DUMP_PATH=allocs-l2-raw.json forge script -vvv --chain-id ${process.env.CHAIN_ID} scripts/L2Genesis.s.sol:L2Genesis --sig "runWithStateDump()" --private-key $PRIVATE_KEY_DEPLOYER`)
+
+    console.log("generating allocs-l2")
+    writeFileSync("allocs-l2.json", JSON.stringify({accounts: JSON.parse(readFileSync('allocs-l2-raw.json', 'utf-8'))}, null, 2))
+
     console.log('generating rollup.json, genesis.json files')
-    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json`,
+    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --l2-allocs allocs-l2.json --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json`,
       { stdio: 'inherit' }
     )
     console.log('generating contracts.json file')
@@ -182,6 +190,7 @@ const main = async () => {
     if (process.env.S3_FOLDER) {
       console.log('Uploading to s3 bucket')
       for (const file of [
+        'allocs-l2.json',
         'deployments/deployer/.deploy',
         'rollup.json',
         'contracts.json',
