@@ -58,6 +58,7 @@ const main = async () => {
     console.log('Deploying contracts')
     const DEPLOYER = process.env.DEPLOYER_ADDRESS
     const ADMIN = process.env.ADMIN_ADDRESS
+    const L1_FEE_WALLET_ADDRESS = process.env.FEE_WALLET_ADDRESS || ADMIN
     const PROPOSER = process.env.PROPOSER_ADDRESS
     const BATCHER = process.env.BATCHER_ADDRESS
     const SEQUENCER = process.env.SEQUENCER_ADDRESS
@@ -68,10 +69,14 @@ const main = async () => {
     const BLOCKHASH = block.hash
     const TIMESTAMP = block.timestamp
 
+    const baseFeeVaultWithdrawalNetwork = 0; // 0 = L1, 1 = L2
+    const l1FeeVaultWithdrawalNetwork = 0; // 0 = L1, 1 = L2
+    const sequencerFeeVaultWithdrawalNetwork = 0; // 0 = L1, 1 = L2
+
     // see op-chain-ops/genesis/config.go for documentation
     const json = {
-      superchainConfigGuardian:  ADMIN,
-      finalSystemOwner: ADMIN,
+      superchainConfigGuardian: L1_FEE_WALLET_ADDRESS,
+      finalSystemOwner: L1_FEE_WALLET_ADDRESS,
 
       l1StartingBlockTag: BLOCKHASH,
       l1ChainID: Number(process.env.CHAIN_ID),
@@ -99,16 +104,16 @@ const main = async () => {
       ), // 12, 604800
 
       proxyAdminOwner: ADMIN,
-      baseFeeVaultRecipient: ADMIN,
-      l1FeeVaultRecipient: ADMIN,
-      sequencerFeeVaultRecipient: ADMIN,
+      baseFeeVaultRecipient: baseFeeVaultWithdrawalNetwork === 0 ? L1_FEE_WALLET_ADDRESS : ADMIN,
+      l1FeeVaultRecipient: l1FeeVaultWithdrawalNetwork === 0 ? L1_FEE_WALLET_ADDRESS : ADMIN,
+      sequencerFeeVaultRecipient: l1FeeVaultWithdrawalNetwork === 0 ? L1_FEE_WALLET_ADDRESS : ADMIN,
 
       baseFeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
       l1FeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
       sequencerFeeVaultMinimumWithdrawalAmount: '0xde0b6b3a7640000', // 1 ETH
-      baseFeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
-      l1FeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
-      sequencerFeeVaultWithdrawalNetwork: 0, // 0 = L1, 1 = L2
+      baseFeeVaultWithdrawalNetwork,
+      l1FeeVaultWithdrawalNetwork,
+      sequencerFeeVaultWithdrawalNetwork,
 
       gasPriceOracleOverhead: Number(process.env.GAS_PRICE_ORACLE_OVERHEAD) || 2100,
       gasPriceOracleScalar: Number(process.env.GAS_PRICE_ORACLE_SCALAR) || 1e6,
