@@ -75,7 +75,7 @@ const main = async () => {
 
     // see op-chain-ops/genesis/config.go for documentation
     const json = {
-      superchainConfigGuardian:  ADMIN,
+      superchainConfigGuardian: L1_FEE_WALLET_ADDRESS,
       finalSystemOwner: L1_FEE_WALLET_ADDRESS,
 
       l1StartingBlockTag: BLOCKHASH,
