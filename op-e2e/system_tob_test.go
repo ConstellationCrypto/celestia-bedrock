@@ -11,7 +11,6 @@ import (
 	"time"
 
 	legacybindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
@@ -20,6 +19,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	bindingspreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
+	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -658,7 +658,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 					// Start a challenger to resolve claims and games once the clock expires
 					factoryHelper := disputegame.NewFactoryHelper(t, ctx, sys)
 					factoryHelper.StartChallenger(ctx, "Challenger",
-						challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg, sys.RollupEndpoint("sequencer"), sys.NodeEndpoint("sequencer")),
+						challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg),
 						challenger.WithPrivKey(sys.Cfg.Secrets.Mallory))
 				}
 				receipt, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())

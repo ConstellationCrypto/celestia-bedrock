@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
+	"github.com/ethereum-optimism/optimism/op-plasma/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -227,7 +227,7 @@ func (a *L2PlasmaDA) ActResolveInput(t Testing, comm []byte, input []byte, bn ui
 
 func (a *L2PlasmaDA) ActResolveLastChallenge(t Testing) {
 	// remove derivation byte prefix
-	input, err := a.storage.GetInput(t.Ctx(), a.lastComm[1:])
+	input, err := a.storage.GetInput(t.Ctx(), plasma.Keccak256Commitment(a.lastComm[1:]))
 	require.NoError(t, err)
 
 	a.ActResolveInput(t, a.lastComm, input, a.lastCommBn)
@@ -458,7 +458,7 @@ func TestPlasma_SequencerStalledMultiChallenges(gt *testing.T) {
 
 	// keep track of the related commitment
 	comm1 := a.lastComm
-	input1, err := a.storage.GetInput(t.Ctx(), comm1[1:])
+	input1, err := a.storage.GetInput(t.Ctx(), plasma.Keccak256Commitment(comm1[1:]))
 	bn1 := a.lastCommBn
 	require.NoError(t, err)
 
@@ -503,7 +503,7 @@ func TestPlasma_SequencerStalledMultiChallenges(gt *testing.T) {
 
 	// keep track of the second commitment
 	comm2 := a.lastComm
-	_, err = a.storage.GetInput(t.Ctx(), comm2[1:])
+	_, err = a.storage.GetInput(t.Ctx(), plasma.Keccak256Commitment(comm2[1:]))
 	require.NoError(t, err)
 	a.lastCommBn = a.miner.l1Chain.CurrentBlock().Number.Uint64()
 

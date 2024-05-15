@@ -71,15 +71,13 @@ services:
 
   op-node:
     depends_on:
-      - op_stack_go_builder
       - l1
       - l2
       - da
     build:
       context: ../
-      dockerfile: ./op-node/Dockerfile
-      args:
-        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:devnet
     command: >
       op-node
@@ -126,15 +124,13 @@ services:
 
   op-proposer:
     depends_on:
-      - op_stack_go_builder
       - l1
       - l2
       - op-node
     build:
       context: ../
-      dockerfile: ./op-proposer/Dockerfile
-      args:
-        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: op-proposer-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-proposer:devnet
     ports:
       - "6062:6060"
@@ -158,21 +154,15 @@ services:
 
   op-batcher:
     depends_on:
-      op_stack_go_builder:
-        condition: service_started
-      l1:
-        condition: service_started
-      l2:
-        condition: service_started
-      op-node:
-        condition: service_started
-      da:
-        condition: service_healthy
+      - l1
+      - l2
+      - op-node
+      - op_stack_go_builder
+      - da
     build:
       context: ../
-      dockerfile: ./op-batcher/Dockerfile
-      args:
-        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: op-batcher-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:devnet
     ports:
       - "6061:6060"
@@ -199,15 +189,13 @@ services:
 
   op-challenger:
     depends_on:
-      - op_stack_go_builder
       - l1
       - l2
       - op-node
     build:
       context: ../
-      dockerfile: ./op-challenger/Dockerfile
-      args:
-        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: op-challenger-target
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-challenger:devnet
     volumes:
       - "challenger_data:/db"
@@ -228,20 +216,17 @@ services:
       OP_CHALLENGER_CANNON_BIN: ./cannon/bin/cannon
       OP_CHALLENGER_CANNON_SERVER: /op-program/op-program
       OP_CHALLENGER_CANNON_PRESTATE: /op-program/prestate.json
-      OP_CHALLENGER_CANNON_L2: http://l2:8545
+      OP_CHALLENGER_L2_ETH_RPC: http://l2:8545
       OP_CHALLENGER_MNEMONIC: test test test test test test test test test test test junk
       OP_CHALLENGER_HD_PATH: "m/44'/60'/0'/0/4"
       OP_CHALLENGER_NUM_CONFIRMATIONS: 1
 
   da-server:
-    depends_on:
-      - op_stack_go_builder
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/da-server:devnet
     build:
       context: ../
-      dockerfile: ./op-plasma/Dockerfile
-      args:
-        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: da-server-target
     command: >
       da-server
       --file.path=/data

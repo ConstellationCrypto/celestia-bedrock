@@ -317,7 +317,7 @@ func (eq *EngineQueue) Step(ctx context.Context) error {
 	if eq.safeAttributes != nil {
 		return eq.tryNextSafeAttributes(ctx)
 	}
-	outOfData := false
+
 	newOrigin := eq.prev.Origin()
 	// Check if the L2 unsafe head origin is consistent with the new origin
 	if err := eq.verifyNewL1Origin(ctx, newOrigin); err != nil {
@@ -333,7 +333,7 @@ func (eq *EngineQueue) Step(ctx context.Context) error {
 		return err
 	}
 	if next, err := eq.prev.NextAttributes(ctx, eq.ec.PendingSafeL2Head()); err == io.EOF {
-		outOfData = true
+		return io.EOF
 	} else if err != nil {
 		return err
 	} else {
@@ -341,12 +341,6 @@ func (eq *EngineQueue) Step(ctx context.Context) error {
 		eq.log.Debug("Adding next safe attributes", "safe_head", eq.ec.SafeL2Head(),
 			"pending_safe_head", eq.ec.PendingSafeL2Head(), "next", next)
 		return NotEnoughData
-	}
-
-	if outOfData {
-		return io.EOF
-	} else {
-		return nil
 	}
 }
 
