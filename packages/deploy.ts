@@ -117,6 +117,8 @@ const main = async () => {
 
       gasPriceOracleOverhead: Number(process.env.GAS_PRICE_ORACLE_OVERHEAD) || 2100,
       gasPriceOracleScalar: Number(process.env.GAS_PRICE_ORACLE_SCALAR) || 1e6,
+      gasPriceOracleBaseFeeScalar: Number(process.env.GAS_PRICE_ORACLE_BASE_FEE_SCALAR) || 1368, //https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/deploy-config/mainnet.json#L40C38-L40C44
+      gasPriceOracleBlobBaseFeeScalar: Number(process.env.GAS_PRICE_ORACLE_BLOB_BASE_FEE_SCALAR) || 810949, //https://docs.optimism.io/builders/chain-operators/management/configuration
 
       enableGovernance: false, // do not predeploy the governance token onto the l2
       governanceTokenName: 'Optimism', // unused
