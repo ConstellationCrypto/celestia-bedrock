@@ -109,7 +109,9 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 	if err != nil {
 		log.Error("Error initializing the rollup node", "err", err)
 		// ensure we always close the node resources if we fail to initialize the node.
-		if closeErr := n.Stop(ctx); closeErr != nil {
+		ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if closeErr := n.Stop(ctx2); closeErr != nil {
 			return nil, multierror.Append(err, closeErr)
 		}
 		return nil, err
