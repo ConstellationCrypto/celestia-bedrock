@@ -132,6 +132,9 @@ const main = async () => {
       gasPriceOracleBaseFeeScalar: gasPriceOracleBaseFeeScalar,
       gasPriceOracleBlobBaseFeeScalar: gasPriceOracleBlobBaseFeeScalar,
 
+      gasPriceOracleOverhead: 0, //deprecated
+      gasPriceOracleScalar: 0, //deprecated
+
       enableGovernance: false, // do not predeploy the governance token onto the l2
       governanceTokenName: 'Optimism', // unused
       governanceTokenSymbol: 'OP', // unused
