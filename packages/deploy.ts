@@ -73,6 +73,20 @@ const main = async () => {
     const l1FeeVaultWithdrawalNetwork = 0; // 0 = L1, 1 = L2
     const sequencerFeeVaultWithdrawalNetwork = 0; // 0 = L1, 1 = L2
 
+    // https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/deploy-config/mainnet.json#L40C38-L40C44
+    // https://docs.optimism.io/builders/chain-operators/management/configuration
+    // https://docs.google.com/spreadsheets/d/12VIiXHaVECG2RUunDSVJpn67IQp9NHFJqUsma2PndpE/edit#gid=186414307
+    // below defaults are for 75,000k transactions per day
+    let gasPriceOracleBlobBaseFeeScalar
+    let gasPriceOracleBaseFeeScalar
+    if (process.env.DATA_AVAILABILITY_TYPE === "blobs") {
+      gasPriceOracleBlobBaseFeeScalar = Number(process.env.GAS_PRICE_ORACLE_BLOB_BASE_FEE_SCALAR) || 659851
+      gasPriceOracleBaseFeeScalar =  Number(process.env.GAS_PRICE_ORACLE_BASE_FEE_SCALAR) || 1101
+    } else {
+      gasPriceOracleBlobBaseFeeScalar = Number(process.env.GAS_PRICE_ORACLE_BLOB_BASE_FEE_SCALAR) || 0
+      gasPriceOracleBaseFeeScalar = Number(process.env.GAS_PRICE_ORACLE_BASE_FEE_SCALAR) || 668098
+    }
+
     // see op-chain-ops/genesis/config.go for documentation
     const json = {
       superchainConfigGuardian: L1_FEE_WALLET_ADDRESS,
@@ -115,8 +129,8 @@ const main = async () => {
       l1FeeVaultWithdrawalNetwork,
       sequencerFeeVaultWithdrawalNetwork,
 
-      gasPriceOracleOverhead: Number(process.env.GAS_PRICE_ORACLE_OVERHEAD) || 2100,
-      gasPriceOracleScalar: Number(process.env.GAS_PRICE_ORACLE_SCALAR) || 1e6,
+      gasPriceOracleBaseFeeScalar: gasPriceOracleBaseFeeScalar,
+      gasPriceOracleBlobBaseFeeScalar: gasPriceOracleBlobBaseFeeScalar,
 
       enableGovernance: false, // do not predeploy the governance token onto the l2
       governanceTokenName: 'Optimism', // unused
