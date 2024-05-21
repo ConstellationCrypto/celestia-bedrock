@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -111,6 +112,8 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 		// ensure we always close the node resources if we fail to initialize the node.
 		ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
+		// Stop() can still hang despite the ctx timeout
+		time.AfterFunc(10*time.Second, func() { os.Exit(1) })
 		if closeErr := n.Stop(ctx2); closeErr != nil {
 			return nil, multierror.Append(err, closeErr)
 		}
