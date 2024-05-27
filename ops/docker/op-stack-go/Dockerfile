@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG TARGET_BASE_IMAGE=alpine:3.18
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.21.3-alpine3.18 as builder
+FROM --platform=$BUILDPLATFORM golang:1.21.5-alpine3.18 as builder
 
 RUN apk add --no-cache make gcc musl-dev linux-headers git jq bash
 
@@ -25,12 +25,7 @@ WORKDIR /app
 RUN echo "go mod cache: $(go env GOMODCACHE)"
 RUN echo "go build cache: $(go env GOCACHE)"
 
-<<<<<<< HEAD
-COPY op-geth/go.mod /app/op-geth/go.mod
-COPY op-geth/go.sum /app/op-geth/go.sum
-=======
 # warm-up the cache
->>>>>>> v1.7.6
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
 
 # NOTE: the Dockerfile.dockerignore file effectively describes all dependencies
