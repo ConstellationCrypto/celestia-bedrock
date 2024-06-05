@@ -174,7 +174,10 @@ const main = async () => {
       proofMaturityDelaySeconds: Number(process.env.PROOF_MATURITY_DELAY_SECONDS) || 12,
       disputeGameFinalityDelaySeconds: Number(process.env.DISPUTE_GAME_FINALITY_DELAY_SECONDS) || 6,
       respectedGameType: 0,
-      useFaultProofs: process.env.USE_FAULT_PROOFS === "true"
+      useFaultProofs: process.env.USE_FAULT_PROOFS === "true",
+
+      useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
+      customGasTokenAddress: process.env.L1_FPE_TOKEN
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
