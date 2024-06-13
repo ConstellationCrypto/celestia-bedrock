@@ -70,7 +70,6 @@ func TestCommitAndRead(t *testing.T) {
 	// ExecutionPayloadEnvelope is expected to succeed when unmarshalling a blockV3
 	require.NoError(t, err)
 
-	unsafeHead, err := cons.LatestUnsafePayload()
-	require.NoError(t, err)
+	unsafeHead := cons.LatestUnsafePayload()
 	require.Equal(t, payload, unsafeHead)
 }

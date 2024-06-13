@@ -9,17 +9,15 @@ func (a ActionType) String() string {
 }
 
 const (
-	ActionTypeMove                   ActionType = "move"
-	ActionTypeStep                   ActionType = "step"
-	ActionTypeChallengeL2BlockNumber ActionType = "challenge-l2-block-number"
+	ActionTypeMove ActionType = "move"
+	ActionTypeStep ActionType = "step"
 )
 
 type Action struct {
-	Type ActionType
-
-	// Moves and Steps
-	ParentClaim Claim
-	IsAttack    bool
+	Type           ActionType
+	ParentIdx      int
+	ParentPosition Position
+	IsAttack       bool
 
 	// Moves
 	Value common.Hash
@@ -28,7 +26,4 @@ type Action struct {
 	PreState   []byte
 	ProofData  []byte
 	OracleData *PreimageOracleData
-
-	// Challenge L2 Block Number
-	InvalidL2BlockNumberChallenge *InvalidL2BlockNumberChallenge
 }

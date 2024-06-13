@@ -151,8 +151,8 @@ const main = async () => {
       l2GenesisCanyonTimeOffset: '0x0',
       l2GenesisDeltaTimeOffset: '0x0',
       l2GenesisEcotoneTimeOffset: '0x0',
-      l2GenesisFjordTimeOffset: '0x0',
-      l2GenesisInteropTimeOffset: '0x0',
+      l2GenesisFjordTimeOffset: undefined,
+      l2GenesisInteropTimeOffset: undefined,
 
       systemConfigStartBlock: 0,
       requiredProtocolVersion: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -174,24 +174,22 @@ const main = async () => {
       proofMaturityDelaySeconds: Number(process.env.PROOF_MATURITY_DELAY_SECONDS) || 12,
       disputeGameFinalityDelaySeconds: Number(process.env.DISPUTE_GAME_FINALITY_DELAY_SECONDS) || 6,
       respectedGameType: 0,
-      useFaultProofs: process.env.USE_FAULT_PROOFS === "true",
-
-      useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
-      customGasTokenAddress: process.env.L1_FPE_TOKEN
+      useFaultProofs: process.env.USE_FAULT_PROOFS === "true"
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
-    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy IMPL_SALT=$(openssl rand -hex 32) DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
+    // IMPL_SALT=${randomBytes(10).toString("hex")}
+    execSync(`DEPLOYMENT_CONTEXT=deployer forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --chain-id ${process.env.CHAIN_ID} --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
-
-    execSync(`DEPLOY_CONFIG_PATH=deploy-config/deployer.json DEPLOYMENT_CONTEXT=deployer CONTRACT_ADDRESSES_PATH=deployments/deployer/.deploy STATE_DUMP_PATH=allocs-l2-raw.json forge script -vvv scripts/L2Genesis.s.sol:L2Genesis --sig "runWithStateDump()" --private-key $PRIVATE_KEY_DEPLOYER --chain-id $L2_CHAIN_ID`)
+    console.log('generating allocs-l2-raw')
+    execSync(`DEPLOYMENT_CONTEXT=deployer CONTRACT_ADDRESSES_PATH=deployments/deployer/.deploy STATE_DUMP_PATH=allocs-l2-raw.json forge script -vvv --chain-id ${process.env.CHAIN_ID} scripts/L2Genesis.s.sol:L2Genesis --sig "runWithStateDump()" --private-key $PRIVATE_KEY_DEPLOYER`)
 
     console.log("generating allocs-l2")
     writeFileSync("allocs-l2.json", JSON.stringify({accounts: JSON.parse(readFileSync('allocs-l2-raw.json', 'utf-8'))}, null, 2))
 
     console.log('generating rollup.json, genesis.json files')
-    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --l2-allocs allocs-l2-raw.json --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json`,
+    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --l2-allocs allocs-l2.json --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json`,
       { stdio: 'inherit' }
     )
     console.log('generating contracts.json file')
@@ -215,7 +213,6 @@ const main = async () => {
       console.log('Uploading to s3 bucket')
       for (const file of [
         'allocs-l2.json',
-        'allocs-l2-raw.json',
         'deployments/deployer/.deploy',
         'rollup.json',
         'contracts.json',

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/flags"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
@@ -25,12 +24,6 @@ var (
 		Name:    "game-address",
 		Usage:   "Address of the fault game contract.",
 		EnvVars: opservice.PrefixEnvVar(flags.EnvVarPrefix, "GAME_ADDRESS"),
-	}
-	VerboseFlag = &cli.BoolFlag{
-		Name:    "verbose",
-		Aliases: []string{"v"},
-		Usage:   "Verbose output",
-		EnvVars: opservice.PrefixEnvVar(flags.EnvVarPrefix, "VERBOSE"),
 	}
 )
 
@@ -55,31 +48,23 @@ func ListClaims(ctx *cli.Context) error {
 	defer l1Client.Close()
 
 	caller := batching.NewMultiCaller(l1Client.Client(), batching.DefaultBatchSize)
-	contract, err := contracts.NewFaultDisputeGameContract(ctx.Context, metrics.NoopContractMetrics, gameAddr, caller)
-	if err != nil {
-		return err
-	}
-	return listClaims(ctx.Context, contract, ctx.Bool(VerboseFlag.Name))
+	contract := contracts.NewFaultDisputeGameContract(metrics.NoopContractMetrics, gameAddr, caller)
+	return listClaims(ctx.Context, contract)
 }
 
-func listClaims(ctx context.Context, game contracts.FaultDisputeGameContract, verbose bool) error {
-	metadata, err := game.GetGameMetadata(ctx, rpcblock.Latest)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve metadata: %w", err)
-	}
+func listClaims(ctx context.Context, game *contracts.FaultDisputeGameContract) error {
 	maxDepth, err := game.GetMaxGameDepth(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve max depth: %w", err)
-	}
-	maxClockDuration, err := game.GetMaxClockDuration(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve max clock duration: %w", err)
 	}
 	splitDepth, err := game.GetSplitDepth(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve split depth: %w", err)
 	}
-	status := metadata.Status
+	status, err := game.GetStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve status: %w", err)
+	}
 	l2StartBlockNum, l2BlockNum, err := game.GetBlockRange(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve status: %w", err)
@@ -94,44 +79,18 @@ func listClaims(ctx context.Context, game contracts.FaultDisputeGameContract, ve
 	// The - 1 here accounts for the fact that the split depth is included in the top game.
 	bottomDepth := maxDepth - splitDepth - 1
 
-	resolved, err := game.IsResolved(ctx, rpcblock.Latest, claims...)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve claim resolution: %w", err)
-	}
-
 	gameState := types.NewGameState(claims, maxDepth)
-	valueFormat := "%-14v"
-	if verbose {
-		valueFormat = "%-66v"
-	}
-	now := time.Now()
-	lineFormat := "%3v %-7v %6v %5v %14v " + valueFormat + " %-42v %-19v %10v %v\n"
-	info := fmt.Sprintf(lineFormat, "Idx", "Move", "Parent", "Depth", "Index", "Value", "Claimant", "Time", "Clock Used", "Resolution")
+	lineFormat := "%3v %-7v %6v %5v %14v %-66v %-42v %-42v\n"
+	info := fmt.Sprintf(lineFormat, "Idx", "Move", "Parent", "Depth", "Index", "Value", "Claimant", "Countered By")
 	for i, claim := range claims {
 		pos := claim.Position
 		parent := strconv.Itoa(claim.ParentContractIndex)
-		var elapsed time.Duration // Root claim does not accumulate any time on its team's chess clock
 		if claim.IsRoot() {
 			parent = ""
-		} else {
-			parentClaim, err := gameState.GetParent(claim)
-			if err != nil {
-				return fmt.Errorf("failed to retrieve parent claim: %w", err)
-			}
-			// Get the total chess clock time accumulated by the team that posted this claim at the time of the claim.
-			elapsed = gameState.ChessClock(claim.Clock.Timestamp, parentClaim)
 		}
-		var countered string
-		if !resolved[i] {
-			clock := gameState.ChessClock(now, claim)
-			resolvableAt := now.Add(maxClockDuration - clock).Format(time.DateTime)
-			countered = fmt.Sprintf("⏱️  %v", resolvableAt)
-		} else if claim.IsRoot() && metadata.L2BlockNumberChallenged {
-			countered = "❌ " + metadata.L2BlockNumberChallenger.Hex()
-		} else if claim.CounteredBy != (common.Address{}) {
-			countered = "❌ " + claim.CounteredBy.Hex()
-		} else {
-			countered = "✅"
+		countered := claim.CounteredBy.Hex()
+		if claim.CounteredBy == (common.Address{}) {
+			countered = "-"
 		}
 		move := "Attack"
 		if gameState.DefendsParent(claim) {
@@ -141,7 +100,7 @@ func listClaims(ctx context.Context, game contracts.FaultDisputeGameContract, ve
 		if claim.Depth() <= splitDepth {
 			traceIdx = claim.TraceIndex(splitDepth)
 		} else {
-			relativePos, err := claim.Position.RelativeToAncestorAtDepth(splitDepth + 1)
+			relativePos, err := claim.Position.RelativeToAncestorAtDepth(splitDepth)
 			if err != nil {
 				fmt.Printf("Error calculating relative position for claim %v: %v", claim.ContractIndex, err)
 				traceIdx = big.NewInt(-1)
@@ -149,20 +108,11 @@ func listClaims(ctx context.Context, game contracts.FaultDisputeGameContract, ve
 				traceIdx = relativePos.TraceIndex(bottomDepth)
 			}
 		}
-		value := claim.Value.TerminalString()
-		if verbose {
-			value = claim.Value.Hex()
-		}
-		timestamp := claim.Clock.Timestamp.Format(time.DateTime)
 		info = info + fmt.Sprintf(lineFormat,
-			i, move, parent, pos.Depth(), traceIdx, value, claim.Claimant, timestamp, elapsed, countered)
+			i, move, parent, pos.Depth(), traceIdx, claim.Value.Hex(), claim.Claimant, countered)
 	}
-	blockNumChallenger := "L2 Block: Unchallenged"
-	if metadata.L2BlockNumberChallenged {
-		blockNumChallenger = "L2 Block: ❌ " + metadata.L2BlockNumberChallenger.Hex()
-	}
-	fmt.Printf("Status: %v • L2 Blocks: %v to %v • Split Depth: %v • Max Depth: %v • %v • Claim Count: %v\n%v\n",
-		status, l2StartBlockNum, l2BlockNum, splitDepth, maxDepth, blockNumChallenger, len(claims), info)
+	fmt.Printf("Status: %v • L2 Blocks: %v to %v • Split Depth: %v • Max Depth: %v • Claim Count: %v\n%v\n",
+		status, l2StartBlockNum, l2BlockNum, splitDepth, maxDepth, len(claims), info)
 	return nil
 }
 
@@ -170,9 +120,8 @@ func listClaimsFlags() []cli.Flag {
 	cliFlags := []cli.Flag{
 		flags.L1EthRpcFlag,
 		GameAddressFlag,
-		VerboseFlag,
 	}
-	cliFlags = append(cliFlags, oplog.CLIFlags(flags.EnvVarPrefix)...)
+	cliFlags = append(cliFlags, oplog.CLIFlags("OP_CHALLENGER")...)
 	return cliFlags
 }
 

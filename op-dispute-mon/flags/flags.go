@@ -57,17 +57,6 @@ var (
 		EnvVars: prefixEnvVars("GAME_WINDOW"),
 		Value:   config.DefaultGameWindow,
 	}
-	IgnoredGamesFlag = &cli.StringSliceFlag{
-		Name:    "ignored-games",
-		Usage:   "List of game addresses to exclude from monitoring.",
-		EnvVars: prefixEnvVars("IGNORED_GAMES"),
-	}
-	MaxConcurrencyFlag = &cli.UintFlag{
-		Name:    "max-concurrency",
-		Usage:   "Maximum number of threads to use when fetching game data",
-		EnvVars: prefixEnvVars("MAX_CONCURRENCY"),
-		Value:   config.DefaultMaxConcurrency,
-	}
 )
 
 // requiredFlags are checked by [CheckRequired]
@@ -82,8 +71,6 @@ var optionalFlags = []cli.Flag{
 	HonestActorsFlag,
 	MonitorIntervalFlag,
 	GameWindowFlag,
-	IgnoredGamesFlag,
-	MaxConcurrencyFlag,
 }
 
 func init() {
@@ -127,17 +114,6 @@ func NewConfigFromCLI(ctx *cli.Context) (*config.Config, error) {
 		}
 	}
 
-	var ignoredGames []common.Address
-	if ctx.IsSet(IgnoredGamesFlag.Name) {
-		for _, addrStr := range ctx.StringSlice(IgnoredGamesFlag.Name) {
-			game, err := opservice.ParseAddress(addrStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid ignored game address: %w", err)
-			}
-			ignoredGames = append(ignoredGames, game)
-		}
-	}
-
 	metricsConfig := opmetrics.ReadCLIConfig(ctx)
 	pprofConfig := oppprof.ReadCLIConfig(ctx)
 
@@ -149,8 +125,6 @@ func NewConfigFromCLI(ctx *cli.Context) (*config.Config, error) {
 		RollupRpc:       ctx.String(RollupRpcFlag.Name),
 		MonitorInterval: ctx.Duration(MonitorIntervalFlag.Name),
 		GameWindow:      ctx.Duration(GameWindowFlag.Name),
-		IgnoredGames:    ignoredGames,
-		MaxConcurrency:  ctx.Uint(MaxConcurrencyFlag.Name),
 
 		MetricsConfig: metricsConfig,
 		PprofConfig:   pprofConfig,

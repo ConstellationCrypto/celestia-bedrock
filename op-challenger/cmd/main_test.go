@@ -23,7 +23,7 @@ var (
 	gameFactoryAddressValue = "0xbb00000000000000000000000000000000000000"
 	cannonNetwork           = "op-mainnet"
 	testNetwork             = "op-sepolia"
-	l2EthRpc                = "http://example.com:9545"
+	l2Rpc                   = "http://example.com:9545"
 	cannonBin               = "./bin/cannon"
 	cannonServer            = "./bin/op-program"
 	cannonPreState          = "./pre.json"
@@ -52,12 +52,17 @@ func TestLogLevel(t *testing.T) {
 
 func TestDefaultCLIOptionsMatchDefaultConfig(t *testing.T) {
 	cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet))
-	defaultCfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, l1Beacon, rollupRpc, l2EthRpc, datadir, config.TraceTypeAlphabet)
+	defaultCfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, l1Beacon, datadir, config.TraceTypeAlphabet)
+	// Add in the extra CLI options required when using alphabet trace type
+	defaultCfg.RollupRpc = rollupRpc
 	require.Equal(t, defaultCfg, cfg)
 }
 
 func TestDefaultConfigIsValid(t *testing.T) {
-	cfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, l1Beacon, rollupRpc, l2EthRpc, datadir, config.TraceTypeAlphabet)
+	cfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, l1Beacon, datadir, config.TraceTypeAlphabet)
+	// Add in options that are required based on the specific trace type
+	// To avoid needing to specify unused options, these aren't included in the params for NewConfig
+	cfg.RollupRpc = rollupRpc
 	require.NoError(t, cfg.Check())
 }
 
@@ -109,6 +114,7 @@ func TestTraceType(t *testing.T) {
 func TestMultipleTraceTypes(t *testing.T) {
 	t.Run("WithAllOptions", func(t *testing.T) {
 		argsMap := requiredArgs(config.TraceTypeCannon)
+		addRequiredOutputArgs(argsMap)
 		// Add Asterisc required flags
 		addRequiredAsteriscArgs(argsMap)
 		args := toArgList(argsMap)
@@ -124,6 +130,7 @@ func TestMultipleTraceTypes(t *testing.T) {
 	})
 	t.Run("WithSomeOptions", func(t *testing.T) {
 		argsMap := requiredArgs(config.TraceTypeCannon)
+		addRequiredOutputArgs(argsMap)
 		args := toArgList(argsMap)
 		// Add extra trace types (cannon is already specified)
 		args = append(args,
@@ -283,7 +290,7 @@ func TestAsteriscRequiredArgs(t *testing.T) {
 			})
 
 			t.Run("Required", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag asterisc-prestates-url or asterisc-prestate is required", addRequiredArgsExcept(traceType, "--asterisc-prestate"))
+				verifyArgsInvalid(t, "flag asterisc-prestate is required", addRequiredArgsExcept(traceType, "--asterisc-prestate"))
 			})
 
 			t.Run("Valid", func(t *testing.T) {
@@ -292,38 +299,31 @@ func TestAsteriscRequiredArgs(t *testing.T) {
 			})
 		})
 
-		t.Run(fmt.Sprintf("TestAsteriscAbsolutePrestateBaseURL-%v", traceType), func(t *testing.T) {
-			t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
-				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--asterisc-prestates-url"))
-			})
-
-			t.Run("Required", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag asterisc-prestates-url or asterisc-prestate is required", addRequiredArgsExcept(traceType, "--asterisc-prestate"))
-			})
-
-			t.Run("Valid", func(t *testing.T) {
-				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--asterisc-prestates-url", "--asterisc-prestates-url=http://localhost/bar"))
-				require.Equal(t, "http://localhost/bar", cfg.AsteriscAbsolutePreStateBaseURL.String())
-			})
-		})
-
 		t.Run(fmt.Sprintf("TestL2Rpc-%v", traceType), func(t *testing.T) {
+			t.Run("NotRequiredForAlphabetTraceLegacy", func(t *testing.T) {
+				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-l2"))
+			})
+
+			t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--l2-rpc"))
+			})
+
 			t.Run("RequiredForAsteriscTrace", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag l2-eth-rpc is required", addRequiredArgsExcept(traceType, "--l2-eth-rpc"))
+				verifyArgsInvalid(t, "flag l2-rpc is required", addRequiredArgsExcept(traceType, "--l2-rpc"))
 			})
 
 			t.Run("ValidLegacy", func(t *testing.T) {
-				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--l2-eth-rpc", fmt.Sprintf("--cannon-l2=%s", l2EthRpc)))
-				require.Equal(t, l2EthRpc, cfg.L2Rpc)
+				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--l2-rpc", fmt.Sprintf("--cannon-l2=%s", l2Rpc)))
+				require.Equal(t, l2Rpc, cfg.L2Rpc)
 			})
 
 			t.Run("Valid", func(t *testing.T) {
 				cfg := configForArgs(t, addRequiredArgs(traceType))
-				require.Equal(t, l2EthRpc, cfg.L2Rpc)
+				require.Equal(t, l2Rpc, cfg.L2Rpc)
 			})
 
 			t.Run("InvalidUsingBothFlags", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag cannon-l2 and l2-eth-rpc must not be both set", addRequiredArgsExcept(traceType, "", fmt.Sprintf("--cannon-l2=%s", l2EthRpc)))
+				verifyArgsInvalid(t, "flag cannon-l2 and l2-rpc must not be both set", addRequiredArgsExcept(traceType, "", fmt.Sprintf("--cannon-l2=%s", l2Rpc)))
 			})
 		})
 
@@ -423,25 +423,6 @@ func TestAsteriscRequiredArgs(t *testing.T) {
 		})
 	}
 }
-
-func TestAlphabetRequiredArgs(t *testing.T) {
-	t.Run(fmt.Sprintf("TestL2Rpc-%v", config.TraceTypeAlphabet), func(t *testing.T) {
-		t.Run("RequiredForAlphabetTrace", func(t *testing.T) {
-			verifyArgsInvalid(t, "flag l2-eth-rpc is required", addRequiredArgsExcept(config.TraceTypeAlphabet, "--l2-eth-rpc"))
-		})
-
-		t.Run("ValidLegacy", func(t *testing.T) {
-			cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--l2-eth-rpc", fmt.Sprintf("--cannon-l2=%s", l2EthRpc)))
-			require.Equal(t, l2EthRpc, cfg.L2Rpc)
-		})
-
-		t.Run("Valid", func(t *testing.T) {
-			cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet))
-			require.Equal(t, l2EthRpc, cfg.L2Rpc)
-		})
-	})
-}
-
 func TestCannonRequiredArgs(t *testing.T) {
 	for _, traceType := range []config.TraceType{config.TraceTypeCannon, config.TraceTypePermissioned} {
 		traceType := traceType
@@ -481,7 +462,7 @@ func TestCannonRequiredArgs(t *testing.T) {
 			})
 
 			t.Run("Required", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag cannon-prestates-url or cannon-prestate is required", addRequiredArgsExcept(traceType, "--cannon-prestate"))
+				verifyArgsInvalid(t, "flag cannon-prestate is required", addRequiredArgsExcept(traceType, "--cannon-prestate"))
 			})
 
 			t.Run("Valid", func(t *testing.T) {
@@ -490,34 +471,27 @@ func TestCannonRequiredArgs(t *testing.T) {
 			})
 		})
 
-		t.Run(fmt.Sprintf("TestCannonAbsolutePrestateBaseURL-%v", traceType), func(t *testing.T) {
-			t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
-				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-prestates-url"))
-			})
-
-			t.Run("Required", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag cannon-prestates-url or cannon-prestate is required", addRequiredArgsExcept(traceType, "--cannon-prestate"))
-			})
-
-			t.Run("Valid", func(t *testing.T) {
-				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--cannon-prestates-url", "--cannon-prestates-url=http://localhost/foo"))
-				require.Equal(t, "http://localhost/foo", cfg.CannonAbsolutePreStateBaseURL.String())
-			})
-		})
-
 		t.Run(fmt.Sprintf("TestL2Rpc-%v", traceType), func(t *testing.T) {
+			t.Run("NotRequiredForAlphabetTraceLegacy", func(t *testing.T) {
+				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-l2"))
+			})
+
+			t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+				configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--l2-rpc"))
+			})
+
 			t.Run("RequiredForCannonTrace", func(t *testing.T) {
-				verifyArgsInvalid(t, "flag l2-eth-rpc is required", addRequiredArgsExcept(traceType, "--l2-eth-rpc"))
+				verifyArgsInvalid(t, "flag l2-rpc is required", addRequiredArgsExcept(traceType, "--l2-rpc"))
 			})
 
 			t.Run("ValidLegacy", func(t *testing.T) {
-				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--l2-eth-rpc", fmt.Sprintf("--cannon-l2=%s", l2EthRpc)))
-				require.Equal(t, l2EthRpc, cfg.L2Rpc)
+				cfg := configForArgs(t, addRequiredArgsExcept(traceType, "--l2-rpc", fmt.Sprintf("--cannon-l2=%s", l2Rpc)))
+				require.Equal(t, l2Rpc, cfg.L2Rpc)
 			})
 
 			t.Run("Valid", func(t *testing.T) {
 				cfg := configForArgs(t, addRequiredArgs(traceType))
-				require.Equal(t, l2EthRpc, cfg.L2Rpc)
+				require.Equal(t, l2Rpc, cfg.L2Rpc)
 			})
 		})
 
@@ -768,8 +742,6 @@ func requiredArgs(traceType config.TraceType) map[string]string {
 	args := map[string]string{
 		"--l1-eth-rpc":           l1EthRpc,
 		"--l1-beacon":            l1Beacon,
-		"--rollup-rpc":           rollupRpc,
-		"--l2-eth-rpc":           l2EthRpc,
 		"--game-factory-address": gameFactoryAddressValue,
 		"--trace-type":           traceType.String(),
 		"--datadir":              datadir,
@@ -779,6 +751,8 @@ func requiredArgs(traceType config.TraceType) map[string]string {
 		addRequiredCannonArgs(args)
 	case config.TraceTypeAsterisc:
 		addRequiredAsteriscArgs(args)
+	case config.TraceTypeAlphabet:
+		addRequiredOutputArgs(args)
 	}
 	return args
 }
@@ -788,7 +762,8 @@ func addRequiredCannonArgs(args map[string]string) {
 	args["--cannon-bin"] = cannonBin
 	args["--cannon-server"] = cannonServer
 	args["--cannon-prestate"] = cannonPreState
-	args["--l2-eth-rpc"] = l2EthRpc
+	args["--l2-rpc"] = l2Rpc
+	addRequiredOutputArgs(args)
 }
 
 func addRequiredAsteriscArgs(args map[string]string) {
@@ -796,7 +771,12 @@ func addRequiredAsteriscArgs(args map[string]string) {
 	args["--asterisc-bin"] = asteriscBin
 	args["--asterisc-server"] = asteriscServer
 	args["--asterisc-prestate"] = asteriscPreState
-	args["--l2-eth-rpc"] = l2EthRpc
+	args["--l2-rpc"] = l2Rpc
+	addRequiredOutputArgs(args)
+}
+
+func addRequiredOutputArgs(args map[string]string) {
+	args["--rollup-rpc"] = rollupRpc
 }
 
 func toArgList(req map[string]string) []string {

@@ -17,6 +17,10 @@ func decodeSpanBatchBits(r *bytes.Reader, bitLength uint64) (*big.Int, error) {
 	if bitLength%8 != 0 {
 		bufLen++
 	}
+	// avoid out of memory before allocation
+	if bufLen > MaxSpanBatchSize {
+		return nil, ErrTooBigSpanBatchSize
+	}
 	buf := make([]byte, bufLen)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
@@ -43,6 +47,9 @@ func encodeSpanBatchBits(w io.Writer, bitLength uint64, bits *big.Int) error {
 	bufLen := bitLength / 8
 	if bitLength%8 != 0 { // rounding up this way is safe against overflows
 		bufLen++
+	}
+	if bufLen > MaxSpanBatchSize {
+		return ErrTooBigSpanBatchSize
 	}
 	buf := make([]byte, bufLen)
 	bits.FillBytes(buf) // zero-extended, big-endian

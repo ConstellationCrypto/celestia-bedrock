@@ -14,7 +14,7 @@ func TestMultipleGameTypes(t *testing.T) {
 	op_e2e.InitParallel(t, op_e2e.UsesCannon)
 
 	ctx := context.Background()
-	sys, _ := StartFaultDisputeSystem(t)
+	sys, _ := startFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
 	gameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
@@ -26,8 +26,8 @@ func TestMultipleGameTypes(t *testing.T) {
 
 	// Start a challenger with both cannon and alphabet support
 	gameFactory.StartChallenger(ctx, "TowerDefense",
-		challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg),
-		challenger.WithAlphabet(),
+		challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg, sys.RollupEndpoint("sequencer"), sys.NodeEndpoint("sequencer")),
+		challenger.WithAlphabet(sys.RollupEndpoint("sequencer")),
 		challenger.WithPrivKey(sys.Cfg.Secrets.Alice),
 	)
 

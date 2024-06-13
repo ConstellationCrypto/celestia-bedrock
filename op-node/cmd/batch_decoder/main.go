@@ -12,8 +12,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/reassemble"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
@@ -59,12 +57,6 @@ func main() {
 					Usage:    "L1 RPC URL",
 					EnvVars:  []string{"L1_RPC"},
 				},
-				&cli.StringFlag{
-					Name:     "l1.beacon",
-					Required: false,
-					Usage:    "Address of L1 Beacon-node HTTP endpoint to use",
-					EnvVars:  []string{"L1_BEACON"},
-				},
 				&cli.IntFlag{
 					Name:  "concurrent-requests",
 					Value: 10,
@@ -72,28 +64,15 @@ func main() {
 				},
 			},
 			Action: func(cliCtx *cli.Context) error {
-				l1Client, err := ethclient.Dial(cliCtx.String("l1"))
+				client, err := ethclient.Dial(cliCtx.String("l1"))
 				if err != nil {
 					log.Fatal(err)
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				chainID, err := l1Client.ChainID(ctx)
+				chainID, err := client.ChainID(ctx)
 				if err != nil {
 					log.Fatal(err)
-				}
-				beaconAddr := cliCtx.String("l1.beacon")
-				var beacon *sources.L1BeaconClient
-				if beaconAddr != "" {
-					beaconClient := sources.NewBeaconHTTPClient(client.NewBasicHTTPClient(beaconAddr, nil))
-					beaconCfg := sources.L1BeaconClientConfig{FetchAllSidecars: false}
-					beacon = sources.NewL1BeaconClient(beaconClient, beaconCfg)
-					_, err := beacon.GetVersion(ctx)
-					if err != nil {
-						log.Fatal(fmt.Errorf("failed to check L1 Beacon API version: %w", err))
-					}
-				} else {
-					fmt.Println("L1 Beacon endpoint not set. Unable to fetch post-ecotone channel frames")
 				}
 				config := fetch.Config{
 					Start:   uint64(cliCtx.Int("start")),
@@ -106,7 +85,7 @@ func main() {
 					OutDirectory:       cliCtx.String("out"),
 					ConcurrentRequests: uint64(cliCtx.Int("concurrent-requests")),
 				}
-				totalValid, totalInvalid := fetch.Batches(l1Client, beacon, config)
+				totalValid, totalInvalid := fetch.Batches(client, config)
 				fmt.Printf("Fetched batches in range [%v,%v). Found %v valid & %v invalid batches\n", config.Start, config.End, totalValid, totalInvalid)
 				fmt.Printf("Fetch Config: Chain ID: %v. Inbox Address: %v. Valid Senders: %v.\n", config.ChainID, config.BatchInbox, config.BatchSenders)
 				fmt.Printf("Wrote transactions with batches to %v\n", config.OutDirectory)
@@ -182,7 +161,7 @@ func main() {
 					L2GenesisTime: L2GenesisTime,
 					L2BlockTime:   L2BlockTime,
 				}
-				reassemble.Channels(config, rollupCfg)
+				reassemble.Channels(config)
 				return nil
 			},
 		},

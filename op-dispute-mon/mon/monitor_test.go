@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
-	"github.com/ethereum-optimism/optimism/op-dispute-mon/metrics"
 	monTypes "github.com/ethereum-optimism/optimism/op-dispute-mon/mon/types"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -45,29 +44,29 @@ func TestMonitor_MonitorGames(t *testing.T) {
 	})
 
 	t.Run("MonitorsWithNoGames", func(t *testing.T) {
-		monitor, factory, forecast, bonds, withdrawals, resolutions, claims, l2Challenges := setupMonitorTest(t)
+		monitor, factory, forecast, delays, bonds, withdrawals, resolutions, claims := setupMonitorTest(t)
 		factory.games = []*monTypes.EnrichedGameData{}
 		err := monitor.monitorGames()
 		require.NoError(t, err)
 		require.Equal(t, 1, forecast.calls)
+		require.Equal(t, 1, delays.calls)
 		require.Equal(t, 1, bonds.calls)
 		require.Equal(t, 1, resolutions.calls)
 		require.Equal(t, 1, claims.calls)
 		require.Equal(t, 1, withdrawals.calls)
-		require.Equal(t, 1, l2Challenges.calls)
 	})
 
 	t.Run("MonitorsMultipleGames", func(t *testing.T) {
-		monitor, factory, forecast, bonds, withdrawals, resolutions, claims, l2Challenges := setupMonitorTest(t)
+		monitor, factory, forecast, delays, bonds, withdrawals, resolutions, claims := setupMonitorTest(t)
 		factory.games = []*monTypes.EnrichedGameData{{}, {}, {}}
 		err := monitor.monitorGames()
 		require.NoError(t, err)
 		require.Equal(t, 1, forecast.calls)
+		require.Equal(t, 1, delays.calls)
 		require.Equal(t, 1, bonds.calls)
 		require.Equal(t, 1, resolutions.calls)
 		require.Equal(t, 1, claims.calls)
 		require.Equal(t, 1, withdrawals.calls)
-		require.Equal(t, 1, l2Challenges.calls)
 	})
 }
 
@@ -110,7 +109,7 @@ func newEnrichedGameData(proxy common.Address, timestamp uint64) *monTypes.Enric
 	}
 }
 
-func setupMonitorTest(t *testing.T) (*gameMonitor, *mockExtractor, *mockForecast, *mockBonds, *mockMonitor, *mockResolutionMonitor, *mockMonitor, *mockMonitor) {
+func setupMonitorTest(t *testing.T) (*gameMonitor, *mockExtractor, *mockForecast, *mockDelayCalculator, *mockBonds, *mockWithdrawalMonitor, *mockResolutionMonitor, *mockClaimMonitor) {
 	logger := testlog.Logger(t, log.LvlDebug)
 	fetchBlockNum := func(ctx context.Context) (uint64, error) {
 		return 1, nil
@@ -125,27 +124,26 @@ func setupMonitorTest(t *testing.T) (*gameMonitor, *mockExtractor, *mockForecast
 	forecast := &mockForecast{}
 	bonds := &mockBonds{}
 	resolutions := &mockResolutionMonitor{}
-	claims := &mockMonitor{}
-	withdrawals := &mockMonitor{}
-	l2Challenges := &mockMonitor{}
+	claims := &mockClaimMonitor{}
+	withdrawals := &mockWithdrawalMonitor{}
+	delays := &mockDelayCalculator{}
 	monitor := newGameMonitor(
 		context.Background(),
 		logger,
 		cl,
-		metrics.NoopMetrics,
 		monitorInterval,
 		10*time.Second,
+		delays.RecordClaimResolutionDelayMax,
 		forecast.Forecast,
 		bonds.CheckBonds,
 		resolutions.CheckResolutions,
-		claims.Check,
-		withdrawals.Check,
-		l2Challenges.Check,
+		claims.CheckClaims,
+		withdrawals.CheckWithdrawals,
 		extractor.Extract,
 		fetchBlockNum,
 		fetchBlockHash,
 	)
-	return monitor, extractor, forecast, bonds, withdrawals, resolutions, claims, l2Challenges
+	return monitor, extractor, forecast, delays, bonds, withdrawals, resolutions, claims
 }
 
 type mockResolutionMonitor struct {
@@ -156,11 +154,27 @@ func (m *mockResolutionMonitor) CheckResolutions(games []*monTypes.EnrichedGameD
 	m.calls++
 }
 
-type mockMonitor struct {
+type mockClaimMonitor struct {
 	calls int
 }
 
-func (m *mockMonitor) Check(games []*monTypes.EnrichedGameData) {
+func (m *mockClaimMonitor) CheckClaims(games []*monTypes.EnrichedGameData) {
+	m.calls++
+}
+
+type mockWithdrawalMonitor struct {
+	calls int
+}
+
+func (m *mockWithdrawalMonitor) CheckWithdrawals(games []*monTypes.EnrichedGameData) {
+	m.calls++
+}
+
+type mockDelayCalculator struct {
+	calls int
+}
+
+func (m *mockDelayCalculator) RecordClaimResolutionDelayMax(games []*monTypes.EnrichedGameData) {
 	m.calls++
 }
 
@@ -168,7 +182,7 @@ type mockForecast struct {
 	calls int
 }
 
-func (m *mockForecast) Forecast(_ []*monTypes.EnrichedGameData, _, _ int) {
+func (m *mockForecast) Forecast(ctx context.Context, games []*monTypes.EnrichedGameData) {
 	m.calls++
 }
 
@@ -181,25 +195,23 @@ func (m *mockBonds) CheckBonds(_ []*monTypes.EnrichedGameData) {
 }
 
 type mockExtractor struct {
-	fetchErr     error
-	calls        int
-	maxSuccess   int
-	games        []*monTypes.EnrichedGameData
-	ignoredCount int
-	failedCount  int
+	fetchErr   error
+	calls      int
+	maxSuccess int
+	games      []*monTypes.EnrichedGameData
 }
 
 func (m *mockExtractor) Extract(
 	_ context.Context,
 	_ common.Hash,
 	_ uint64,
-) ([]*monTypes.EnrichedGameData, int, int, error) {
+) ([]*monTypes.EnrichedGameData, error) {
 	m.calls++
 	if m.fetchErr != nil {
-		return nil, 0, 0, m.fetchErr
+		return nil, m.fetchErr
 	}
 	if m.calls > m.maxSuccess && m.maxSuccess != 0 {
-		return nil, 0, 0, mockErr
+		return nil, mockErr
 	}
-	return m.games, m.ignoredCount, m.failedCount, nil
+	return m.games, nil
 }

@@ -151,7 +151,7 @@ export class FaultDetector extends BaseServiceV2<Options, Metrics, State> {
         address: portalAddress,
         signerOrProvider: this.options.l1RpcProvider,
       })
-      contracts.L2OutputOracle = await portalContract.l2Oracle()
+      contracts.L2OutputOracle = await portalContract.L2_ORACLE()
     }
 
     // ... for a known chain ids without an override, the L2OutputOracle will already

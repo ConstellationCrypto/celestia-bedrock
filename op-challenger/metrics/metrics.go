@@ -36,7 +36,6 @@ type Metricer interface {
 
 	RecordGameStep()
 	RecordGameMove()
-	RecordGameL2Challenge()
 	RecordCannonExecutionTime(t float64)
 	RecordAsteriscExecutionTime(t float64)
 	RecordClaimResolutionTime(t float64)
@@ -84,9 +83,8 @@ type Metrics struct {
 
 	highestActedL1Block prometheus.Gauge
 
-	moves        prometheus.Counter
-	steps        prometheus.Counter
-	l2Challenges prometheus.Counter
+	moves prometheus.Counter
+	steps prometheus.Counter
 
 	claimResolutionTime   prometheus.Histogram
 	gameActTime           prometheus.Histogram
@@ -146,11 +144,6 @@ func NewMetrics() *Metrics {
 			Namespace: Namespace,
 			Name:      "steps",
 			Help:      "Number of game steps made by the challenge agent",
-		}),
-		l2Challenges: factory.NewCounter(prometheus.CounterOpts{
-			Namespace: Namespace,
-			Name:      "l2_challenges",
-			Help:      "Number of L2 challenges made by the challenge agent",
 		}),
 		cannonExecutionTime: factory.NewHistogram(prometheus.HistogramOpts{
 			Namespace: Namespace,
@@ -256,10 +249,6 @@ func (m *Metrics) RecordGameMove() {
 
 func (m *Metrics) RecordGameStep() {
 	m.steps.Add(1)
-}
-
-func (m *Metrics) RecordGameL2Challenge() {
-	m.l2Challenges.Add(1)
 }
 
 func (m *Metrics) RecordPreimageChallenged() {

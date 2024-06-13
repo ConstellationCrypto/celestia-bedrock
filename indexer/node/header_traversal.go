@@ -1,27 +1,21 @@
 package node
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/indexer/bigint"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
 var (
 	ErrHeaderTraversalAheadOfProvider            = errors.New("the HeaderTraversal's internal state is ahead of the provider")
 	ErrHeaderTraversalAndProviderMismatchedState = errors.New("the HeaderTraversal and provider have diverged in state")
-
-	defaultRequestTimeout = 5 * time.Second
 )
 
 type HeaderTraversal struct {
-	client client.Client
+	ethClient EthClient
 
 	latestHeader        *types.Header
 	lastTraversedHeader *types.Header
@@ -31,9 +25,9 @@ type HeaderTraversal struct {
 
 // NewHeaderTraversal instantiates a new instance of HeaderTraversal against the supplied rpc client.
 // The HeaderTraversal will start fetching blocks starting from the supplied header unless nil, indicating genesis.
-func NewHeaderTraversal(client client.Client, fromHeader *types.Header, confDepth *big.Int) *HeaderTraversal {
+func NewHeaderTraversal(ethClient EthClient, fromHeader *types.Header, confDepth *big.Int) *HeaderTraversal {
 	return &HeaderTraversal{
-		client:                 client,
+		ethClient:              ethClient,
 		lastTraversedHeader:    fromHeader,
 		blockConfirmationDepth: confDepth,
 	}
@@ -56,10 +50,7 @@ func (f *HeaderTraversal) LastTraversedHeader() *types.Header {
 // NextHeaders retrieves the next set of headers that have been
 // marked as finalized by the connected client, bounded by the supplied size
 func (f *HeaderTraversal) NextHeaders(maxSize uint64) ([]types.Header, error) {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-
-	latestHeader, err := f.client.HeaderByNumber(ctxwt, nil)
+	latestHeader, err := f.ethClient.BlockHeaderByNumber(nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query latest block: %w", err)
 	} else if latestHeader == nil {
@@ -90,11 +81,7 @@ func (f *HeaderTraversal) NextHeaders(maxSize uint64) ([]types.Header, error) {
 
 	// endHeight = (nextHeight - endHeight) <= maxSize
 	endHeight = bigint.Clamp(nextHeight, endHeight, maxSize)
-
-	ctxwt, cancel = context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-
-	headers, err := HeadersByRange(ctxwt, f.client, nextHeight, endHeight)
+	headers, err := f.ethClient.BlockHeadersByRange(nextHeight, endHeight)
 	if err != nil {
 		return nil, fmt.Errorf("error querying blocks by range: %w", err)
 	}

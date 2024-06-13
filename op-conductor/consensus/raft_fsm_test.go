@@ -8,24 +8,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 type Bytes32 [32]byte
 
-func createPayloadEnvelope(blockNum uint64) *eth.ExecutionPayloadEnvelope {
+func createPayloadEnvelope() *eth.ExecutionPayloadEnvelope {
 	hash := common.HexToHash("0x12345")
 	one := hexutil.Uint64(1)
 	return &eth.ExecutionPayloadEnvelope{
 		ParentBeaconBlockRoot: &hash,
 		ExecutionPayload: &eth.ExecutionPayload{
-			BlockNumber:   eth.Uint64Quantity(blockNum),
+			BlockNumber:   eth.Uint64Quantity(222),
 			BlockHash:     common.HexToHash("0x888"),
 			Withdrawals:   &types.Withdrawals{{Index: 1, Validator: 2, Address: common.HexToAddress("0x123"), Amount: 3}},
 			ExcessBlobGas: &one,
@@ -34,12 +32,11 @@ func createPayloadEnvelope(blockNum uint64) *eth.ExecutionPayloadEnvelope {
 }
 func TestUnsafeHeadTracker(t *testing.T) {
 	tracker := &unsafeHeadTracker{
-		log:        testlog.Logger(t, log.LevelDebug),
-		unsafeHead: createPayloadEnvelope(222),
+		unsafeHead: createPayloadEnvelope(),
 	}
 
 	t.Run("Apply", func(t *testing.T) {
-		data := createPayloadEnvelope(333)
+		data := createPayloadEnvelope()
 
 		var buf bytes.Buffer
 		_, err := data.MarshalSSZ(&buf)
@@ -47,27 +44,17 @@ func TestUnsafeHeadTracker(t *testing.T) {
 
 		l := raft.Log{Data: buf.Bytes()}
 		require.Nil(t, tracker.Apply(&l))
-		require.Equal(t, hexutil.Uint64(333), tracker.unsafeHead.ExecutionPayload.BlockNumber)
-	})
-
-	t.Run("Snapshot", func(t *testing.T) {
-		snapshot, err := tracker.Snapshot()
-		require.NoError(t, err)
-
-		sink := new(raft.DiscardSnapshotSink)
-
-		err = snapshot.Persist(sink)
-		require.NoError(t, err)
+		require.Equal(t, hexutil.Uint64(222), tracker.unsafeHead.ExecutionPayload.BlockNumber)
 	})
 
 	t.Run("Restore", func(t *testing.T) {
-		data := createPayloadEnvelope(333)
+		data := createPayloadEnvelope()
 
 		mrc, err := NewMockReadCloser(data)
 		require.NoError(t, err)
 		err = tracker.Restore(mrc)
 		require.NoError(t, err)
-		require.Equal(t, hexutil.Uint64(333), tracker.unsafeHead.ExecutionPayload.BlockNumber)
+		require.Equal(t, hexutil.Uint64(222), tracker.unsafeHead.ExecutionPayload.BlockNumber)
 	})
 }
 

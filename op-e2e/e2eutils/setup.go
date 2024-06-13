@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/stretchr/testify/require"
 
@@ -80,7 +79,6 @@ type SetupData struct {
 	L1Cfg         *core.Genesis
 	L2Cfg         *core.Genesis
 	RollupCfg     *rollup.Config
-	ChainSpec     *rollup.ChainSpec
 	DeploymentsL1 *genesis.L1Deployments
 }
 
@@ -88,8 +86,8 @@ type SetupData struct {
 // These allocations override existing allocations per account,
 // i.e. the allocations are merged with AllocParams having priority.
 type AllocParams struct {
-	L1Alloc          types.GenesisAlloc
-	L2Alloc          types.GenesisAlloc
+	L1Alloc          core.GenesisAlloc
+	L2Alloc          core.GenesisAlloc
 	PrefundTestUsers bool
 }
 
@@ -113,7 +111,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l1 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l1Genesis.Alloc[addr] = types.Account{
+			l1Genesis.Alloc[addr] = core.GenesisAccount{
 				Balance: Ether(1e12),
 			}
 		}
@@ -126,7 +124,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 	var allocsMode genesis.L2AllocsMode
 	allocsMode = genesis.L2AllocsDelta
-	if ecotoneTime := deployConf.EcotoneTime(l1Block.Time()); ecotoneTime != nil && *ecotoneTime == 0 {
+	if ecotoneTime := deployConf.EcotoneTime(l1Block.Time()); ecotoneTime != nil && *ecotoneTime <= 0 {
 		allocsMode = genesis.L2AllocsEcotone
 	}
 	l2Allocs := config.L2Allocs(allocsMode)
@@ -134,22 +132,13 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l2 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l2Genesis.Alloc[addr] = types.Account{
+			l2Genesis.Alloc[addr] = core.GenesisAccount{
 				Balance: Ether(1e12),
 			}
 		}
 	}
 	for addr, val := range alloc.L2Alloc {
 		l2Genesis.Alloc[addr] = val
-	}
-
-	var plasma *rollup.PlasmaConfig
-	if deployConf.UsePlasma {
-		plasma = &rollup.PlasmaConfig{
-			DAChallengeAddress: l1Deployments.DataAvailabilityChallengeProxy,
-			DAChallengeWindow:  deployConf.DAChallengeWindow,
-			DAResolveWindow:    deployConf.DAResolveWindow,
-		}
 	}
 
 	rollupCfg := &rollup.Config{
@@ -180,7 +169,10 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		EcotoneTime:            deployConf.EcotoneTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		FjordTime:              deployConf.FjordTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		InteropTime:            deployConf.InteropTime(uint64(deployConf.L1GenesisBlockTimestamp)),
-		PlasmaConfig:           plasma,
+		DAChallengeAddress:     l1Deployments.DataAvailabilityChallengeProxy,
+		DAChallengeWindow:      deployConf.DAChallengeWindow,
+		DAResolveWindow:        deployConf.DAResolveWindow,
+		UsePlasma:              deployConf.UsePlasma,
 	}
 
 	require.NoError(t, rollupCfg.Check())
@@ -194,7 +186,6 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		L1Cfg:         l1Genesis,
 		L2Cfg:         l2Genesis,
 		RollupCfg:     rollupCfg,
-		ChainSpec:     rollup.NewChainSpec(rollupCfg),
 		DeploymentsL1: l1Deployments,
 	}
 }

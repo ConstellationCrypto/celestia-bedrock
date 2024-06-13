@@ -10,35 +10,9 @@ import (
 	faulttest "github.com/ethereum-optimism/optimism/op-challenger/game/fault/test"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
-
-func TestCalculateNextActions_ChallengeL2BlockNumber(t *testing.T) {
-	startingBlock := big.NewInt(5)
-	maxDepth := types.Depth(6)
-	challenge := &types.InvalidL2BlockNumberChallenge{
-		Output: &eth.OutputResponse{OutputRoot: eth.Bytes32{0xbb}},
-	}
-	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingBlock, maxDepth)
-	traceProvider := faulttest.NewAlphabetWithProofProvider(t, startingBlock, maxDepth, nil)
-	solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(traceProvider))
-
-	// Do not challenge when provider returns error indicating l2 block is valid
-	actions, err := solver.CalculateNextActions(context.Background(), claimBuilder.GameBuilder().Game)
-	require.NoError(t, err)
-	require.Len(t, actions, 0)
-
-	// Do challenge when the provider returns a challenge
-	traceProvider.L2BlockChallenge = challenge
-	actions, err = solver.CalculateNextActions(context.Background(), claimBuilder.GameBuilder().Game)
-	require.NoError(t, err)
-	require.Len(t, actions, 1)
-	action := actions[0]
-	require.Equal(t, types.ActionTypeChallengeL2BlockNumber, action.Type)
-	require.Equal(t, challenge, action.InvalidL2BlockNumberChallenge)
-}
 
 func TestCalculateNextActions(t *testing.T) {
 	maxDepth := types.Depth(6)
@@ -57,6 +31,8 @@ func TestCalculateNextActions(t *testing.T) {
 			},
 		},
 		{
+			// Note: The fault dispute game contract should prevent a correct root claim from actually being posted
+			// But for completeness, test we ignore it so we don't get sucked into playing an unwinnable game.
 			name:             "DoNotAttackCorrectRootClaim_AgreeWithOutputRoot",
 			rootClaimCorrect: true,
 			setupGame:        func(builder *faulttest.GameBuilder) {},
@@ -209,7 +185,7 @@ func TestCalculateNextActions(t *testing.T) {
 			postState, actions := runStep(t, solver, game, claimBuilder.CorrectTraceProvider())
 			for i, action := range builder.ExpectedActions {
 				t.Logf("Expect %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
-					i, action.Type, action.ParentClaim.ContractIndex, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
+					i, action.Type, action.ParentIdx, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
 				require.Containsf(t, actions, action, "Expected claim %v missing", i)
 			}
 			require.Len(t, actions, len(builder.ExpectedActions), "Incorrect number of actions")
@@ -227,7 +203,7 @@ func runStep(t *testing.T, solver *GameSolver, game types.Game, correctTraceProv
 
 	for i, action := range actions {
 		t.Logf("Move %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
-			i, action.Type, action.ParentClaim.ContractIndex, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
+			i, action.Type, action.ParentIdx, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
 		// Check that every move the solver returns meets the generic validation rules
 		require.NoError(t, checkRules(game, action, correctTraceProvider), "Attempting to perform invalid action")
 	}
@@ -333,9 +309,9 @@ func applyActions(game types.Game, claimant common.Address, actions []types.Acti
 	for _, action := range actions {
 		switch action.Type {
 		case types.ActionTypeMove:
-			newPosition := action.ParentClaim.Position.Attack()
+			newPosition := action.ParentPosition.Attack()
 			if !action.IsAttack {
-				newPosition = action.ParentClaim.Position.Defend()
+				newPosition = action.ParentPosition.Defend()
 			}
 			claim := types.Claim{
 				ClaimData: types.ClaimData{
@@ -345,13 +321,13 @@ func applyActions(game types.Game, claimant common.Address, actions []types.Acti
 				},
 				Claimant:            claimant,
 				ContractIndex:       len(claims),
-				ParentContractIndex: action.ParentClaim.ContractIndex,
+				ParentContractIndex: action.ParentIdx,
 			}
 			claims = append(claims, claim)
 		case types.ActionTypeStep:
-			counteredClaim := claims[action.ParentClaim.ContractIndex]
+			counteredClaim := claims[action.ParentIdx]
 			counteredClaim.CounteredBy = claimant
-			claims[action.ParentClaim.ContractIndex] = counteredClaim
+			claims[action.ParentIdx] = counteredClaim
 		default:
 			panic(fmt.Errorf("unknown move type: %v", action.Type))
 		}

@@ -1,6 +1,9 @@
 package compressor
 
 import (
+	"bytes"
+	"compress/zlib"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 )
 
@@ -18,8 +21,11 @@ const (
 type ShadowCompressor struct {
 	config Config
 
-	compressor       derive.ChannelCompressor
-	shadowCompressor derive.ChannelCompressor
+	buf      bytes.Buffer
+	compress *zlib.Writer
+
+	shadowBuf      bytes.Buffer
+	shadowCompress *zlib.Writer
 
 	fullErr error
 
@@ -39,11 +45,11 @@ func NewShadowCompressor(config Config) (derive.Compressor, error) {
 	}
 
 	var err error
-	c.compressor, err = derive.NewChannelCompressor(config.CompressionAlgo)
+	c.compress, err = zlib.NewWriterLevel(&c.buf, zlib.BestCompression)
 	if err != nil {
 		return nil, err
 	}
-	c.shadowCompressor, err = derive.NewChannelCompressor(config.CompressionAlgo)
+	c.shadowCompress, err = zlib.NewWriterLevel(&c.shadowBuf, zlib.BestCompression)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +62,7 @@ func (t *ShadowCompressor) Write(p []byte) (int, error) {
 	if t.fullErr != nil {
 		return 0, t.fullErr
 	}
-	_, err := t.shadowCompressor.Write(p)
+	_, err := t.shadowCompress.Write(p)
 	if err != nil {
 		return 0, err
 	}
@@ -65,10 +71,10 @@ func (t *ShadowCompressor) Write(p []byte) (int, error) {
 		// Do not flush the buffer unless there's some chance we will be over the size limit.
 		// This reduces CPU but more importantly it makes the shadow compression ratio more
 		// closely reflect the ultimate compression ratio.
-		if err = t.shadowCompressor.Flush(); err != nil {
+		if err = t.shadowCompress.Flush(); err != nil {
 			return 0, err
 		}
-		newBound = uint64(t.shadowCompressor.Len()) + CloseOverheadZlib
+		newBound = uint64(t.shadowBuf.Len()) + CloseOverheadZlib
 		if newBound > t.config.TargetOutputSize {
 			t.fullErr = derive.ErrCompressorFull
 			if t.Len() > 0 {
@@ -79,30 +85,32 @@ func (t *ShadowCompressor) Write(p []byte) (int, error) {
 		}
 	}
 	t.bound = newBound
-	return t.compressor.Write(p)
+	return t.compress.Write(p)
 }
 
 func (t *ShadowCompressor) Close() error {
-	return t.compressor.Close()
+	return t.compress.Close()
 }
 
 func (t *ShadowCompressor) Read(p []byte) (int, error) {
-	return t.compressor.Read(p)
+	return t.buf.Read(p)
 }
 
 func (t *ShadowCompressor) Reset() {
-	t.compressor.Reset()
-	t.shadowCompressor.Reset()
+	t.buf.Reset()
+	t.compress.Reset(&t.buf)
+	t.shadowBuf.Reset()
+	t.shadowCompress.Reset(&t.shadowBuf)
 	t.fullErr = nil
 	t.bound = safeCompressionOverhead
 }
 
 func (t *ShadowCompressor) Len() int {
-	return t.compressor.Len()
+	return t.buf.Len()
 }
 
 func (t *ShadowCompressor) Flush() error {
-	return t.compressor.Flush()
+	return t.compress.Flush()
 }
 
 func (t *ShadowCompressor) FullErr() error {

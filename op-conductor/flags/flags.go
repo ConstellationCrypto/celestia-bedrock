@@ -74,7 +74,6 @@ var (
 		Name:    "healthcheck.safe-interval",
 		Usage:   "Interval between safe head progression measured in seconds",
 		EnvVars: opservice.PrefixEnvVar(EnvVarPrefix, "HEALTHCHECK_SAFE_INTERVAL"),
-		Value:   1200,
 	}
 	HealthCheckMinPeerCount = &cli.Uint64Flag{
 		Name:    "healthcheck.min-peer-count",
@@ -104,6 +103,7 @@ var requiredFlags = []cli.Flag{
 	ExecutionRPC,
 	HealthCheckInterval,
 	HealthCheckUnsafeInterval,
+	HealthCheckSafeInterval,
 	HealthCheckMinPeerCount,
 }
 
@@ -112,7 +112,6 @@ var optionalFlags = []cli.Flag{
 	RPCEnableProxy,
 	RaftBootstrap,
 	HealthCheckSafeEnabled,
-	HealthCheckSafeInterval,
 }
 
 func init() {

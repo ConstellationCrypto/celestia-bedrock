@@ -17,22 +17,12 @@ type OutputHonestHelper struct {
 	t            *testing.T
 	require      *require.Assertions
 	game         *OutputGameHelper
-	contract     contracts.FaultDisputeGameContract
+	contract     *contracts.FaultDisputeGameContract
 	correctTrace types.TraceAccessor
 }
 
-func NewOutputHonestHelper(t *testing.T, require *require.Assertions, game *OutputGameHelper, contract contracts.FaultDisputeGameContract, correctTrace types.TraceAccessor) *OutputHonestHelper {
-	return &OutputHonestHelper{
-		t:            t,
-		require:      require,
-		game:         game,
-		contract:     contract,
-		correctTrace: correctTrace,
-	}
-}
-
 func (h *OutputHonestHelper) CounterClaim(ctx context.Context, claim *ClaimHelper, opts ...MoveOpt) *ClaimHelper {
-	game, target := h.loadState(ctx, claim.Index)
+	game, target := h.loadState(ctx, claim.index)
 	value, err := h.correctTrace.Get(ctx, game, target, target.Position)
 	h.require.NoErrorf(err, "Failed to determine correct claim at position %v with g index %v", target.Position, target.Position.ToGIndex())
 	if value == claim.claim {
@@ -43,12 +33,12 @@ func (h *OutputHonestHelper) CounterClaim(ctx context.Context, claim *ClaimHelpe
 }
 
 func (h *OutputHonestHelper) AttackClaim(ctx context.Context, claim *ClaimHelper, opts ...MoveOpt) *ClaimHelper {
-	h.Attack(ctx, claim.Index, opts...)
+	h.Attack(ctx, claim.index, opts...)
 	return claim.WaitForCounterClaim(ctx)
 }
 
 func (h *OutputHonestHelper) DefendClaim(ctx context.Context, claim *ClaimHelper, opts ...MoveOpt) *ClaimHelper {
-	h.Defend(ctx, claim.Index, opts...)
+	h.Defend(ctx, claim.index, opts...)
 	return claim.WaitForCounterClaim(ctx)
 }
 
@@ -78,12 +68,12 @@ func (h *OutputHonestHelper) Defend(ctx context.Context, claimIdx int64, opts ..
 	game, claim := h.loadState(ctx, claimIdx)
 	defendPos := claim.Position.Defend()
 	value, err := h.correctTrace.Get(ctx, game, claim, defendPos)
-	h.game.Require.NoErrorf(err, "Get correct claim at position %v with g index %v", defendPos, defendPos.ToGIndex())
+	h.game.require.NoErrorf(err, "Get correct claim at position %v with g index %v", defendPos, defendPos.ToGIndex())
 	h.game.Defend(ctx, claimIdx, value, opts...)
 }
 
 func (h *OutputHonestHelper) StepClaimFails(ctx context.Context, claim *ClaimHelper, isAttack bool) {
-	h.StepFails(ctx, claim.Index, isAttack)
+	h.StepFails(ctx, claim.index, isAttack)
 }
 
 func (h *OutputHonestHelper) StepFails(ctx context.Context, claimIdx int64, isAttack bool) {

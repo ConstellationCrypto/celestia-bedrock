@@ -17,18 +17,13 @@ type EnrichedClaim struct {
 
 type EnrichedGameData struct {
 	types.GameMetadata
-	L1Head                common.Hash
-	L1HeadNum             uint64
-	L2BlockNumber         uint64
-	RootClaim             common.Hash
-	Status                types.GameStatus
-	MaxClockDuration      uint64
-	BlockNumberChallenged bool
-	BlockNumberChallenger common.Address
-	Claims                []EnrichedClaim
-
-	AgreeWithClaim    bool
-	ExpectedRootClaim common.Hash
+	L1Head           common.Hash
+	L1HeadNum        uint64
+	L2BlockNumber    uint64
+	RootClaim        common.Hash
+	Status           types.GameStatus
+	MaxClockDuration uint64
+	Claims           []EnrichedClaim
 
 	// Recipients maps addresses to true if they are a bond recipient in the game.
 	Recipients map[common.Address]bool
@@ -58,4 +53,16 @@ type BidirectionalTree struct {
 type BidirectionalClaim struct {
 	Claim    *faultTypes.Claim
 	Children []*BidirectionalClaim
+}
+
+type ForecastBatch struct {
+	AgreeDefenderAhead      int
+	DisagreeDefenderAhead   int
+	AgreeChallengerAhead    int
+	DisagreeChallengerAhead int
+
+	AgreeDefenderWins      int
+	DisagreeDefenderWins   int
+	AgreeChallengerWins    int
+	DisagreeChallengerWins int
 }

@@ -159,9 +159,9 @@ func (co *GarbageChannelOut) AddBlock(rollupCfg *rollup.Config, block *types.Blo
 		buf.Reset()
 		buf.Write(bufBytes)
 	}
-	if co.rlpLength+buf.Len() > rollup.SafeMaxRLPBytesPerChannel {
+	if co.rlpLength+buf.Len() > derive.MaxRLPBytesPerChannel {
 		return fmt.Errorf("could not add %d bytes to channel of %d bytes, max is %d. err: %w",
-			buf.Len(), co.rlpLength, rollup.SafeMaxRLPBytesPerChannel, derive.ErrTooManyRLPBytes)
+			buf.Len(), co.rlpLength, derive.MaxRLPBytesPerChannel, derive.ErrTooManyRLPBytes)
 	}
 	co.rlpLength += buf.Len()
 

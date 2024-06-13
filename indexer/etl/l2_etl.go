@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/indexer/config"
 	"github.com/ethereum-optimism/optimism/indexer/database"
 	"github.com/ethereum-optimism/optimism/indexer/node"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/tasks"
 )
@@ -35,7 +34,7 @@ type L2ETL struct {
 	listeners []chan *types.Header
 }
 
-func NewL2ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, client client.Client,
+func NewL2ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, client node.EthClient,
 	contracts config.L2Contracts, shutdown context.CancelCauseFunc) (*L2ETL, error) {
 	log = log.New("etl", "l2")
 
@@ -81,7 +80,7 @@ func NewL2ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, cli
 		contracts:       l2Contracts,
 		etlBatches:      etlBatches,
 
-		client: client,
+		EthClient: client,
 	}
 
 	resCtx, resCancel := context.WithCancel(context.Background())

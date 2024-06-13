@@ -24,7 +24,7 @@ func TestCheckBonds(t *testing.T) {
 	weth1 := common.Address{0x1a}
 	weth1Balance := big.NewInt(4200)
 	weth2 := common.Address{0x2b}
-	weth2Balance := big.NewInt(10) // Insufficient
+	weth2Balance := big.NewInt(6000)
 	game1 := &monTypes.EnrichedGameData{
 		Credits: map[common.Address]*big.Int{
 			common.Address{0x01}: big.NewInt(2),
@@ -40,7 +40,7 @@ func TestCheckBonds(t *testing.T) {
 		ETHCollateral: weth2Balance,
 	}
 
-	bonds, metrics, logs := setupBondMetricsTest(t)
+	bonds, metrics, _ := setupBondMetricsTest(t)
 	bonds.CheckBonds([]*monTypes.EnrichedGameData{game1, game2})
 
 	require.Len(t, metrics.recorded, 2)
@@ -50,14 +50,6 @@ func TestCheckBonds(t *testing.T) {
 	require.Equal(t, metrics.recorded[weth1].Actual.Uint64(), weth1Balance.Uint64())
 	require.Equal(t, metrics.recorded[weth2].Required.Uint64(), uint64(46))
 	require.Equal(t, metrics.recorded[weth2].Actual.Uint64(), weth2Balance.Uint64())
-
-	require.NotNil(t, logs.FindLog(
-		testlog.NewMessageFilter("Insufficient collateral"),
-		testlog.NewAttributesFilter("delayedWETH", weth2.Hex()),
-		testlog.NewAttributesFilter("required", "46"),
-		testlog.NewAttributesFilter("actual", weth2Balance.String())))
-	// No messages about weth1 since it has sufficient collateral
-	require.Nil(t, logs.FindLog(testlog.NewAttributesFilter("delayedWETH", weth1.Hex())))
 }
 
 func TestCheckRecipientCredit(t *testing.T) {
@@ -65,7 +57,6 @@ func TestCheckRecipientCredit(t *testing.T) {
 	addr2 := common.Address{0x2b}
 	addr3 := common.Address{0x3c}
 	addr4 := common.Address{0x4d}
-	notRootPosition := types.NewPositionFromGIndex(big.NewInt(2))
 	// Game has not reached max duration
 	game1 := &monTypes.EnrichedGameData{
 		MaxClockDuration: 50000,
@@ -77,8 +68,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 10 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(10),
-						Position: types.RootPosition,
+						Bond: big.NewInt(10),
 					},
 					Claimant: addr1,
 				},
@@ -87,8 +77,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // No expected credits as not resolved
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(15),
-						Position: notRootPosition,
+						Bond: big.NewInt(15),
 					},
 					Claimant: addr1,
 				},
@@ -97,8 +86,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 5 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(5),
-						Position: notRootPosition,
+						Bond: big.NewInt(5),
 					},
 					Claimant: addr1,
 				},
@@ -107,8 +95,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 7 credits for addr2
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(7),
-						Position: notRootPosition,
+						Bond: big.NewInt(7),
 					},
 					Claimant:    addr3,
 					CounteredBy: addr2,
@@ -118,8 +105,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 3 credits for addr4
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(3),
-						Position: notRootPosition,
+						Bond: big.NewInt(3),
 					},
 					Claimant: addr4,
 				},
@@ -149,8 +135,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 11 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(11),
-						Position: types.RootPosition,
+						Bond: big.NewInt(11),
 					},
 					Claimant: addr1,
 				},
@@ -159,8 +144,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // No expected credits as not resolved
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(15),
-						Position: notRootPosition,
+						Bond: big.NewInt(15),
 					},
 					Claimant: addr1,
 				},
@@ -169,8 +153,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 6 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(6),
-						Position: notRootPosition,
+						Bond: big.NewInt(6),
 					},
 					Claimant: addr1,
 				},
@@ -179,8 +162,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 8 credits for addr2
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(8),
-						Position: notRootPosition,
+						Bond: big.NewInt(8),
 					},
 					Claimant:    addr3,
 					CounteredBy: addr2,
@@ -190,8 +172,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 4 credits for addr4
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(4),
-						Position: notRootPosition,
+						Bond: big.NewInt(4),
 					},
 					Claimant: addr4,
 				},
@@ -223,8 +204,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 9 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(9),
-						Position: types.RootPosition,
+						Bond: big.NewInt(9),
 					},
 					Claimant: addr1,
 				},
@@ -233,8 +213,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 6 credits for addr2
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(6),
-						Position: notRootPosition,
+						Bond: big.NewInt(6),
 					},
 					Claimant:    addr4,
 					CounteredBy: addr2,
@@ -244,8 +223,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 2 credits for addr4
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(2),
-						Position: notRootPosition,
+						Bond: big.NewInt(2),
 					},
 					Claimant: addr4,
 				},
@@ -272,25 +250,20 @@ func TestCheckRecipientCredit(t *testing.T) {
 			Proxy:     common.Address{44},
 			Timestamp: uint64(frozen.Unix()) - 22,
 		},
-		BlockNumberChallenged: true,
-		BlockNumberChallenger: addr1,
 		Claims: []monTypes.EnrichedClaim{
-			{ // Expect 9 credits for addr1 as the block number challenger
+			{ // Expect 9 credits for addr1
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(9),
-						Position: types.RootPosition,
+						Bond: big.NewInt(9),
 					},
-					Claimant:    addr2,
-					CounteredBy: addr3,
+					Claimant: addr1,
 				},
 				Resolved: true,
 			},
 			{ // Expect 6 credits for addr2
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(6),
-						Position: notRootPosition,
+						Bond: big.NewInt(6),
 					},
 					Claimant:    addr4,
 					CounteredBy: addr2,
@@ -300,8 +273,7 @@ func TestCheckRecipientCredit(t *testing.T) {
 			{ // Expect 2 credits for addr4
 				Claim: types.Claim{
 					ClaimData: types.ClaimData{
-						Bond:     big.NewInt(2),
-						Position: notRootPosition,
+						Bond: big.NewInt(2),
 					},
 					Claimant: addr4,
 				},

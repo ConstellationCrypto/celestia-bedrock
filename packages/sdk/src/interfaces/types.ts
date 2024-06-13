@@ -55,7 +55,6 @@ export interface OEL1Contracts {
   // FPAC
   OptimismPortal2?: Contract
   DisputeGameFactory?: Contract
-  FaultDisputeGame?: Contract
 }
 
 /**

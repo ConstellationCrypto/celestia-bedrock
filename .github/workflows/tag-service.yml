@@ -34,7 +34,6 @@ on:
           - proxyd
           - ufm-metamask
           - op-contracts
-          - op-conductor
       prerelease:
         description: Increment major/minor/patch as prerelease?
         required: false

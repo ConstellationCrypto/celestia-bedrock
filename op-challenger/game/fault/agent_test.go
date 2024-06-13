@@ -24,8 +24,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
-var l1Time = time.UnixMilli(100)
-
 func TestDoNotMakeMovesWhenGameIsResolvable(t *testing.T) {
 	ctx := context.Background()
 
@@ -57,18 +55,6 @@ func TestDoNotMakeMovesWhenGameIsResolvable(t *testing.T) {
 			require.EqualValues(t, 1, responder.resolveCount, "should resolve winning game")
 		})
 	}
-}
-
-func TestDoNotMakeMovesWhenL2BlockNumberChallenged(t *testing.T) {
-	ctx := context.Background()
-
-	agent, claimLoader, responder := setupTestAgent(t)
-	claimLoader.blockNumChallenged = true
-
-	require.NoError(t, agent.Act(ctx))
-
-	require.Equal(t, 1, responder.callResolveCount, "should check if game is resolvable")
-	require.Equal(t, 1, claimLoader.callCount, "should fetch claims only once for resolveClaim")
 }
 
 func createClaimsWithClaimants(t *testing.T, d types.Depth) []types.Claim {
@@ -152,19 +138,13 @@ func TestSkipAttemptingToResolveClaimsWhenClockNotExpired(t *testing.T) {
 	depth := types.Depth(4)
 	claimBuilder := test.NewClaimBuilder(t, depth, alphabet.NewTraceProvider(big.NewInt(0), depth))
 
-	rootTime := l1Time.Add(-agent.maxClockDuration - 5*time.Minute)
-	gameBuilder := claimBuilder.GameBuilder(test.WithClock(rootTime, 0))
-	gameBuilder.Seq().
-		Attack(test.WithClock(rootTime.Add(5*time.Minute), 5*time.Minute)).
-		Defend(test.WithClock(rootTime.Add(7*time.Minute), 2*time.Minute)).
-		Attack(test.WithClock(rootTime.Add(11*time.Minute), 4*time.Minute))
-	claimLoader.claims = gameBuilder.Game.Claims()
+	claimLoader.claims = []types.Claim{
+		claimBuilder.CreateRootClaim(test.WithExpiredClock(agent.maxClockDuration)),
+	}
 
 	require.NoError(t, agent.Act(context.Background()))
 
-	// Currently tries to resolve the first two claims because their clock's have expired, but doesn't detect that
-	// they have unresolvable children.
-	require.Equal(t, 2, responder.callResolveClaimCount)
+	require.Zero(t, responder.callResolveClaimCount)
 }
 
 func TestLoadClaimsWhenGameNotResolvable(t *testing.T) {
@@ -194,20 +174,15 @@ func setupTestAgent(t *testing.T) (*Agent, *stubClaimLoader, *stubResponder) {
 	provider := alphabet.NewTraceProvider(big.NewInt(0), depth)
 	responder := &stubResponder{}
 	systemClock := clock.NewDeterministicClock(time.UnixMilli(120200))
-	l1Clock := clock.NewDeterministicClock(l1Time)
+	l1Clock := clock.NewDeterministicClock(time.UnixMilli(100))
 	agent := NewAgent(metrics.NoopMetrics, systemClock, l1Clock, claimLoader, depth, gameDuration, trace.NewSimpleTraceAccessor(provider), responder, logger, false, []common.Address{})
 	return agent, claimLoader, responder
 }
 
 type stubClaimLoader struct {
-	callCount          int
-	maxLoads           int
-	claims             []types.Claim
-	blockNumChallenged bool
-}
-
-func (s *stubClaimLoader) IsL2BlockNumberChallenged(_ context.Context, _ rpcblock.Block) (bool, error) {
-	return s.blockNumChallenged, nil
+	callCount int
+	maxLoads  int
+	claims    []types.Claim
 }
 
 func (s *stubClaimLoader) GetAllClaims(_ context.Context, _ rpcblock.Block) ([]types.Claim, error) {

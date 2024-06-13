@@ -7,8 +7,8 @@ import { Script } from "forge-std/Script.sol";
 import { console2 as console } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
-import { GnosisSafe as Safe } from "safe-contracts/GnosisSafe.sol";
-import { GnosisSafeProxyFactory as SafeProxyFactory } from "safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { Safe } from "safe-contracts/Safe.sol";
+import { SafeProxyFactory } from "safe-contracts/proxies/SafeProxyFactory.sol";
 import { Enum as SafeOps } from "safe-contracts/common/Enum.sol";
 
 import { Deployer } from "scripts/Deployer.sol";
@@ -47,7 +47,7 @@ import { Config } from "scripts/Config.sol";
 import { IBigStepper } from "src/dispute/interfaces/IBigStepper.sol";
 import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
 import { AlphabetVM } from "test/mocks/AlphabetVM.sol";
-import "src/dispute/lib/Types.sol";
+import "src/libraries/DisputeTypes.sol";
 import { ChainAssertions } from "scripts/ChainAssertions.sol";
 import { Types } from "scripts/Types.sol";
 import { LibStateDiff } from "scripts/libraries/LibStateDiff.sol";
@@ -116,20 +116,20 @@ contract Deploy is Deployer {
         vm.startStateDiffRecording();
         _;
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
-        console.log(
-            "Writing %d state diff account accesses to snapshots/state-diff/%s.json",
-            accesses.length,
-            vm.toString(block.chainid)
-        );
+        console.log("Writing %d state diff account accesses to snapshots/state-diff/%s.json", accesses.length, name());
         string memory json = LibStateDiff.encodeAccountAccesses(accesses);
-        string memory statediffPath =
-            string.concat(vm.projectRoot(), "/snapshots/state-diff/", vm.toString(block.chainid), ".json");
+        string memory statediffPath = string.concat(vm.projectRoot(), "/snapshots/state-diff/", name(), ".json");
         vm.writeJson({ json: json, path: statediffPath });
     }
 
     ////////////////////////////////////////////////////////////////
     //                        Accessors                           //
     ////////////////////////////////////////////////////////////////
+
+    /// @inheritdoc Deployer
+    function name() public pure override returns (string memory name_) {
+        name_ = "Deploy";
+    }
 
     /// @notice The create2 salt used for deployment of the contract implementations.
     ///         Using this helps to reduce config across networks as the implementation
@@ -182,13 +182,6 @@ contract Deploy is Deployer {
 
     /// @notice Gets the address of the SafeProxyFactory and Safe singleton for use in deploying a new GnosisSafe.
     function _getSafeFactory() internal returns (SafeProxyFactory safeProxyFactory_, Safe safeSingleton_) {
-        if (getAddress("SafeProxyFactory") != address(0)) {
-            // The SafeProxyFactory is already saved, we can just use it.
-            safeProxyFactory_ = SafeProxyFactory(getAddress("SafeProxyFactory"));
-            safeSingleton_ = Safe(getAddress("SafeSingleton"));
-            return (safeProxyFactory_, safeSingleton_);
-        }
-
         // These are the standard create2 deployed contracts. First we'll check if they are deployed,
         // if not we'll deploy new ones, though not at these addresses.
         address safeProxyFactory = 0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2;
@@ -205,11 +198,13 @@ contract Deploy is Deployer {
     }
 
     /// @notice Make a call from the Safe contract to an arbitrary address with arbitrary data
-    function _callViaSafe(Safe _safe, address _target, bytes memory _data) internal {
+    function _callViaSafe(address _target, bytes memory _data) internal {
+        Safe safe = Safe(mustGetAddress("SystemOwnerSafe"));
+
         // This is the signature format used the caller is also the signer.
         bytes memory signature = abi.encodePacked(uint256(uint160(msg.sender)), bytes32(0), uint8(1));
 
-        _safe.execTransaction({
+        safe.execTransaction({
             to: _target,
             value: 0,
             data: _data,
@@ -230,8 +225,7 @@ contract Deploy is Deployer {
         bytes memory data =
             abi.encodeCall(ProxyAdmin.upgradeAndCall, (payable(_proxy), _implementation, _innerCallData));
 
-        Safe safe = Safe(mustGetAddress("SystemOwnerSafe"));
-        _callViaSafe({ _safe: safe, _target: proxyAdmin, _data: data });
+        _callViaSafe({ _target: proxyAdmin, _data: data });
     }
 
     /// @notice Transfer ownership of the ProxyAdmin contract to the final system owner
@@ -267,7 +261,6 @@ contract Deploy is Deployer {
     }
 
     function runWithStateDump() public {
-        vm.chainId(cfg.l1ChainID());
         _run();
         vm.dumpState(Config.stateDumpPath(""));
     }
@@ -278,9 +271,9 @@ contract Deploy is Deployer {
     }
 
     /// @notice Internal function containing the deploy logic.
-    function _run() internal virtual {
+    function _run() internal {
         console.log("start of L1 Deploy!");
-        deploySafe("SystemOwnerSafe");
+        deploySafe();
         console.log("deployed Safe!");
         setupSuperchain();
         console.log("set up superchain!");
@@ -387,16 +380,6 @@ contract Deploy is Deployer {
     /// @notice Initialize all of the implementations
     function initializeImplementations() public {
         console.log("Initializing implementations");
-        // Selectively initialize either the original OptimismPortal or the new OptimismPortal2. Since this will upgrade
-        // the proxy, we cannot initialize both. FPAC warning can be removed once we're done with the old OptimismPortal
-        // contract.
-        if (cfg.useFaultProofs()) {
-            console.log("WARNING: FPAC is enabled. Initializing the OptimismPortal proxy with the OptimismPortal2.");
-            initializeOptimismPortal2();
-        } else {
-            initializeOptimismPortal();
-        }
-
         initializeSystemConfig();
         initializeL1StandardBridge();
         initializeL1ERC721Bridge();
@@ -406,6 +389,16 @@ contract Deploy is Deployer {
         initializeDisputeGameFactory();
         initializeDelayedWETH();
         initializeAnchorStateRegistry();
+
+        // Selectively initialize either the original OptimismPortal or the new OptimismPortal2. Since this will upgrade
+        // the proxy, we cannot initialize both. FPAC warning can be removed once we're done with the old OptimismPortal
+        // contract.
+        if (cfg.useFaultProofs()) {
+            console.log("WARNING: FPAC is enabled. Initializing the OptimismPortal proxy with the OptimismPortal2.");
+            initializeOptimismPortal2();
+        } else {
+            initializeOptimismPortal();
+        }
     }
 
     /// @notice Add Plasma setup to the OP chain
@@ -421,43 +414,21 @@ contract Deploy is Deployer {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Deploy the Safe
-    function deploySafe(string memory _name) public broadcast returns (address addr_) {
-        address[] memory owners = new address[](0);
-        addr_ = deploySafe(_name, owners, 1, true);
-    }
-    // added on top of 1.7.6 release
-    // https://github.com/ethereum-optimism/optimism/pull/10660/files
-    function deploySafe(
-        string memory _name,
-        address[] memory _owners,
-        uint256 _threshold,
-        bool _keepDeployer
-    )
-        public
-        returns (address addr_)
-    {
-        bytes32 salt = keccak256(abi.encode(_name, _implSalt()));
-        console.log("Deploying safe: %s with salt %s", _name, vm.toString(salt));
+    function deploySafe() public broadcast returns (address addr_) {
+        console.log("Deploying Safe");
         (SafeProxyFactory safeProxyFactory, Safe safeSingleton) = _getSafeFactory();
 
-        address[] memory expandedOwners = new address[](_owners.length + 1);
-        if (_keepDeployer) {
-            // By always adding msg.sender first we know that the previousOwner will be SENTINEL_OWNERS, which makes it
-            // easier to call removeOwner later.
-            expandedOwners[0] = msg.sender;
-            for (uint256 i = 0; i < _owners.length; i++) {
-                expandedOwners[i + 1] = _owners[i];
-            }
-            _owners = expandedOwners;
-        }
+        address[] memory signers = new address[](1);
+        signers[0] = msg.sender;
 
-        bytes memory initData = abi.encodeCall(
-            Safe.setup, (_owners, _threshold, address(0), hex"", address(0), address(0), 0, payable(address(0)))
+        bytes memory initData = abi.encodeWithSelector(
+            Safe.setup.selector, signers, 1, address(0), hex"", address(0), address(0), 0, address(0)
         );
-        addr_ = address(safeProxyFactory.createProxyWithNonce(address(safeSingleton), initData, uint256(salt)));
+        address safe = address(safeProxyFactory.createProxyWithNonce(address(safeSingleton), initData, block.timestamp));
 
-        save(_name, addr_);
-        console.log("New safe: %s deployed at %s\n    Note that this safe is owned by the deployer key", _name, addr_);
+        save("SystemOwnerSafe", address(safe));
+        console.log("New SystemOwnerSafe deployed at %s", address(safe));
+        addr_ = safe;
     }
 
     /// @notice Deploy the AddressManager
@@ -986,11 +957,6 @@ contract Deploy is Deployer {
 
         bytes32 batcherHash = bytes32(uint256(uint160(cfg.batchSenderAddress())));
 
-        address customGasTokenAddress = Constants.ETHER;
-        if (cfg.useCustomGasToken()) {
-            customGasTokenAddress = cfg.customGasTokenAddress();
-        }
-
         _upgradeAndCallViaSafe({
             _proxy: payable(systemConfigProxy),
             _implementation: systemConfig,
@@ -998,8 +964,8 @@ contract Deploy is Deployer {
                 SystemConfig.initialize,
                 (
                     cfg.finalSystemOwner(),
-                    cfg.basefeeScalar(),
-                    cfg.blobbasefeeScalar(),
+                    cfg.gasPriceOracleOverhead(),
+                    cfg.gasPriceOracleScalar(),
                     batcherHash,
                     uint64(cfg.l2GenesisBlockGasLimit()),
                     cfg.p2pSequencerAddress(),
@@ -1009,10 +975,9 @@ contract Deploy is Deployer {
                         l1CrossDomainMessenger: mustGetAddress("L1CrossDomainMessengerProxy"),
                         l1ERC721Bridge: mustGetAddress("L1ERC721BridgeProxy"),
                         l1StandardBridge: mustGetAddress("L1StandardBridgeProxy"),
-                        disputeGameFactory: mustGetAddress("DisputeGameFactoryProxy"),
+                        l2OutputOracle: mustGetAddress("L2OutputOracleProxy"),
                         optimismPortal: mustGetAddress("OptimismPortalProxy"),
-                        optimismMintableERC20Factory: mustGetAddress("OptimismMintableERC20FactoryProxy"),
-                        gasPayingToken: customGasTokenAddress
+                        optimismMintableERC20Factory: mustGetAddress("OptimismMintableERC20FactoryProxy")
                     })
                 )
             )
@@ -1033,13 +998,10 @@ contract Deploy is Deployer {
         address l1StandardBridge = mustGetAddress("L1StandardBridge");
         address l1CrossDomainMessengerProxy = mustGetAddress("L1CrossDomainMessengerProxy");
         address superchainConfigProxy = mustGetAddress("SuperchainConfigProxy");
-        address systemConfigProxy = mustGetAddress("SystemConfigProxy");
 
         uint256 proxyType = uint256(proxyAdmin.proxyType(l1StandardBridgeProxy));
-        Safe safe = Safe(mustGetAddress("SystemOwnerSafe"));
         if (proxyType != uint256(ProxyAdmin.ProxyType.CHUGSPLASH)) {
             _callViaSafe({
-                _safe: safe,
                 _target: address(proxyAdmin),
                 _data: abi.encodeCall(ProxyAdmin.setProxyType, (l1StandardBridgeProxy, ProxyAdmin.ProxyType.CHUGSPLASH))
             });
@@ -1051,11 +1013,7 @@ contract Deploy is Deployer {
             _implementation: l1StandardBridge,
             _innerCallData: abi.encodeCall(
                 L1StandardBridge.initialize,
-                (
-                    L1CrossDomainMessenger(l1CrossDomainMessengerProxy),
-                    SuperchainConfig(superchainConfigProxy),
-                    SystemConfig(systemConfigProxy)
-                )
+                (L1CrossDomainMessenger(l1CrossDomainMessengerProxy), SuperchainConfig(superchainConfigProxy))
             )
         });
 
@@ -1089,7 +1047,7 @@ contract Deploy is Deployer {
         ChainAssertions.checkL1ERC721Bridge({ _contracts: _proxies(), _isProxy: true });
     }
 
-    /// @notice Initialize the OptimismMintableERC20Factory
+    /// @notice Ininitialize the OptimismMintableERC20Factory
     function initializeOptimismMintableERC20Factory() public broadcast {
         console.log("Upgrading and initializing OptimismMintableERC20Factory proxy");
         address optimismMintableERC20FactoryProxy = mustGetAddress("OptimismMintableERC20FactoryProxy");
@@ -1117,13 +1075,10 @@ contract Deploy is Deployer {
         address l1CrossDomainMessenger = mustGetAddress("L1CrossDomainMessenger");
         address superchainConfigProxy = mustGetAddress("SuperchainConfigProxy");
         address optimismPortalProxy = mustGetAddress("OptimismPortalProxy");
-        address systemConfigProxy = mustGetAddress("SystemConfigProxy");
 
         uint256 proxyType = uint256(proxyAdmin.proxyType(l1CrossDomainMessengerProxy));
-        Safe safe = Safe(mustGetAddress("SystemOwnerSafe"));
         if (proxyType != uint256(ProxyAdmin.ProxyType.RESOLVED)) {
             _callViaSafe({
-                _safe: safe,
                 _target: address(proxyAdmin),
                 _data: abi.encodeCall(ProxyAdmin.setProxyType, (l1CrossDomainMessengerProxy, ProxyAdmin.ProxyType.RESOLVED))
             });
@@ -1134,7 +1089,6 @@ contract Deploy is Deployer {
         string memory implName = proxyAdmin.implementationName(l1CrossDomainMessenger);
         if (keccak256(bytes(contractName)) != keccak256(bytes(implName))) {
             _callViaSafe({
-                _safe: safe,
                 _target: address(proxyAdmin),
                 _data: abi.encodeCall(ProxyAdmin.setImplementationName, (l1CrossDomainMessengerProxy, contractName))
             });
@@ -1149,11 +1103,7 @@ contract Deploy is Deployer {
             _implementation: l1CrossDomainMessenger,
             _innerCallData: abi.encodeCall(
                 L1CrossDomainMessenger.initialize,
-                (
-                    SuperchainConfig(superchainConfigProxy),
-                    OptimismPortal(payable(optimismPortalProxy)),
-                    SystemConfig(systemConfigProxy)
-                )
+                (SuperchainConfig(superchainConfigProxy), OptimismPortal(payable(optimismPortalProxy)))
             )
         });
 

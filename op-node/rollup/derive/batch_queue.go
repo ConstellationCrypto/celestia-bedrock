@@ -177,15 +177,15 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, parent eth.L2BlockRef) (*Si
 	}
 
 	var nextBatch *SingularBatch
-	switch typ := batch.GetBatchType(); typ {
+	switch batch.GetBatchType() {
 	case SingularBatchType:
-		singularBatch, ok := batch.AsSingularBatch()
+		singularBatch, ok := batch.(*SingularBatch)
 		if !ok {
 			return nil, false, NewCriticalError(errors.New("failed type assertion to SingularBatch"))
 		}
 		nextBatch = singularBatch
 	case SpanBatchType:
-		spanBatch, ok := batch.AsSpanBatch()
+		spanBatch, ok := batch.(*SpanBatch)
 		if !ok {
 			return nil, false, NewCriticalError(errors.New("failed type assertion to SpanBatch"))
 		}
@@ -198,7 +198,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, parent eth.L2BlockRef) (*Si
 		// span-batches are non-empty, so the below pop is safe.
 		nextBatch = bq.popNextBatch(parent)
 	default:
-		return nil, false, NewCriticalError(fmt.Errorf("unrecognized batch type: %d", typ))
+		return nil, false, NewCriticalError(fmt.Errorf("unrecognized batch type: %d", batch.GetBatchType()))
 	}
 
 	// If the nextBatch is derived from the span batch, len(bq.nextSpan) == 0 means it's the last batch of the span.

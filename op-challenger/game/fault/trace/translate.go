@@ -46,8 +46,4 @@ func (p *TranslatingProvider) AbsolutePreStateCommitment(ctx context.Context) (h
 	return p.provider.AbsolutePreStateCommitment(ctx)
 }
 
-func (p *TranslatingProvider) GetL2BlockNumberChallenge(ctx context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
-	return p.provider.GetL2BlockNumberChallenge(ctx)
-}
-
 var _ types.TraceProvider = (*TranslatingProvider)(nil)

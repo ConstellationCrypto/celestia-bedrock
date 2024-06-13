@@ -59,7 +59,7 @@ func (c *conductor) RPCEndpoint() string {
 	return fmt.Sprintf("http://%s:%d", localhost, c.rpcPort)
 }
 
-func setupSequencerFailoverTest(t *testing.T) (*System, map[string]*conductor, func()) {
+func setupSequencerFailoverTest(t *testing.T) (*System, map[string]*conductor) {
 	InitParallel(t)
 	ctx := context.Background()
 
@@ -129,12 +129,7 @@ func setupSequencerFailoverTest(t *testing.T) (*System, map[string]*conductor, f
 	require.True(t, healthy(t, ctx, c2))
 	require.True(t, healthy(t, ctx, c3))
 
-	return sys, conductors, func() {
-		sys.Close()
-		for _, c := range conductors {
-			_ = c.service.Stop(ctx)
-		}
-	}
+	return sys, conductors
 }
 
 func setupHAInfra(t *testing.T, ctx context.Context) (*System, map[string]*conductor, error) {
@@ -152,9 +147,7 @@ func setupHAInfra(t *testing.T, ctx context.Context) (*System, map[string]*condu
 			}
 
 			for _, c := range conductors {
-				if c == nil || c.service == nil {
-					// pass. Sometimes we can get nil in this map
-				} else if serr := c.service.Stop(ctx); serr != nil {
+				if serr := c.service.Stop(ctx); serr != nil {
 					t.Log("Failed to stop conductor", "error", serr)
 				}
 			}
@@ -296,7 +289,6 @@ func setupBatcher(t *testing.T, sys *System, conductors map[string]*conductor) {
 		BatchType:                    derive.SpanBatchType,
 		DataAvailabilityType:         batcherFlags.CalldataType,
 		ActiveSequencerCheckDuration: 0,
-		CompressionAlgo:              derive.Zlib,
 	}
 
 	batcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", batcherCLIConfig, sys.Cfg.Loggers["batcher"])

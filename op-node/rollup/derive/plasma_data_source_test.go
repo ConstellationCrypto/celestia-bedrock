@@ -88,14 +88,11 @@ func TestPlasmaDataSource(t *testing.T) {
 		BlockTime:         1,
 		SeqWindowSize:     20,
 		BatchInboxAddress: batcherInbox,
-		PlasmaConfig: &rollup.PlasmaConfig{
-			DAChallengeWindow: pcfg.ChallengeWindow,
-			DAResolveWindow:   pcfg.ResolveWindow,
-		},
+		UsePlasma:         true,
 	}
 	// keep track of random input data to validate against
 	var inputs [][]byte
-	var comms []plasma.CommitmentData
+	var comms []plasma.Keccak256Commitment
 
 	signer := cfg.L1Signer()
 
@@ -126,10 +123,8 @@ func TestPlasmaDataSource(t *testing.T) {
 			// mock input commitments in l1 transactions
 			input := testutils.RandomData(rng, 2000)
 			comm, _ := storage.SetInput(ctx, input)
-			// plasma da tests are designed for keccak256 commitments, so we type assert here
-			kComm := comm.(plasma.Keccak256Commitment)
 			inputs = append(inputs, input)
-			comms = append(comms, kComm)
+			comms = append(comms, comm)
 
 			tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
 				ChainID:   signer.ChainID(),
@@ -228,10 +223,8 @@ func TestPlasmaDataSource(t *testing.T) {
 				// mock input commitments in l1 transactions
 				input := testutils.RandomData(rng, 2000)
 				comm, _ := storage.SetInput(ctx, input)
-				// plasma da tests are designed for keccak256 commitments, so we type assert here
-				kComm := comm.(plasma.Keccak256Commitment)
 				inputs = append(inputs, input)
-				comms = append(comms, kComm)
+				comms = append(comms, comm)
 
 				tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
 					ChainID:   signer.ChainID(),
@@ -330,10 +323,7 @@ func TestPlasmaDataSourceStall(t *testing.T) {
 		BlockTime:         1,
 		SeqWindowSize:     20,
 		BatchInboxAddress: batcherInbox,
-		PlasmaConfig: &rollup.PlasmaConfig{
-			DAChallengeWindow: pcfg.ChallengeWindow,
-			DAResolveWindow:   pcfg.ResolveWindow,
-		},
+		UsePlasma:         true,
 	}
 
 	signer := cfg.L1Signer()
@@ -448,10 +438,7 @@ func TestPlasmaDataSourceInvalidData(t *testing.T) {
 		BlockTime:         1,
 		SeqWindowSize:     20,
 		BatchInboxAddress: batcherInbox,
-		PlasmaConfig: &rollup.PlasmaConfig{
-			DAChallengeWindow: pcfg.ChallengeWindow,
-			DAResolveWindow:   pcfg.ResolveWindow,
-		},
+		UsePlasma:         true,
 	}
 
 	signer := cfg.L1Signer()

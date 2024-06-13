@@ -13,12 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/indexer/node"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
-)
-
-var (
-	defaultRequestTimeout = 5 * time.Second
 )
 
 type Config struct {
@@ -43,7 +38,7 @@ type ETL struct {
 	contracts  []common.Address
 	etlBatches chan *ETLBatch
 
-	client client.Client
+	EthClient node.EthClient
 
 	// A reference that'll stay populated between intervals
 	// in the event of failures in order to retry.
@@ -127,12 +122,8 @@ func (etl *ETL) processBatch(headers []types.Header) error {
 	}
 
 	headersWithLog := make(map[common.Hash]bool, len(headers))
-
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-
 	filterQuery := ethereum.FilterQuery{FromBlock: firstHeader.Number, ToBlock: lastHeader.Number, Addresses: etl.contracts}
-	logs, err := node.FilterLogsSafe(ctxwt, etl.client, filterQuery)
+	logs, err := etl.EthClient.FilterLogs(filterQuery)
 	if err != nil {
 		batchLog.Info("failed to extract logs", "err", err)
 		return err

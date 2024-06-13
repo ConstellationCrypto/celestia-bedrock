@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"runtime"
 	"testing"
 
@@ -13,50 +12,50 @@ import (
 )
 
 var (
-	validL1EthRpc                        = "http://localhost:8545"
-	validL1BeaconUrl                     = "http://localhost:9000"
-	validGameFactoryAddress              = common.Address{0x23}
-	validCannonBin                       = "./bin/cannon"
-	validCannonOpProgramBin              = "./bin/op-program"
-	validCannonNetwork                   = "mainnet"
-	validCannonAbsolutPreState           = "pre.json"
-	validCannonAbsolutPreStateBaseURL, _ = url.Parse("http://localhost/foo/")
-	validDatadir                         = "/tmp/data"
-	validL2Rpc                           = "http://localhost:9545"
-	validRollupRpc                       = "http://localhost:8555"
+	validL1EthRpc              = "http://localhost:8545"
+	validL1BeaconUrl           = "http://localhost:9000"
+	validGameFactoryAddress    = common.Address{0x23}
+	validCannonBin             = "./bin/cannon"
+	validCannonOpProgramBin    = "./bin/op-program"
+	validCannonNetwork         = "mainnet"
+	validCannonAbsolutPreState = "pre.json"
+	validDatadir               = "/tmp/data"
+	validL2Rpc                 = "http://localhost:9545"
+	validRollupRpc             = "http://localhost:8555"
 
-	validAsteriscBin                       = "./bin/asterisc"
-	validAsteriscOpProgramBin              = "./bin/op-program"
-	validAsteriscNetwork                   = "mainnet"
-	validAsteriscAbsolutPreState           = "pre.json"
-	validAsteriscAbsolutPreStateBaseURL, _ = url.Parse("http://localhost/bar/")
+	validAsteriscBin             = "./bin/asterisc"
+	validAsteriscOpProgramBin    = "./bin/op-program"
+	validAsteriscNetwork         = "mainnet"
+	validAsteriscAbsolutPreState = "pre.json"
 )
 
 var cannonTraceTypes = []TraceType{TraceTypeCannon, TraceTypePermissioned}
-var asteriscTraceTypes = []TraceType{TraceTypeAsterisc}
 
 func applyValidConfigForCannon(cfg *Config) {
 	cfg.CannonBin = validCannonBin
 	cfg.CannonServer = validCannonOpProgramBin
-	cfg.CannonAbsolutePreStateBaseURL = validCannonAbsolutPreStateBaseURL
+	cfg.CannonAbsolutePreState = validCannonAbsolutPreState
 	cfg.CannonNetwork = validCannonNetwork
+	cfg.L2Rpc = validL2Rpc
 }
 
 func applyValidConfigForAsterisc(cfg *Config) {
 	cfg.AsteriscBin = validAsteriscBin
 	cfg.AsteriscServer = validAsteriscOpProgramBin
-	cfg.AsteriscAbsolutePreStateBaseURL = validAsteriscAbsolutPreStateBaseURL
+	cfg.AsteriscAbsolutePreState = validAsteriscAbsolutPreState
 	cfg.AsteriscNetwork = validAsteriscNetwork
+	cfg.L2Rpc = validL2Rpc
 }
 
 func validConfig(traceType TraceType) Config {
-	cfg := NewConfig(validGameFactoryAddress, validL1EthRpc, validL1BeaconUrl, validRollupRpc, validL2Rpc, validDatadir, traceType)
+	cfg := NewConfig(validGameFactoryAddress, validL1EthRpc, validL1BeaconUrl, validDatadir, traceType)
 	if traceType == TraceTypeCannon || traceType == TraceTypePermissioned {
 		applyValidConfigForCannon(&cfg)
 	}
 	if traceType == TraceTypeAsterisc {
 		applyValidConfigForAsterisc(&cfg)
 	}
+	cfg.RollupRpc = validRollupRpc
 	return cfg
 }
 
@@ -125,32 +124,10 @@ func TestCannonRequiredArgs(t *testing.T) {
 			require.ErrorIs(t, config.Check(), ErrMissingCannonServer)
 		})
 
-		t.Run(fmt.Sprintf("TestCannonAbsolutePreStateOrBaseURLRequired-%v", traceType), func(t *testing.T) {
+		t.Run(fmt.Sprintf("TestCannonAbsolutePreStateRequired-%v", traceType), func(t *testing.T) {
 			config := validConfig(traceType)
 			config.CannonAbsolutePreState = ""
-			config.CannonAbsolutePreStateBaseURL = nil
 			require.ErrorIs(t, config.Check(), ErrMissingCannonAbsolutePreState)
-		})
-
-		t.Run(fmt.Sprintf("TestCannonAbsolutePreState-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.CannonAbsolutePreState = validCannonAbsolutPreState
-			config.CannonAbsolutePreStateBaseURL = nil
-			require.NoError(t, config.Check())
-		})
-
-		t.Run(fmt.Sprintf("TestCannonAbsolutePreStateBaseURL-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.CannonAbsolutePreState = ""
-			config.CannonAbsolutePreStateBaseURL = validCannonAbsolutPreStateBaseURL
-			require.NoError(t, config.Check())
-		})
-
-		t.Run(fmt.Sprintf("TestMustNotSupplyBothCannonAbsolutePreStateAndBaseURL-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.CannonAbsolutePreState = validCannonAbsolutPreState
-			config.CannonAbsolutePreStateBaseURL = validCannonAbsolutPreStateBaseURL
-			require.ErrorIs(t, config.Check(), ErrCannonAbsolutePreStateAndBaseURL)
 		})
 
 		t.Run(fmt.Sprintf("TestL2RpcRequired-%v", traceType), func(t *testing.T) {
@@ -215,112 +192,6 @@ func TestCannonRequiredArgs(t *testing.T) {
 	}
 }
 
-func TestAsteriscRequiredArgs(t *testing.T) {
-	for _, traceType := range asteriscTraceTypes {
-		traceType := traceType
-
-		t.Run(fmt.Sprintf("TestAsteriscBinRequired-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscBin = ""
-			require.ErrorIs(t, config.Check(), ErrMissingAsteriscBin)
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscServerRequired-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscServer = ""
-			require.ErrorIs(t, config.Check(), ErrMissingAsteriscServer)
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscAbsolutePreStateOrBaseURLRequired-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscAbsolutePreState = ""
-			config.AsteriscAbsolutePreStateBaseURL = nil
-			require.ErrorIs(t, config.Check(), ErrMissingAsteriscAbsolutePreState)
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscAbsolutePreState-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscAbsolutePreState = validAsteriscAbsolutPreState
-			config.AsteriscAbsolutePreStateBaseURL = nil
-			require.NoError(t, config.Check())
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscAbsolutePreStateBaseURL-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscAbsolutePreState = ""
-			config.AsteriscAbsolutePreStateBaseURL = validAsteriscAbsolutPreStateBaseURL
-			require.NoError(t, config.Check())
-		})
-
-		t.Run(fmt.Sprintf("TestMustNotSupplyBothAsteriscAbsolutePreStateAndBaseURL-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.AsteriscAbsolutePreState = validAsteriscAbsolutPreState
-			config.AsteriscAbsolutePreStateBaseURL = validAsteriscAbsolutPreStateBaseURL
-			require.ErrorIs(t, config.Check(), ErrAsteriscAbsolutePreStateAndBaseURL)
-		})
-
-		t.Run(fmt.Sprintf("TestL2RpcRequired-%v", traceType), func(t *testing.T) {
-			config := validConfig(traceType)
-			config.L2Rpc = ""
-			require.ErrorIs(t, config.Check(), ErrMissingL2Rpc)
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscSnapshotFreq-%v", traceType), func(t *testing.T) {
-			t.Run("MustNotBeZero", func(t *testing.T) {
-				cfg := validConfig(traceType)
-				cfg.AsteriscSnapshotFreq = 0
-				require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscSnapshotFreq)
-			})
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscInfoFreq-%v", traceType), func(t *testing.T) {
-			t.Run("MustNotBeZero", func(t *testing.T) {
-				cfg := validConfig(traceType)
-				cfg.AsteriscInfoFreq = 0
-				require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscInfoFreq)
-			})
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscNetworkOrRollupConfigRequired-%v", traceType), func(t *testing.T) {
-			cfg := validConfig(traceType)
-			cfg.AsteriscNetwork = ""
-			cfg.AsteriscRollupConfigPath = ""
-			cfg.AsteriscL2GenesisPath = "genesis.json"
-			require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscRollupConfig)
-		})
-
-		t.Run(fmt.Sprintf("TestAsteriscNetworkOrL2GenesisRequired-%v", traceType), func(t *testing.T) {
-			cfg := validConfig(traceType)
-			cfg.AsteriscNetwork = ""
-			cfg.AsteriscRollupConfigPath = "foo.json"
-			cfg.AsteriscL2GenesisPath = ""
-			require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscL2Genesis)
-		})
-
-		t.Run(fmt.Sprintf("TestMustNotSpecifyNetworkAndRollup-%v", traceType), func(t *testing.T) {
-			cfg := validConfig(traceType)
-			cfg.AsteriscNetwork = validAsteriscNetwork
-			cfg.AsteriscRollupConfigPath = "foo.json"
-			cfg.AsteriscL2GenesisPath = ""
-			require.ErrorIs(t, cfg.Check(), ErrAsteriscNetworkAndRollupConfig)
-		})
-
-		t.Run(fmt.Sprintf("TestMustNotSpecifyNetworkAndL2Genesis-%v", traceType), func(t *testing.T) {
-			cfg := validConfig(traceType)
-			cfg.AsteriscNetwork = validAsteriscNetwork
-			cfg.AsteriscRollupConfigPath = ""
-			cfg.AsteriscL2GenesisPath = "foo.json"
-			require.ErrorIs(t, cfg.Check(), ErrAsteriscNetworkAndL2Genesis)
-		})
-
-		t.Run(fmt.Sprintf("TestNetworkMustBeValid-%v", traceType), func(t *testing.T) {
-			cfg := validConfig(traceType)
-			cfg.AsteriscNetwork = "unknown"
-			require.ErrorIs(t, cfg.Check(), ErrAsteriscNetworkUnknown)
-		})
-	}
-}
-
 func TestDatadirRequired(t *testing.T) {
 	config := validConfig(TraceTypeAlphabet)
 	config.Datadir = ""
@@ -367,7 +238,6 @@ func TestRequireConfigForMultipleTraceTypesForCannon(t *testing.T) {
 
 	// Require cannon specific args
 	cfg.CannonAbsolutePreState = ""
-	cfg.CannonAbsolutePreStateBaseURL = nil
 	require.ErrorIs(t, cfg.Check(), ErrMissingCannonAbsolutePreState)
 	cfg.CannonAbsolutePreState = validCannonAbsolutPreState
 
@@ -385,7 +255,6 @@ func TestRequireConfigForMultipleTraceTypesForAsterisc(t *testing.T) {
 
 	// Require asterisc specific args
 	cfg.AsteriscAbsolutePreState = ""
-	cfg.AsteriscAbsolutePreStateBaseURL = nil
 	require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscAbsolutePreState)
 	cfg.AsteriscAbsolutePreState = validAsteriscAbsolutPreState
 
@@ -410,7 +279,6 @@ func TestRequireConfigForMultipleTraceTypesForCannonAndAsterisc(t *testing.T) {
 
 	// Require asterisc specific args
 	cfg.AsteriscAbsolutePreState = ""
-	cfg.AsteriscAbsolutePreStateBaseURL = nil
 	require.ErrorIs(t, cfg.Check(), ErrMissingAsteriscAbsolutePreState)
 	cfg.AsteriscAbsolutePreState = validAsteriscAbsolutPreState
 

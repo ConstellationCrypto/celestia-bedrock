@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/external"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/onsi/gomega/gexec"
 	"github.com/stretchr/testify/require"
@@ -65,7 +64,7 @@ func (eec *ExternalEthClient) Close() error {
 	return nil
 }
 
-func (er *ExternalRunner) Run(t testing.TB) *ExternalEthClient {
+func (er *ExternalRunner) Run(t *testing.T) *ExternalEthClient {
 	if er.BinPath == "" {
 		t.Error("no external bin path set")
 	}
@@ -76,8 +75,8 @@ func (er *ExternalRunner) Run(t testing.TB) *ExternalEthClient {
 
 	if er.Genesis == nil {
 		er.Genesis = &core.Genesis{
-			Alloc: types.GenesisAlloc{
-				common.Address{1}: types.Account{Balance: big.NewInt(1)},
+			Alloc: core.GenesisAlloc{
+				common.Address{1}: core.GenesisAccount{Balance: big.NewInt(1)},
 			},
 			Config:     params.OptimismTestConfig,
 			Difficulty: big.NewInt(0),

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/flags"
@@ -15,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type ContractCreator[T any] func(context.Context, contractMetrics.ContractMetricer, common.Address, *batching.MultiCaller) (T, error)
+type ContractCreator[T any] func(contractMetrics.ContractMetricer, common.Address, *batching.MultiCaller) T
 
 // NewContractWithTxMgr creates a new contract and a transaction manager.
 func NewContractWithTxMgr[T any](ctx *cli.Context, flagName string, creator ContractCreator[T]) (T, txmgr.TxManager, error) {
@@ -41,10 +40,7 @@ func newContractFromCLI[T any](ctx *cli.Context, flagName string, caller *batchi
 		return contract, err
 	}
 
-	created, err := creator(ctx.Context, contractMetrics.NoopContractMetrics, gameAddr, caller)
-	if err != nil {
-		return contract, fmt.Errorf("failed to create contract bindings: %w", err)
-	}
+	created := creator(contractMetrics.NoopContractMetrics, gameAddr, caller)
 
 	return created, nil
 }

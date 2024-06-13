@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum-optimism/optimism/indexer/config"
 	"github.com/ethereum-optimism/optimism/indexer/database"
 	"github.com/ethereum-optimism/optimism/indexer/node"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/tasks"
 )
@@ -40,7 +39,7 @@ type L1ETL struct {
 
 // NewL1ETL creates a new L1ETL instance that will start indexing from different starting points
 // depending on the state of the database and the supplied start height.
-func NewL1ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, client client.Client,
+func NewL1ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, client node.EthClient,
 	contracts config.L1Contracts, shutdown context.CancelCauseFunc) (*L1ETL, error) {
 	log = log.New("etl", "l1")
 
@@ -74,11 +73,7 @@ func NewL1ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, cli
 		fromHeader = latestHeader.RLPHeader.Header()
 	} else if cfg.StartHeight.BitLen() > 0 {
 		log.Info("no indexed state starting from supplied L1 height", "height", cfg.StartHeight.String())
-
-		ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-		defer cancel()
-
-		header, err := client.HeaderByNumber(ctxwt, cfg.StartHeight)
+		header, err := client.BlockHeaderByNumber(cfg.StartHeight)
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch starting block header: %w", err)
 		}
@@ -103,7 +98,7 @@ func NewL1ETL(cfg Config, log log.Logger, db *database.DB, metrics Metricer, cli
 		contracts:       l1Contracts,
 		etlBatches:      etlBatches,
 
-		client: client,
+		EthClient: client,
 	}
 
 	resCtx, resCancel := context.WithCancel(context.Background())

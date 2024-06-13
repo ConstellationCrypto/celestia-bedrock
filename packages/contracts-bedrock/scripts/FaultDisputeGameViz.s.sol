@@ -9,8 +9,9 @@ import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
 import { FaultDisputeGame } from "src/dispute/FaultDisputeGame.sol";
 import { IFaultDisputeGame } from "src/dispute/interfaces/IFaultDisputeGame.sol";
 
-import "src/dispute/lib/Types.sol";
-import "src/dispute/lib/Errors.sol";
+import "src/libraries/DisputeTypes.sol";
+import "src/libraries/DisputeErrors.sol";
+import { LibPosition } from "src/dispute/lib/LibPosition.sol";
 
 /**
  * @title FaultDisputeGameViz

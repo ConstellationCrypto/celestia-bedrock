@@ -58,9 +58,6 @@ func (b *RawSpanBatch) GetBatchType() int {
 
 // decodeOriginBits parses data into bp.originBits
 func (bp *spanBatchPayload) decodeOriginBits(r *bytes.Reader) error {
-	if bp.blockCount > MaxSpanBatchElementCount {
-		return ErrTooBigSpanBatchSize
-	}
 	bits, err := decodeSpanBatchBits(r, bp.blockCount)
 	if err != nil {
 		return fmt.Errorf("failed to decode origin bits: %w", err)
@@ -130,8 +127,8 @@ func (bp *spanBatchPayload) decodeBlockCount(r *bytes.Reader) error {
 	if err != nil {
 		return fmt.Errorf("failed to read block count: %w", err)
 	}
-	// number of L2 block in span batch cannot be greater than MaxSpanBatchElementCount
-	if blockCount > MaxSpanBatchElementCount {
+	// number of L2 block in span batch cannot be greater than MaxSpanBatchSize
+	if blockCount > MaxSpanBatchSize {
 		return ErrTooBigSpanBatchSize
 	}
 	if blockCount == 0 {
@@ -150,9 +147,9 @@ func (bp *spanBatchPayload) decodeBlockTxCounts(r *bytes.Reader) error {
 		if err != nil {
 			return fmt.Errorf("failed to read block tx count: %w", err)
 		}
-		// number of txs in single L2 block cannot be greater than MaxSpanBatchElementCount
+		// number of txs in single L2 block cannot be greater than MaxSpanBatchSize
 		// every tx will take at least single byte
-		if blockTxCount > MaxSpanBatchElementCount {
+		if blockTxCount > MaxSpanBatchSize {
 			return ErrTooBigSpanBatchSize
 		}
 		blockTxCounts = append(blockTxCounts, blockTxCount)
@@ -177,8 +174,8 @@ func (bp *spanBatchPayload) decodeTxs(r *bytes.Reader) error {
 		}
 		totalBlockTxCount = total
 	}
-	// total number of txs in span batch cannot be greater than MaxSpanBatchElementCount
-	if totalBlockTxCount > MaxSpanBatchElementCount {
+	// total number of txs in span batch cannot be greater than MaxSpanBatchSize
+	if totalBlockTxCount > MaxSpanBatchSize {
 		return ErrTooBigSpanBatchSize
 	}
 	bp.txs.totalBlockTxCount = totalBlockTxCount
@@ -207,6 +204,9 @@ func (bp *spanBatchPayload) decodePayload(r *bytes.Reader) error {
 
 // decode reads the byte encoding of SpanBatch from Reader stream
 func (b *RawSpanBatch) decode(r *bytes.Reader) error {
+	if r.Len() > MaxSpanBatchSize {
+		return ErrTooBigSpanBatchSize
+	}
 	if err := b.decodePrefix(r); err != nil {
 		return fmt.Errorf("failed to decode span batch prefix: %w", err)
 	}
@@ -421,9 +421,6 @@ type SpanBatch struct {
 	blockTxCounts []uint64
 	sbtxs         *spanBatchTxs
 }
-
-func (b *SpanBatch) AsSingularBatch() (*SingularBatch, bool) { return nil, false }
-func (b *SpanBatch) AsSpanBatch() (*SpanBatch, bool)         { return b, true }
 
 // spanBatchMarshaling is a helper type used for JSON marshaling.
 type spanBatchMarshaling struct {
@@ -649,7 +646,7 @@ func ReadTxData(r *bytes.Reader) ([]byte, int, error) {
 		}
 	}
 	// avoid out of memory before allocation
-	s := rlp.NewStream(r, MaxSpanBatchElementCount)
+	s := rlp.NewStream(r, MaxSpanBatchSize)
 	var txPayload []byte
 	kind, _, err := s.Kind()
 	switch {

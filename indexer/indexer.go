@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,15 +19,11 @@ import (
 	"github.com/ethereum-optimism/optimism/indexer/config"
 	"github.com/ethereum-optimism/optimism/indexer/database"
 	"github.com/ethereum-optimism/optimism/indexer/etl"
+	"github.com/ethereum-optimism/optimism/indexer/node"
 	"github.com/ethereum-optimism/optimism/indexer/processors"
 	"github.com/ethereum-optimism/optimism/indexer/processors/bridge"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/httputil"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
-)
-
-const (
-	MetricsNamespace = "op_indexer"
 )
 
 // Indexer contains the necessary resources for
@@ -37,8 +32,8 @@ type Indexer struct {
 	log log.Logger
 	DB  *database.DB
 
-	l1Client client.Client
-	l2Client client.Client
+	l1Client node.EthClient
+	l2Client node.EthClient
 
 	metricsRegistry *prometheus.Registry
 
@@ -171,29 +166,17 @@ func (ix *Indexer) initFromConfig(ctx context.Context, cfg *config.Config) error
 }
 
 func (ix *Indexer) initRPCClients(ctx context.Context, rpcsConfig config.RPCsConfig) error {
-	if !client.IsURLAvailable(rpcsConfig.L1RPC) {
-		return fmt.Errorf("l1 rpc address unavailable (%s)", rpcsConfig.L1RPC)
-	}
-	l1Rpc, err := rpc.DialContext(ctx, rpcsConfig.L1RPC)
+	l1EthClient, err := node.DialEthClient(ctx, rpcsConfig.L1RPC, node.NewMetrics(ix.metricsRegistry, "l1"))
 	if err != nil {
 		return fmt.Errorf("failed to dial L1 client: %w", err)
 	}
+	ix.l1Client = l1EthClient
 
-	if !client.IsURLAvailable(rpcsConfig.L2RPC) {
-		return fmt.Errorf("l2 rpc address unavailable (%s)", rpcsConfig.L2RPC)
-	}
-	l2Rpc, err := rpc.DialContext(ctx, rpcsConfig.L2RPC)
+	l2EthClient, err := node.DialEthClient(ctx, rpcsConfig.L2RPC, node.NewMetrics(ix.metricsRegistry, "l2"))
 	if err != nil {
 		return fmt.Errorf("failed to dial L2 client: %w", err)
 	}
-
-	mFactory := metrics.With(ix.metricsRegistry)
-
-	l1RpcMetrics := metrics.MakeRPCClientMetrics(fmt.Sprintf("%s_%s", MetricsNamespace, "l1"), mFactory)
-	ix.l1Client = client.NewInstrumentedClient(l1Rpc, &l1RpcMetrics)
-
-	l2RpcMetrics := metrics.MakeRPCClientMetrics(fmt.Sprintf("%s_%s", MetricsNamespace, "l2"), mFactory)
-	ix.l2Client = client.NewInstrumentedClient(l2Rpc, &l2RpcMetrics)
+	ix.l2Client = l2EthClient
 	return nil
 }
 

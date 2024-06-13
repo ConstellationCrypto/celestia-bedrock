@@ -25,9 +25,8 @@ var NoopMetrics Metricer = new(NoopMetricsImpl)
 func (*NoopMetricsImpl) RecordInfo(version string) {}
 func (*NoopMetricsImpl) RecordUp()                 {}
 
-func (*NoopMetricsImpl) RecordGameMove()        {}
-func (*NoopMetricsImpl) RecordGameStep()        {}
-func (*NoopMetricsImpl) RecordGameL2Challenge() {}
+func (*NoopMetricsImpl) RecordGameMove() {}
+func (*NoopMetricsImpl) RecordGameStep() {}
 
 func (*NoopMetricsImpl) RecordActedL1Block(_ uint64) {}
 

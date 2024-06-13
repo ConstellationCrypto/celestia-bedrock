@@ -22,13 +22,13 @@ import { SuperchainConfig } from "src/L1/SuperchainConfig.sol";
 import { OptimismPortal2 } from "src/L1/OptimismPortal2.sol";
 
 import { FaultDisputeGame, IDisputeGame } from "src/dispute/FaultDisputeGame.sol";
-import "src/dispute/lib/Types.sol";
+import "src/libraries/DisputeTypes.sol";
 import "src/libraries/PortalErrors.sol";
 
 contract OptimismPortal2_Test is CommonTest {
     address depositor;
 
-    function setUp() public virtual override {
+    function setUp() public override {
         super.enableFaultProofs();
         super.setUp();
 
@@ -368,14 +368,11 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     }
 
     /// @dev Tests that the guardian role can blacklist any dispute game.
-    function testFuzz_blacklist_guardian_succeeds(IDisputeGame _addr) external {
-        vm.expectEmit(address(optimismPortal2));
-        emit DisputeGameBlacklisted(_addr);
-
+    function testFuzz_blacklist_guardian_succeeds(address _addr) external {
         vm.prank(optimismPortal2.guardian());
-        optimismPortal2.blacklistDisputeGame(_addr);
+        optimismPortal2.blacklistDisputeGame(IDisputeGame(_addr));
 
-        assertTrue(optimismPortal2.disputeGameBlacklist(_addr));
+        assertTrue(optimismPortal2.disputeGameBlacklist(IDisputeGame(_addr)));
     }
 
     /// @dev Tests that `setRespectedGameType` reverts when called by a non-guardian.
@@ -389,8 +386,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
     /// @dev Tests that the guardian role can set the respected game type to anything they want.
     function testFuzz_setRespectedGameType_guardian_succeeds(GameType _ty) external {
-        vm.expectEmit(address(optimismPortal2));
-        emit RespectedGameTypeSet(_ty, Timestamp.wrap(uint64(block.timestamp)));
         vm.prank(optimismPortal2.guardian());
         optimismPortal2.setRespectedGameType(_ty);
 
@@ -454,8 +449,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_proveWithdrawalTransaction_replayProve_differentGameChallengerWins_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -503,8 +496,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_proveWithdrawalTransaction_replayProveBlacklisted_suceeds() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -526,8 +517,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -541,8 +530,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_proveWithdrawalTransaction_replayProveBadProposal_suceeds() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -560,8 +547,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -576,8 +561,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Prove the withdrawal against a game with the current respected game type.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -601,8 +584,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Re-proving should be successful against the new game.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex + 1,
@@ -615,8 +596,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_proveWithdrawalTransaction_validWithdrawalProof_succeeds() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -633,8 +612,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Submit the first proof for the withdrawal hash.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -645,8 +622,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Submit a second proof for the same withdrawal hash.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(0xb0b));
         vm.prank(address(0xb0b));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
@@ -676,8 +651,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -713,8 +686,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Prove the withdrawal transaction against the invalid dispute game, as 0xb0b.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(0xb0b));
         vm.prank(address(0xb0b));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
@@ -730,8 +701,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // game.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -784,8 +753,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -807,8 +774,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Prove our withdrawal
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -838,8 +803,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Prove our withdrawal
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -865,8 +828,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -891,8 +852,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_finalizeWithdrawalTransaction_onReplay_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -988,8 +947,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(withdrawalHash, alice, address(this));
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction(_testTx, _proposedGameIndex, outputRootProof, withdrawalProof);
 
         // Resolve the dispute game.
@@ -1084,8 +1041,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_finalizeWithdrawalTransaction_blacklisted_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -1111,8 +1066,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_finalizeWithdrawalTransaction_gameInAirGap_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -1142,8 +1095,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_finalizeWithdrawalTransaction_respectedTypeChangedSinceProving_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -1171,8 +1122,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
     function test_finalizeWithdrawalTransaction_gameOlderThanRespectedGameTypeUpdate_reverts() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
@@ -1203,8 +1152,6 @@ contract OptimismPortal2_FinalizeWithdrawal_Test is CommonTest {
         // Prove the withdrawal transaction.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
         optimismPortal2.proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,

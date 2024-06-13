@@ -4,18 +4,19 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/indexer/bigint"
 	"github.com/ethereum-optimism/optimism/indexer/config"
 	"github.com/ethereum-optimism/optimism/indexer/database"
-	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/indexer/node"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 func TestL1ETLConstruction(t *testing.T) {
@@ -23,7 +24,7 @@ func TestL1ETLConstruction(t *testing.T) {
 
 	type testSuite struct {
 		db        *database.MockDB
-		client    client.Client
+		client    *node.MockEthClient
 		start     *big.Int
 		contracts config.L1Contracts
 	}
@@ -36,13 +37,19 @@ func TestL1ETLConstruction(t *testing.T) {
 		{
 			name: "Start from L1 config height",
 			construction: func() *testSuite {
-				client := new(testutils.MockClient)
+				client := new(node.MockEthClient)
 				db := database.NewMockDB()
 
 				testStart := big.NewInt(100)
 				db.MockBlocks.On("L1LatestBlockHeader").Return(nil, nil)
 
-				client.ExpectHeaderByNumber(big.NewInt(100), &types.Header{ParentHash: common.HexToHash("0x69")}, nil)
+				client.On("BlockHeaderByNumber", mock.MatchedBy(
+					bigint.Matcher(100))).Return(
+					&types.Header{
+						ParentHash: common.HexToHash("0x69"),
+					}, nil)
+
+				client.On("GethEthClient").Return(nil)
 
 				return &testSuite{
 					db:     db,
@@ -61,7 +68,7 @@ func TestL1ETLConstruction(t *testing.T) {
 		{
 			name: "Start from recent height stored in DB",
 			construction: func() *testSuite {
-				client := new(testutils.MockClient)
+				client := new(node.MockEthClient)
 				db := database.NewMockDB()
 
 				testStart := big.NewInt(100)
@@ -73,6 +80,8 @@ func TestL1ETLConstruction(t *testing.T) {
 								Number: big.NewInt(69),
 							},
 						}}, nil)
+
+				client.On("GethEthClient").Return(nil)
 
 				return &testSuite{
 					db:     db,

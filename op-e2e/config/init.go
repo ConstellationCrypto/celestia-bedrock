@@ -13,6 +13,7 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
@@ -39,7 +40,7 @@ var (
 	// in end to end tests.
 
 	// L1Allocs represents the L1 genesis block state.
-	L1Allocs *genesis.ForgeAllocs
+	L1Allocs *state.Dump
 	// L1Deployments maps contract names to accounts in the L1
 	// genesis block state.
 	L1Deployments *genesis.L1Deployments
@@ -107,7 +108,7 @@ func init() {
 		return
 	}
 
-	L1Allocs, err = genesis.LoadForgeAllocs(l1AllocsPath)
+	L1Allocs, err = genesis.NewStateDump(l1AllocsPath)
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +124,6 @@ func init() {
 		}
 		l2Allocs[mode] = allocs
 	}
-	mustL2Allocs(genesis.L2AllocsFjord)
 	mustL2Allocs(genesis.L2AllocsEcotone)
 	mustL2Allocs(genesis.L2AllocsDelta)
 	L1Deployments, err = genesis.NewL1Deployments(l1DeploymentsPath)

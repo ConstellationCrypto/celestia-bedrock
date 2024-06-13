@@ -3,13 +3,13 @@ pragma solidity 0.8.15;
 
 import { CommonTest } from "test/setup/CommonTest.sol";
 import { ForgeArtifacts, Abi } from "scripts/ForgeArtifacts.sol";
-import { GnosisSafe as Safe } from "safe-contracts/GnosisSafe.sol";
+import { Safe } from "safe-contracts/Safe.sol";
 import "test/safe-tools/SafeTestTools.sol";
 
 import { IDisputeGame } from "src/dispute/interfaces/IDisputeGame.sol";
 import { DeputyGuardianModule } from "src/Safe/DeputyGuardianModule.sol";
 
-import "src/dispute/lib/Types.sol";
+import { GameType } from "src/libraries/DisputeTypes.sol";
 
 contract DeputyGuardianModule_TestInit is CommonTest, SafeTestTools {
     using SafeTestLib for SafeInstance;
@@ -17,6 +17,8 @@ contract DeputyGuardianModule_TestInit is CommonTest, SafeTestTools {
     error Unauthorized();
     error ExecutionFailed(string);
 
+    event DisputeGameBlacklisted(IDisputeGame);
+    event RespectedGameTypeSet(GameType);
     event ExecutionFromModuleSuccess(address indexed);
 
     DeputyGuardianModule deputyGuardianModule;
@@ -200,7 +202,7 @@ contract DeputyGuardianModule_setRespectedGameType_Test is DeputyGuardianModule_
         emit ExecutionFromModuleSuccess(address(deputyGuardianModule));
 
         vm.expectEmit(address(deputyGuardianModule));
-        emit RespectedGameTypeSet(_gameType, Timestamp.wrap(uint64(block.timestamp)));
+        emit RespectedGameTypeSet(_gameType);
 
         vm.prank(address(deputyGuardian));
         deputyGuardianModule.setRespectedGameType(optimismPortal2, _gameType);
@@ -239,9 +241,8 @@ contract DeputyGuardianModule_NoPortalCollisions_Test is DeputyGuardianModule_Te
     /// @dev tests that no function selectors in the L1 contracts collide with the OptimismPortal2 functions called by
     ///      the DeputyGuardianModule.
     function test_noPortalCollisions_succeeds() external {
-        string[] memory excludes = new string[](2);
+        string[] memory excludes = new string[](1);
         excludes[0] = "src/L1/OptimismPortal2.sol";
-        excludes[1] = "src/dispute/lib/*";
         Abi[] memory abis = ForgeArtifacts.getContractFunctionAbis("src/{L1,dispute,universal}/", excludes);
         for (uint256 i; i < abis.length; i++) {
             for (uint256 j; j < abis[i].entries.length; j++) {

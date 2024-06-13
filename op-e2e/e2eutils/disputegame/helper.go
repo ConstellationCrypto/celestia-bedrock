@@ -3,15 +3,15 @@ package disputegame
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts/metrics"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/outputs"
-	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	faultTypes "github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/disputegame/preimage"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,31 +38,53 @@ var (
 )
 
 const (
-	cannonGameType   uint32 = 0
-	alphabetGameType uint32 = 255
+	cannonGameType    uint32 = 0
+	alphabetGameType  uint32 = 255
+	alphabetGameDepth        = 4
 )
 
-type GameCfg struct {
+type Status uint8
+
+const (
+	StatusInProgress Status = iota
+	StatusChallengerWins
+	StatusDefenderWins
+)
+
+func (s Status) String() string {
+	switch s {
+	case StatusInProgress:
+		return "In Progress"
+	case StatusChallengerWins:
+		return "Challenger Wins"
+	case StatusDefenderWins:
+		return "Defender Wins"
+	default:
+		return fmt.Sprintf("Unknown status: %v", int(s))
+	}
+}
+
+type gameCfg struct {
 	allowFuture bool
 	allowUnsafe bool
 }
 type GameOpt interface {
-	Apply(cfg *GameCfg)
+	Apply(cfg *gameCfg)
 }
-type gameOptFn func(c *GameCfg)
+type gameOptFn func(c *gameCfg)
 
-func (g gameOptFn) Apply(cfg *GameCfg) {
+func (g gameOptFn) Apply(cfg *gameCfg) {
 	g(cfg)
 }
 
 func WithUnsafeProposal() GameOpt {
-	return gameOptFn(func(c *GameCfg) {
+	return gameOptFn(func(c *gameCfg) {
 		c.allowUnsafe = true
 	})
 }
 
 func WithFutureProposal() GameOpt {
-	return gameOptFn(func(c *GameCfg) {
+	return gameOptFn(func(c *gameCfg) {
 		c.allowFuture = true
 	})
 }
@@ -83,13 +104,13 @@ type DisputeSystem interface {
 }
 
 type FactoryHelper struct {
-	T           *testing.T
-	Require     *require.Assertions
-	System      DisputeSystem
-	Client      *ethclient.Client
-	Opts        *bind.TransactOpts
-	FactoryAddr common.Address
-	Factory     *bindings.DisputeGameFactory
+	t           *testing.T
+	require     *require.Assertions
+	system      DisputeSystem
+	client      *ethclient.Client
+	opts        *bind.TransactOpts
+	factoryAddr common.Address
+	factory     *bindings.DisputeGameFactory
 }
 
 func NewFactoryHelper(t *testing.T, ctx context.Context, system DisputeSystem) *FactoryHelper {
@@ -106,33 +127,33 @@ func NewFactoryHelper(t *testing.T, ctx context.Context, system DisputeSystem) *
 	require.NoError(err)
 
 	return &FactoryHelper{
-		T:           t,
-		Require:     require,
-		System:      system,
-		Client:      client,
-		Opts:        opts,
-		Factory:     factory,
-		FactoryAddr: factoryAddr,
+		t:           t,
+		require:     require,
+		system:      system,
+		client:      client,
+		opts:        opts,
+		factory:     factory,
+		factoryAddr: factoryAddr,
 	}
 }
 
 func (h *FactoryHelper) PreimageHelper(ctx context.Context) *preimage.Helper {
 	opts := &bind.CallOpts{Context: ctx}
-	gameAddr, err := h.Factory.GameImpls(opts, cannonGameType)
-	h.Require.NoError(err)
-	game, err := bindings.NewFaultDisputeGameCaller(gameAddr, h.Client)
-	h.Require.NoError(err)
+	gameAddr, err := h.factory.GameImpls(opts, cannonGameType)
+	h.require.NoError(err)
+	game, err := bindings.NewFaultDisputeGameCaller(gameAddr, h.client)
+	h.require.NoError(err)
 	vmAddr, err := game.Vm(opts)
-	h.Require.NoError(err)
-	vm, err := bindings.NewMIPSCaller(vmAddr, h.Client)
-	h.Require.NoError(err)
+	h.require.NoError(err)
+	vm, err := bindings.NewMIPSCaller(vmAddr, h.client)
+	h.require.NoError(err)
 	oracleAddr, err := vm.Oracle(opts)
-	h.Require.NoError(err)
-	return preimage.NewHelper(h.T, h.Opts, h.Client, oracleAddr)
+	h.require.NoError(err)
+	return preimage.NewHelper(h.t, h.opts, h.client, oracleAddr)
 }
 
-func NewGameCfg(opts ...GameOpt) *GameCfg {
-	cfg := &GameCfg{}
+func newGameCfg(opts ...GameOpt) *gameCfg {
+	cfg := &gameCfg{}
 	for _, opt := range opts {
 		opt.Apply(cfg)
 	}
@@ -140,139 +161,159 @@ func NewGameCfg(opts ...GameOpt) *GameCfg {
 }
 
 func (h *FactoryHelper) StartOutputCannonGameWithCorrectRoot(ctx context.Context, l2Node string, l2BlockNumber uint64, opts ...GameOpt) *OutputCannonGameHelper {
-	cfg := NewGameCfg(opts...)
-	h.WaitForBlock(l2Node, l2BlockNumber, cfg)
-	output, err := h.System.RollupClient(l2Node).OutputAtBlock(ctx, l2BlockNumber)
-	h.Require.NoErrorf(err, "Failed to get output at block %v", l2BlockNumber)
+	cfg := newGameCfg(opts...)
+	h.waitForBlock(l2Node, l2BlockNumber, cfg)
+	output, err := h.system.RollupClient(l2Node).OutputAtBlock(ctx, l2BlockNumber)
+	h.require.NoErrorf(err, "Failed to get output at block %v", l2BlockNumber)
 	return h.StartOutputCannonGame(ctx, l2Node, l2BlockNumber, common.Hash(output.OutputRoot), opts...)
 }
 
 func (h *FactoryHelper) StartOutputCannonGame(ctx context.Context, l2Node string, l2BlockNumber uint64, rootClaim common.Hash, opts ...GameOpt) *OutputCannonGameHelper {
-	cfg := NewGameCfg(opts...)
-	logger := testlog.Logger(h.T, log.LevelInfo).New("role", "OutputCannonGameHelper")
-	rollupClient := h.System.RollupClient(l2Node)
-	l2Client := h.System.NodeClient(l2Node)
+	cfg := newGameCfg(opts...)
+	logger := testlog.Logger(h.t, log.LevelInfo).New("role", "OutputCannonGameHelper")
+	rollupClient := h.system.RollupClient(l2Node)
 
-	extraData := h.CreateBisectionGameExtraData(l2Node, l2BlockNumber, cfg)
+	extraData := h.createBisectionGameExtraData(l2Node, l2BlockNumber, cfg)
 
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
-	tx, err := transactions.PadGasEstimate(h.Opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return h.Factory.Create(opts, cannonGameType, rootClaim, extraData)
+	tx, err := transactions.PadGasEstimate(h.opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return h.factory.Create(opts, cannonGameType, rootClaim, extraData)
 	})
-	h.Require.NoError(err, "create fault dispute game")
-	rcpt, err := wait.ForReceiptOK(ctx, h.Client, tx.Hash())
-	h.Require.NoError(err, "wait for create fault dispute game receipt to be OK")
-	h.Require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
-	createdEvent, err := h.Factory.ParseDisputeGameCreated(*rcpt.Logs[1])
-	h.Require.NoError(err)
-	gameBindings, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.Client)
-	h.Require.NoError(err)
-	game, err := contracts.NewFaultDisputeGameContract(ctx, metrics.NoopContractMetrics, createdEvent.DisputeProxy, batching.NewMultiCaller(h.Client.Client(), batching.DefaultBatchSize))
-	h.Require.NoError(err)
+	h.require.NoError(err, "create fault dispute game")
+	rcpt, err := wait.ForReceiptOK(ctx, h.client, tx.Hash())
+	h.require.NoError(err, "wait for create fault dispute game receipt to be OK")
+	h.require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
+	createdEvent, err := h.factory.ParseDisputeGameCreated(*rcpt.Logs[1])
+	h.require.NoError(err)
+	game, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.client)
+	h.require.NoError(err)
 
-	prestateBlock, poststateBlock, err := game.GetBlockRange(ctx)
-	h.Require.NoError(err, "Failed to load starting block number")
-	splitDepth, err := game.GetSplitDepth(ctx)
-	h.Require.NoError(err, "Failed to load split depth")
-	l1Head := h.GetL1Head(ctx, game)
+	callOpts := &bind.CallOpts{Context: ctx}
+	prestateBlock, err := game.StartingBlockNumber(callOpts)
+	h.require.NoError(err, "Failed to load starting block number")
+	poststateBlock, err := game.L2BlockNumber(callOpts)
+	h.require.NoError(err, "Failed to load l2 block number")
+	splitDepth, err := game.SplitDepth(callOpts)
+	h.require.NoError(err, "Failed to load split depth")
+	l1Head := h.getL1Head(ctx, game)
 
-	prestateProvider := outputs.NewPrestateProvider(rollupClient, prestateBlock)
-	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l2Client, l1Head, splitDepth, prestateBlock, poststateBlock)
+	prestateProvider := outputs.NewPrestateProvider(rollupClient, prestateBlock.Uint64())
+	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l1Head, faultTypes.Depth(splitDepth.Uint64()), prestateBlock.Uint64(), poststateBlock.Uint64())
 
 	return &OutputCannonGameHelper{
-		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System),
+		OutputGameHelper: OutputGameHelper{
+			t:                     h.t,
+			require:               h.require,
+			client:                h.client,
+			opts:                  h.opts,
+			game:                  game,
+			factoryAddr:           h.factoryAddr,
+			addr:                  createdEvent.DisputeProxy,
+			correctOutputProvider: provider,
+			system:                h.system,
+		},
 	}
 }
 
-func (h *FactoryHelper) GetL1Head(ctx context.Context, game contracts.FaultDisputeGameContract) eth.BlockID {
-	l1HeadHash, err := game.GetL1Head(ctx)
-	h.Require.NoError(err, "Failed to load L1 head")
-	l1Header, err := h.Client.HeaderByHash(ctx, l1HeadHash)
-	h.Require.NoError(err, "Failed to load L1 header")
+func (h *FactoryHelper) getL1Head(ctx context.Context, game *bindings.FaultDisputeGame) eth.BlockID {
+	l1HeadHash, err := game.L1Head(&bind.CallOpts{Context: ctx})
+	h.require.NoError(err, "Failed to load L1 head")
+	l1Header, err := h.client.HeaderByHash(ctx, l1HeadHash)
+	h.require.NoError(err, "Failed to load L1 header")
 	l1Head := eth.HeaderBlockID(l1Header)
 	return l1Head
 }
 
 func (h *FactoryHelper) StartOutputAlphabetGameWithCorrectRoot(ctx context.Context, l2Node string, l2BlockNumber uint64, opts ...GameOpt) *OutputAlphabetGameHelper {
-	cfg := NewGameCfg(opts...)
-	h.WaitForBlock(l2Node, l2BlockNumber, cfg)
-	output, err := h.System.RollupClient(l2Node).OutputAtBlock(ctx, l2BlockNumber)
-	h.Require.NoErrorf(err, "Failed to get output at block %v", l2BlockNumber)
+	cfg := newGameCfg(opts...)
+	h.waitForBlock(l2Node, l2BlockNumber, cfg)
+	output, err := h.system.RollupClient(l2Node).OutputAtBlock(ctx, l2BlockNumber)
+	h.require.NoErrorf(err, "Failed to get output at block %v", l2BlockNumber)
 	return h.StartOutputAlphabetGame(ctx, l2Node, l2BlockNumber, common.Hash(output.OutputRoot))
 }
 
 func (h *FactoryHelper) StartOutputAlphabetGame(ctx context.Context, l2Node string, l2BlockNumber uint64, rootClaim common.Hash, opts ...GameOpt) *OutputAlphabetGameHelper {
-	cfg := NewGameCfg(opts...)
-	logger := testlog.Logger(h.T, log.LevelInfo).New("role", "OutputAlphabetGameHelper")
-	rollupClient := h.System.RollupClient(l2Node)
-	l2Client := h.System.NodeClient(l2Node)
+	cfg := newGameCfg(opts...)
+	logger := testlog.Logger(h.t, log.LevelInfo).New("role", "OutputAlphabetGameHelper")
+	rollupClient := h.system.RollupClient(l2Node)
 
-	extraData := h.CreateBisectionGameExtraData(l2Node, l2BlockNumber, cfg)
+	extraData := h.createBisectionGameExtraData(l2Node, l2BlockNumber, cfg)
 
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
-	tx, err := transactions.PadGasEstimate(h.Opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-		return h.Factory.Create(opts, alphabetGameType, rootClaim, extraData)
+	tx, err := transactions.PadGasEstimate(h.opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return h.factory.Create(opts, alphabetGameType, rootClaim, extraData)
 	})
-	h.Require.NoError(err, "create output bisection game")
-	rcpt, err := wait.ForReceiptOK(ctx, h.Client, tx.Hash())
-	h.Require.NoError(err, "wait for create output bisection game receipt to be OK")
-	h.Require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
-	createdEvent, err := h.Factory.ParseDisputeGameCreated(*rcpt.Logs[1])
-	h.Require.NoError(err)
-	gameBindings, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.Client)
-	h.Require.NoError(err)
-	game, err := contracts.NewFaultDisputeGameContract(ctx, metrics.NoopContractMetrics, createdEvent.DisputeProxy, batching.NewMultiCaller(h.Client.Client(), batching.DefaultBatchSize))
-	h.Require.NoError(err)
+	h.require.NoError(err, "create output bisection game")
+	rcpt, err := wait.ForReceiptOK(ctx, h.client, tx.Hash())
+	h.require.NoError(err, "wait for create output bisection game receipt to be OK")
+	h.require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
+	createdEvent, err := h.factory.ParseDisputeGameCreated(*rcpt.Logs[1])
+	h.require.NoError(err)
+	game, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.client)
+	h.require.NoError(err)
 
-	prestateBlock, poststateBlock, err := game.GetBlockRange(ctx)
-	h.Require.NoError(err, "Failed to load starting block number")
-	splitDepth, err := game.GetSplitDepth(ctx)
-	h.Require.NoError(err, "Failed to load split depth")
-	l1Head := h.GetL1Head(ctx, game)
-	prestateProvider := outputs.NewPrestateProvider(rollupClient, prestateBlock)
+	callOpts := &bind.CallOpts{Context: ctx}
+	prestateBlock, err := game.StartingBlockNumber(callOpts)
+	h.require.NoError(err, "Failed to load starting block number")
+	poststateBlock, err := game.L2BlockNumber(callOpts)
+	h.require.NoError(err, "Failed to load l2 block number")
+	splitDepth, err := game.SplitDepth(callOpts)
+	h.require.NoError(err, "Failed to load split depth")
+	l1Head := h.getL1Head(ctx, game)
+	prestateProvider := outputs.NewPrestateProvider(rollupClient, prestateBlock.Uint64())
 
-	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l2Client, l1Head, splitDepth, prestateBlock, poststateBlock)
+	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l1Head, faultTypes.Depth(splitDepth.Uint64()), prestateBlock.Uint64(), poststateBlock.Uint64())
 
 	return &OutputAlphabetGameHelper{
-		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System),
+		OutputGameHelper: OutputGameHelper{
+			t:                     h.t,
+			require:               h.require,
+			client:                h.client,
+			opts:                  h.opts,
+			game:                  game,
+			factoryAddr:           h.factoryAddr,
+			addr:                  createdEvent.DisputeProxy,
+			correctOutputProvider: provider,
+			system:                h.system,
+		},
 	}
 }
 
-func (h *FactoryHelper) CreateBisectionGameExtraData(l2Node string, l2BlockNumber uint64, cfg *GameCfg) []byte {
-	h.WaitForBlock(l2Node, l2BlockNumber, cfg)
-	h.T.Logf("Creating game with l2 block number: %v", l2BlockNumber)
+func (h *FactoryHelper) createBisectionGameExtraData(l2Node string, l2BlockNumber uint64, cfg *gameCfg) []byte {
+	h.waitForBlock(l2Node, l2BlockNumber, cfg)
+	h.t.Logf("Creating game with l2 block number: %v", l2BlockNumber)
 	extraData := make([]byte, 32)
 	binary.BigEndian.PutUint64(extraData[24:], l2BlockNumber)
 	return extraData
 }
 
-func (h *FactoryHelper) WaitForBlock(l2Node string, l2BlockNumber uint64, cfg *GameCfg) {
+func (h *FactoryHelper) waitForBlock(l2Node string, l2BlockNumber uint64, cfg *gameCfg) {
 	if cfg.allowFuture {
 		// Proposing a block that doesn't exist yet, so don't perform any checks
 		return
 	}
 
-	l2Client := h.System.NodeClient(l2Node)
+	l2Client := h.system.NodeClient(l2Node)
 	if cfg.allowUnsafe {
 		_, err := geth.WaitForBlock(new(big.Int).SetUint64(l2BlockNumber), l2Client, 1*time.Minute)
-		h.Require.NoErrorf(err, "Block number %v did not become unsafe", l2BlockNumber)
+		h.require.NoErrorf(err, "Block number %v did not become unsafe", l2BlockNumber)
 	} else {
 		_, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(l2BlockNumber), l2Client, 1*time.Minute)
-		h.Require.NoErrorf(err, "Block number %v did not become safe", l2BlockNumber)
+		h.require.NoErrorf(err, "Block number %v did not become safe", l2BlockNumber)
 	}
 }
 
 func (h *FactoryHelper) StartChallenger(ctx context.Context, name string, options ...challenger.Option) *challenger.Helper {
 	opts := []challenger.Option{
-		challenger.WithFactoryAddress(h.FactoryAddr),
+		challenger.WithFactoryAddress(h.factoryAddr),
 	}
 	opts = append(opts, options...)
-	c := challenger.NewChallenger(h.T, ctx, h.System, name, opts...)
-	h.T.Cleanup(func() {
+	c := challenger.NewChallenger(h.t, ctx, h.system, name, opts...)
+	h.t.Cleanup(func() {
 		_ = c.Close()
 	})
 	return c
