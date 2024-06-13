@@ -6,7 +6,7 @@ toolchain go1.21.8
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/DataDog/zstd v1.5.2
+	github.com/DataDog/zstd v1.5.5
 	github.com/andybalholm/brotli v1.1.0
 	github.com/aws/aws-sdk-go-v2 v1.26.1
 	github.com/aws/aws-sdk-go-v2/config v1.27.11
