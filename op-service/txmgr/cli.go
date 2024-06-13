@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"slices"
 	"time"
 
 	kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
@@ -106,7 +105,7 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 	prefixEnvVars := func(name string) []string {
 		return opservice.PrefixEnvVar(envPrefix, name)
 	}
-	return slices.Concat([]cli.Flag{
+	flags := append([]cli.Flag{
 		&cli.StringFlag{
 			Name:    MnemonicFlagName,
 			Usage:   "The mnemonic used to derive the wallets for either the service",
@@ -188,7 +187,8 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			Value:   defaults.ReceiptQueryInterval,
 			EnvVars: prefixEnvVars("TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
-	}, opsigner.CLIFlags(envPrefix), kmssigner.CLIFlags(envPrefix))
+	}, opsigner.CLIFlags(envPrefix)...)
+	return append(flags, kmssigner.CLIFlags(envPrefix)...)
 }
 
 type CLIConfig struct {
