@@ -177,7 +177,10 @@ const main = async () => {
       useFaultProofs: process.env.USE_FAULT_PROOFS === "true",
 
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
-      customGasTokenAddress: process.env.L1_FPE_TOKEN
+      customGasTokenAddress: process.env.L1_FPE_TOKEN,
+	
+      usePlasma: process.env.PLASMA === "true"
+
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
