@@ -180,7 +180,6 @@ const main = async () => {
       customGasTokenAddress: process.env.L1_FPE_TOKEN,
 
       usePlasma: process.env.PLASMA === "true"
-
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
