@@ -124,7 +124,6 @@ npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 -
 <pre>
 ├── <a href="./docs">docs</a>: A collection of documents including audits and post-mortems
 ├── <a href="./op-batcher">op-batcher</a>: L2-Batch Submitter, submits bundles of batches to L1
-├── <a href="./op-bindings">op-bindings</a>: Go bindings for Bedrock smart contracts.
 ├── <a href="./op-bootnode">op-bootnode</a>: Standalone op-node discovery bootnode
 ├── <a href="./op-chain-ops">op-chain-ops</a>: State surgery utilities
 ├── <a href="./op-challenger">op-challenger</a>: Dispute game challenge agent
@@ -145,7 +144,6 @@ npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 -
 │   ├── <a href="./packages/sdk">sdk</a>: provides a set of tools for interacting with Optimism
 ├── <a href="./proxyd">proxyd</a>: Configurable RPC request router and proxy
 ├── <a href="./specs">specs</a>: Specs of the rollup starting at the Bedrock upgrade
-└── <a href="./ufm-test-services">ufm-test-services</a>: Runs a set of tasks to generate metrics
 </pre>
 
 ## Development and Release Process
@@ -188,7 +186,6 @@ The full set of components that have releases are:
 - `op-proposer`
 - `op-ufm`
 - `proxyd`
-- `ufm-metamask`
 
 All other components and packages should be considered development components only and do not have releases.
 
