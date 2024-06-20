@@ -36,6 +36,11 @@ export interface IBridgeAdapter {
   l2Bridge: Contract
 
   /**
+   * SystemConfig contract.
+   */
+  l1SystemConfig?: Contract
+
+  /**
    * Gets all deposits for a given address.
    *
    * @param address Address to search for messages from.

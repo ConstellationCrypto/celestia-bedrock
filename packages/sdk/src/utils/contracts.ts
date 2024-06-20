@@ -5,6 +5,8 @@ import l1StandardBridge from '../forge-artifacts/L1StandardBridge.json'
 import l2StandardBridge from '../forge-artifacts/L2StandardBridge.json'
 import optimismMintableERC20 from '../forge-artifacts/OptimismMintableERC20.json'
 import optimismPortal from '../forge-artifacts/OptimismPortal.json'
+import superchainConfig from '../forge-artifacts/SuperchainConfig.json'
+import systemConfig from '../forge-artifacts/SystemConfig.json'
 import l1CrossDomainMessenger from '../forge-artifacts/L1CrossDomainMessenger.json'
 import l2CrossDomainMessenger from '../forge-artifacts/L2CrossDomainMessenger.json'
 import optimismMintableERC20Factory from '../forge-artifacts/OptimismMintableERC20Factory.json'
@@ -109,6 +111,12 @@ export const getContractInterfaceBedrock = (
     case 'FaultDisputeGame':
       artifact = faultDisputeGame
       break
+    case 'SystemConfig':
+      artifact = systemConfig
+      break
+    case 'SuperchainConfig':
+      artifact = superchainConfig
+      break
   }
   return new ethers.utils.Interface(artifact.abi)
 }
@@ -202,6 +210,8 @@ export const getAllOEContracts = (
       L2OutputOracle: undefined,
       DisputeGameFactory: undefined,
       OptimismPortal2: undefined,
+      SystemConfig: undefined,
+      SuperchainConfig: undefined,
     },
     l2: DEFAULT_L2_CONTRACT_ADDRESSES,
   }
@@ -284,8 +294,8 @@ export const getBridgeAdapters = (
       messenger,
       l1Bridge: bridgeData.l1Bridge,
       l2Bridge: bridgeData.l2Bridge,
+      l1SystemConfig: bridgeData.l1SystemConfig,
     })
   }
-
   return adapters
 }

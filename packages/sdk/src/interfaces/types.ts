@@ -52,6 +52,9 @@ export interface OEL1Contracts {
   // Bedrock
   OptimismPortal: Contract
   L2OutputOracle: Contract
+  SystemConfig?: Contract
+  SuperchainConfig?: Contract
+  L2ToL1MessagePasser?: Contract
   // FPAC
   OptimismPortal2?: Contract
   DisputeGameFactory?: Contract
@@ -118,9 +121,11 @@ export interface BridgeAdapterData {
       messenger: CrossChainMessenger
       l1Bridge: AddressLike
       l2Bridge: AddressLike
+      l1SystemConfig?: AddressLike
     }) => IBridgeAdapter
     l1Bridge: AddressLike
     l2Bridge: AddressLike
+    l1SystemConfig?: AddressLike
   }
 }
 

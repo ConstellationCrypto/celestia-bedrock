@@ -179,7 +179,7 @@ const main = async () => {
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
       customGasTokenAddress: process.env.L1_FPE_TOKEN,
 
-      usePlasma: process.env.PLASMA === "true",
+      usePlasma: process.env.USE_PLASMA === "true",
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
@@ -207,6 +207,8 @@ const main = async () => {
           L1StandardBridge: addrs.L1StandardBridgeProxy,
           OptimismPortal: addrs.OptimismPortalProxy,
           L2OutputOracle: addrs.L2OutputOracleProxy,
+          SystemConfig: addrs.SystemConfigProxy,
+          SuperchainConfigProxy: addrs.SuperchainConfigProxy,
         },
         null,
         2
