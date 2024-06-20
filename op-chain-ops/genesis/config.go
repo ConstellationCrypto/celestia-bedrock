@@ -456,6 +456,12 @@ func (d *DeployConfig) Check() error {
 		}
 		log.Info("Using custom gas token", "address", d.CustomGasTokenAddress)
 	}
+	if d.UseCustomGasToken {
+		if d.CustomGasTokenAddress == (common.Address{}) {
+			return fmt.Errorf("%w: CustomGasTokenAddress cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		log.Info("Using custom gas token", "address", d.CustomGasTokenAddress)
+	}
 	// checkFork checks that fork A is before or at the same time as fork B
 	checkFork := func(a, b *hexutil.Uint64, aName, bName string) error {
 		if a == nil && b == nil {
