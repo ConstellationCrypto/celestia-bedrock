@@ -18,6 +18,7 @@ import { hexStringEquals } from '@eth-optimism/core-utils'
 import l1StandardBridgeArtifact from '../forge-artifacts/L1StandardBridge.json'
 import l2StandardBridgeArtifact from '../forge-artifacts/L2StandardBridge.json'
 import optimismMintableERC20 from '../forge-artifacts/OptimismMintableERC20.json'
+import IERC20 from '../forge-artifacts/IERC20.json'
 import { CrossChainMessenger } from '../cross-chain-messenger'
 import {
   IBridgeAdapter,
@@ -26,7 +27,7 @@ import {
   TokenBridgeMessage,
   MessageDirection,
 } from '../interfaces'
-import { toAddress } from '../utils'
+import { toAddress, omit } from '../utils'
 
 /**
  * Bridge adapter for any token bridge that uses the standard token bridge interface.
@@ -84,8 +85,9 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         // Specifically filter out ETH. ETH deposits and withdrawals are handled by the ETH bridge
         // adapter. Bridges that are not the ETH bridge should not be able to handle or even
         // present ETH deposits or withdrawals.
+        // Exception: ETH is bridged to L1_ETH if FPE is enabled.
         return (
-          !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
+          // !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
           !hexStringEquals(event.args.l2Token, predeploys.OVM_ETH)
         )
       })
@@ -127,8 +129,9 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         // Specifically filter out ETH. ETH deposits and withdrawals are handled by the ETH bridge
         // adapter. Bridges that are not the ETH bridge should not be able to handle or even
         // present ETH deposits or withdrawals.
+        // Exception: L1_ETH withdraws to ETH if FPE is enabled.
         return (
-          !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
+          // !hexStringEquals(event.args.l1Token, ethers.constants.AddressZero) &&
           !hexStringEquals(event.args.l2Token, predeploys.OVM_ETH)
         )
       })
@@ -156,33 +159,128 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
     l1Token: AddressLike,
     l2Token: AddressLike
   ): Promise<boolean> {
-    const contract = new Contract(
-      toAddress(l2Token),
-      optimismMintableERC20.abi,
-      this.messenger.l2Provider
-    )
-    // Don't support ETH deposits or withdrawals via this bridge.
-    if (
-      hexStringEquals(toAddress(l1Token), ethers.constants.AddressZero) ||
-      hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH)
-    ) {
-      return false
+    return !!(await this.nativeChain(l1Token, l2Token))
+  }
+
+  // return 0 if unsupported, 1 if the token is native to the l1, 2 if the token is native to the l2.
+  public async nativeChain(
+    l1Token: AddressLike,
+    l2Token: AddressLike
+  ): Promise<0 | 1 | 2> {
+    try {
+      const l1Zero = hexStringEquals(
+        toAddress(l1Token),
+        ethers.constants.AddressZero
+      )
+      const l2Zero = hexStringEquals(
+        toAddress(l2Token),
+        ethers.constants.AddressZero
+      )
+
+      if (
+        (l1Zero && l2Zero) ||
+        hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH)
+      ) {
+        return 0
+      }
+
+      // Can use either the l1 or l2 bridge - both store the token information.
+      if (l2Zero) {
+        // Make sure the L1 token matches
+        try {
+          return hexStringEquals(
+            await this.l1Bridge.LOCAL_TOKEN(),
+            toAddress(l1Token)
+          )
+            ? 1
+            : 0
+        } catch (error) {
+          // LOCAL_TOKEN() may not exist
+          console.log(error)
+          return 0
+        }
+      }
+
+      if (l1Zero) {
+        // Make sure the L2 token matches
+        try {
+          return hexStringEquals(
+            await this.l1Bridge.REMOTE_TOKEN(),
+            toAddress(l2Token)
+          )
+            ? 1
+            : 0
+        } catch (error) {
+          // REMOTE_TOKEN() may not exist
+          console.log(error)
+          return 0
+        }
+      }
+
+      // Don't support ETH deposits or withdrawals via this bridge.
+      if (hexStringEquals(toAddress(l2Token), predeploys.OVM_ETH)) {
+        return 0
+      }
+
+      try {
+        const contract = new Contract(
+          toAddress(l2Token),
+          optimismMintableERC20.abi,
+          this.messenger.l2Provider
+        )
+
+        // Make sure the L1 token matches.
+        const remoteL1Token = await contract.l1Token()
+
+        if (!hexStringEquals(remoteL1Token, toAddress(l1Token))) {
+          return 0
+        }
+
+        // Make sure the L2 bridge matches.
+        const remoteL2Bridge = await contract.l2Bridge()
+        if (!hexStringEquals(remoteL2Bridge, this.l2Bridge.address)) {
+          return 0
+        }
+
+        return 1
+      } catch (err) {
+        if (err?.code !== 'CALL_EXCEPTION') {
+          console.error('Unexpected err when checking bridge', err)
+        }
+      }
+
+      const contract = new Contract(
+        toAddress(l1Token),
+        optimismMintableERC20.abi,
+        this.messenger.l1Provider
+      )
+
+      // Make sure the L2 token matches.
+      const remoteL2Token = await contract.REMOTE_TOKEN()
+
+      if (!hexStringEquals(remoteL2Token, toAddress(l2Token))) {
+        return 0
+      }
+
+      // Make sure the L1 bridge matches.
+      const remoteL1Bridge = await contract.BRIDGE()
+      if (!hexStringEquals(remoteL1Bridge, this.l1Bridge.address)) {
+        return 0
+      }
+
+      return 2
+    } catch (err) {
+      // If the L2 token is not an L2StandardERC20, it may throw an error. If there's a call
+      // exception then we assume that the token is not supported. Other errors are thrown. Since
+      // the JSON-RPC API is not well-specified, we need to handle multiple possible error codes.
+      if (
+        !err?.message?.toString().includes('CALL_EXCEPTION') &&
+        !err?.stack?.toString().includes('execution reverted')
+      ) {
+        console.error('Unexpected error when checking bridge', err)
+      }
+      return 0
     }
-
-    // Make sure the L1 token matches.
-    const remoteL1Token = await contract.l1Token()
-
-    if (!hexStringEquals(remoteL1Token, toAddress(l1Token))) {
-      return false
-    }
-
-    // Make sure the L2 bridge matches.
-    const remoteL2Bridge = await contract.l2Bridge()
-    if (!hexStringEquals(remoteL2Bridge, this.l2Bridge.address)) {
-      return false
-    }
-
-    return true
   }
 
   public async approval(
@@ -190,17 +288,21 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
     l2Token: AddressLike,
     signer: ethers.Signer
   ): Promise<BigNumber> {
-    if (!(await this.supportsTokenPair(l1Token, l2Token))) {
+    const chain = await this.nativeChain(l1Token, l2Token)
+
+    if (!chain) {
       throw new Error(`token pair not supported by bridge`)
     }
 
     const token = new Contract(
-      toAddress(l1Token),
-      optimismMintableERC20.abi,
-      this.messenger.l1Provider
+      toAddress(chain == 1 ? l1Token : l2Token),
+      IERC20.abi,
+      chain == 1 ? this.messenger.l1Provider : this.messenger.l2Provider
     )
-
-    return token.allowance(await signer.getAddress(), this.l1Bridge.address)
+    return token.allowance(
+      await signer.getAddress(),
+      chain == 1 ? this.l1Bridge.address : this.l2Bridge.address
+    )
   }
 
   public async approve(
@@ -257,18 +359,19 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         overrides?: Overrides
       }
     ): Promise<TransactionRequest> => {
-      if (!(await this.supportsTokenPair(l1Token, l2Token))) {
+      const chain = await this.nativeChain(l1Token, l2Token)
+      if (!chain) {
         throw new Error(`token pair not supported by bridge`)
       }
 
       const token = new Contract(
-        toAddress(l1Token),
-        optimismMintableERC20.abi,
-        this.messenger.l1Provider
+        toAddress(chain == 1 ? l1Token : l2Token),
+        IERC20.abi,
+        chain == 1 ? this.messenger.l1Provider : this.messenger.l2Provider
       )
 
       return token.populateTransaction.approve(
-        this.l1Bridge.address,
+        chain == 1 ? this.l1Bridge.address : this.l2Bridge.address,
         amount,
         opts?.overrides || {}
       )
@@ -295,7 +398,15 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           opts?.l2GasLimit || 200_000, // Default to 200k gas limit.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: hexStringEquals(
+              toAddress(l1Token),
+              ethers.constants.AddressZero
+            )
+              ? amount
+              : 0,
+          }
         )
       } else {
         return this.l1Bridge.populateTransaction.depositERC20To(
@@ -305,7 +416,15 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           amount,
           opts?.l2GasLimit || 200_000, // Default to 200k gas limit.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: hexStringEquals(
+              toAddress(l1Token),
+              ethers.constants.AddressZero
+            )
+              ? amount
+              : 0,
+          }
         )
       }
     },
@@ -319,26 +438,83 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         overrides?: Overrides
       }
     ): Promise<TransactionRequest> => {
-      if (!(await this.supportsTokenPair(l1Token, l2Token))) {
+      const chain = await this.nativeChain(l1Token, l2Token)
+      if (!chain) {
         throw new Error(`token pair not supported by bridge`)
       }
 
+      if (chain == 1) {
+        // use legacy withdraw method for max compatibility
+        if (opts?.recipient === undefined) {
+          return this.l2Bridge.populateTransaction.withdraw(
+            toAddress(l2Token),
+            amount,
+            0, // L1 gas not required.
+            '0x', // No data.
+            {
+              ...omit(opts?.overrides || {}, 'value'),
+              value: hexStringEquals(
+                toAddress(l2Token),
+                ethers.constants.AddressZero
+              )
+                ? amount
+                : 0,
+            }
+          )
+        } else {
+          return this.l2Bridge.populateTransaction.withdraw(
+            toAddress(l2Token),
+            toAddress(opts.recipient),
+            amount,
+            0, // L1 gas not required.
+            '0x', // No data.
+            {
+              ...omit(opts?.overrides || {}, 'value'),
+              value: hexStringEquals(
+                toAddress(l2Token),
+                ethers.constants.AddressZero
+              )
+                ? amount
+                : 0,
+            }
+          )
+        }
+      }
+
       if (opts?.recipient === undefined) {
-        return this.l2Bridge.populateTransaction.withdraw(
+        return this.l2Bridge.populateTransaction.bridgeERC20(
           toAddress(l2Token),
+          toAddress(l1Token),
           amount,
           0, // L1 gas not required.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: hexStringEquals(
+              toAddress(l2Token),
+              ethers.constants.AddressZero
+            )
+              ? amount
+              : 0,
+          }
         )
       } else {
-        return this.l2Bridge.populateTransaction.withdrawTo(
+        return this.l2Bridge.populateTransaction.bridgeERC20(
           toAddress(l2Token),
+          toAddress(l1Token),
           toAddress(opts.recipient),
           amount,
           0, // L1 gas not required.
           '0x', // No data.
-          opts?.overrides || {}
+          {
+            ...omit(opts?.overrides || {}, 'value'),
+            value: hexStringEquals(
+              toAddress(l2Token),
+              ethers.constants.AddressZero
+            )
+              ? amount
+              : 0,
+          }
         )
       }
     },
