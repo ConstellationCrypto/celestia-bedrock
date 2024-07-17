@@ -38,7 +38,7 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
   public messenger: CrossChainMessenger
   public l1Bridge: Contract
   public l2Bridge: Contract
-  public l1SystemConfig: Contract
+  public l1SystemConfig?: Contract
   public l2ToL1MessagePasser: Contract
 
   /**
@@ -54,7 +54,7 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
     messenger: CrossChainMessenger
     l1Bridge: AddressLike
     l2Bridge: AddressLike
-    l1SystemConfig: AddressLike
+    l1SystemConfig?: AddressLike
   }) {
     this.messenger = opts.messenger
     this.l1Bridge = new Contract(
@@ -67,11 +67,14 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
       l2StandardBridgeArtifact.abi,
       this.messenger.l2Provider
     )
-    this.l1SystemConfig = new Contract(
-      toAddress(opts.l1SystemConfig),
-      l1SystemConfigArtifact.abi,
-      this.messenger.l1Provider
-    )
+    if (opts.l1SystemConfig) {
+      this.l1SystemConfig = new Contract(
+        toAddress(opts.l1SystemConfig),
+        l1SystemConfigArtifact.abi,
+        this.messenger.l1Provider
+      )
+    }
+
     this.l2ToL1MessagePasser = new Contract(
       toAddress('0x4200000000000000000000000000000000000016'),
       l2ToL1MessagePasser.abi,
