@@ -2212,13 +2212,11 @@ export class CrossChainMessenger {
     )
   }
 
-  public async feeToken(): Promise<any[]> {
-    if (
-      this.contracts.l1.SystemConfig.address === ethers.constants.AddressZero
-    ) {
-      return []
+  public async feeToken(): Promise<boolean | AddressLike> {
+    if (this.contracts.l1.SystemConfig.isCustomGasToken()) {
+      return false
     }
-    return this.contracts.l1.SystemConfig.gasPayingToken()
+    return this.contracts.l1.SystemConfig.gasPayingToken().addr_
   }
 
   public async isCustomGasToken(): Promise<boolean> {

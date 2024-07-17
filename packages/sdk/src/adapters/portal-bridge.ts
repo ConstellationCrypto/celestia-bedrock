@@ -48,6 +48,7 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
    * @param opts.messenger Provider used to make queries related to cross-chain interactions.
    * @param opts.l1Bridge L1 bridge contract.
    * @param opts.l2Bridge L2 bridge contract.
+   * @param opts.l1SystemConfig L1 System Config contract.
    */
   constructor(opts: {
     messenger: CrossChainMessenger
