@@ -179,7 +179,12 @@ const main = async () => {
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
       customGasTokenAddress: process.env.L1_FPE_TOKEN,
 
-      usePlasma: process.env.USE_PLASMA === "true",
+      usePlasma: process.env.PLASMA === "true",
+      //is not used if PLASMA=false
+      daChallengeProxy: "0x0000000000000000000000000000000000000000",
+      daCommitmentType: "GenericCommitment",
+      daChallengeWindow: 300,
+      daResolveWindow: 300
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
