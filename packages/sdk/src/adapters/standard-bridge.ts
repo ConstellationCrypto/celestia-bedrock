@@ -462,7 +462,7 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
             }
           )
         } else {
-          return this.l2Bridge.populateTransaction.withdraw(
+          return this.l2Bridge.populateTransaction.withdrawTo(
             toAddress(l2Token),
             toAddress(opts.recipient),
             amount,
@@ -499,7 +499,7 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
           }
         )
       } else {
-        return this.l2Bridge.populateTransaction.bridgeERC20(
+        return this.l2Bridge.populateTransaction.bridgeERC20To(
           toAddress(l2Token),
           toAddress(l1Token),
           toAddress(opts.recipient),

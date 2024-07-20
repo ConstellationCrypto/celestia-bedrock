@@ -25,6 +25,22 @@ describe('CrossChainMessenger', () => {
   let l2Signer: any
   before(async () => {
     ;[l1Signer, l2Signer] = await ethers.getSigners()
+    // ethers.getSigners() is out of date - recent versions of geth
+    // include a balance check as part of the estimateGas() call.
+    for (const signer of [l1Signer, l2Signer]) {
+      const estimateGas = signer.provider.estimateGas
+      signer.provider.estimateGas = async function (tx) {
+        const from = tx.from ?? ethers.constants.AddressZero
+        const value = tx.value ?? ethers.constants.Zero
+        const balance = await this.getBalance(from)
+        if (balance < value) {
+          throw Error(
+            `gas estimation failed: insufficient balance from=${from} value=${value} balance=${balance}`
+          )
+        }
+        return estimateGas.call(this, tx)
+      }
+    }
   })
 
   describe('construction', () => {
