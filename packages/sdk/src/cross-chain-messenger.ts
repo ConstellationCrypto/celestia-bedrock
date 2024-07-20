@@ -327,7 +327,10 @@ export class CrossChainMessenger {
 
     return receipt.logs
       .filter((log) => {
-        return log.address === this.l2ToL1MessagePasser.address || log.address === messenger.address
+        return (
+          log.address === this.l2ToL1MessagePasser.address ||
+          log.address === messenger.address
+        )
       })
       .filter((log) => {
         let parsed

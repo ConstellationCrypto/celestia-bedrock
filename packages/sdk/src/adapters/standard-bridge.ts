@@ -223,21 +223,21 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
       }
 
       try {
-        const contract = new Contract(
+        const l2Contract = new Contract(
           toAddress(l2Token),
           optimismMintableERC20.abi,
           this.messenger.l2Provider
         )
 
         // Make sure the L1 token matches.
-        const remoteL1Token = await contract.l1Token()
+        const remoteL1Token = await l2Contract.l1Token()
 
         if (!hexStringEquals(remoteL1Token, toAddress(l1Token))) {
           return 0
         }
 
         // Make sure the L2 bridge matches.
-        const remoteL2Bridge = await contract.l2Bridge()
+        const remoteL2Bridge = await l2Contract.l2Bridge()
         if (!hexStringEquals(remoteL2Bridge, this.l2Bridge.address)) {
           return 0
         }
@@ -295,13 +295,13 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
     }
 
     const token = new Contract(
-      toAddress(chain == 1 ? l1Token : l2Token),
+      toAddress(chain === 1 ? l1Token : l2Token),
       IERC20.abi,
-      chain == 1 ? this.messenger.l1Provider : this.messenger.l2Provider
+      chain === 1 ? this.messenger.l1Provider : this.messenger.l2Provider
     )
     return token.allowance(
       await signer.getAddress(),
-      chain == 1 ? this.l1Bridge.address : this.l2Bridge.address
+      chain === 1 ? this.l1Bridge.address : this.l2Bridge.address
     )
   }
 
@@ -365,13 +365,13 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
       }
 
       const token = new Contract(
-        toAddress(chain == 1 ? l1Token : l2Token),
+        toAddress(chain === 1 ? l1Token : l2Token),
         IERC20.abi,
-        chain == 1 ? this.messenger.l1Provider : this.messenger.l2Provider
+        chain === 1 ? this.messenger.l1Provider : this.messenger.l2Provider
       )
 
       return token.populateTransaction.approve(
-        chain == 1 ? this.l1Bridge.address : this.l2Bridge.address,
+        chain === 1 ? this.l1Bridge.address : this.l2Bridge.address,
         amount,
         opts?.overrides || {}
       )
@@ -443,7 +443,7 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
         throw new Error(`token pair not supported by bridge`)
       }
 
-      if (chain == 1) {
+      if (chain === 1) {
         // use legacy withdraw method for max compatibility
         if (opts?.recipient === undefined) {
           return this.l2Bridge.populateTransaction.withdraw(
