@@ -15,6 +15,14 @@ build_tag_push () {
   docker tag $1 $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION &&
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION
 }
+build_tag_push_plasma () {
+  name=da-server
+  path=op-plasma
+  echo $1
+  docker build -t $path -f $path/Dockerfile . &&
+  docker tag $path $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$name:$VERSION &&
+  docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$name:$VERSION
+}
 build_tag_push_op_pipe () {
   make golang-docker && echo OK || echo "Failed build_tag_push_op_pipe"
   GIT_COMMIT=$(git rev-parse HEAD)
@@ -39,6 +47,7 @@ build_tag_push_op_pipe () {
 docker build -t us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:latest -f ops/docker/op-stack-go/Dockerfile .
 build_tag_push_op_pipe
 build_tag_push op-geth op-geth
-#build_tag_push op-plasma .
+build_tag_push_plasma
 # bedrock-deployer depends on the op-node, op-geth images
 build_tag_push bedrock-deployer .
+

@@ -136,7 +136,12 @@ const getL1ContractsByNetworkName = (network: string): OEL1ContractsLike => {
 /**
  * List of contracts that are ignorable when checking for contracts on a given network.
  */
-export const IGNORABLE_CONTRACTS = ['OptimismPortal2', 'DisputeGameFactory']
+export const IGNORABLE_CONTRACTS = [
+  'OptimismPortal2',
+  'DisputeGameFactory',
+  'SystemConfig',
+  'SuperchainConfig',
+]
 
 /**
  * Mapping of L1 chain IDs to the appropriate contract addresses for the OE deployments to the

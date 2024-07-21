@@ -199,7 +199,9 @@ describe('contract connection utils', () => {
             for (const [contractName, contract] of Object.entries(
               contracts.l1
             )) {
-              expect(contract.address).to.equal(l1Overrides[contractName])
+              if (contract !== undefined) {
+                expect(contract.address).to.equal(l1Overrides[contractName])
+              }
             }
 
             expect(contracts.l2.L2CrossDomainMessenger.address).to.equal(
@@ -226,7 +228,9 @@ describe('contract connection utils', () => {
             for (const [contractName, contract] of Object.entries(
               contracts.l1
             )) {
-              expect(contract.address).to.equal(l1Overrides[contractName])
+              if (contract !== undefined) {
+                expect(contract.address).to.equal(l1Overrides[contractName])
+              }
             }
 
             for (const [contractName, contract] of Object.entries(

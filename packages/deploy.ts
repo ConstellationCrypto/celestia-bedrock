@@ -177,7 +177,14 @@ const main = async () => {
       useFaultProofs: process.env.USE_FAULT_PROOFS === "true",
 
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
-      customGasTokenAddress: process.env.L1_FPE_TOKEN
+      customGasTokenAddress: process.env.L1_FPE_TOKEN,
+
+      usePlasma: process.env.PLASMA === "true",
+      //is not used if PLASMA=false
+      daChallengeProxy: "0x0000000000000000000000000000000000000000",
+      daCommitmentType: "GenericCommitment",
+      daChallengeWindow: 300,
+      daResolveWindow: 300
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
@@ -205,6 +212,8 @@ const main = async () => {
           L1StandardBridge: addrs.L1StandardBridgeProxy,
           OptimismPortal: addrs.OptimismPortalProxy,
           L2OutputOracle: addrs.L2OutputOracleProxy,
+          SystemConfig: addrs.SystemConfigProxy,
+          SuperchainConfigProxy: addrs.SuperchainConfigProxy,
         },
         null,
         2

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import {
   Provider,
   BlockTag,
@@ -13,6 +14,7 @@ import {
   Overrides,
   CallOverrides,
   PayableOverrides,
+  Contract,
 } from 'ethers'
 import {
   sleep,
@@ -33,6 +35,7 @@ import { getContractInterface, predeploys } from '@eth-optimism/contracts'
 import * as rlp from 'rlp'
 import semver from 'semver'
 
+import l2ToL1MessagePasser from './forge-artifacts/L2ToL1MessagePasser.json'
 import {
   OEContracts,
   OEContractsLike,
@@ -57,7 +60,6 @@ import {
   IBridgeAdapter,
   ProvenWithdrawal,
   LowLevelMessage,
-  FPACProvenWithdrawal,
 } from './interfaces'
 import {
   toSignerOrProvider,
@@ -75,6 +77,8 @@ import {
   hashMessageHash,
   getContractInterfaceBedrock,
   toJsonRpcProvider,
+  opaqueDataToDepositData,
+  toAddress,
 } from './utils'
 
 export class CrossChainMessenger {
@@ -128,6 +132,7 @@ export class CrossChainMessenger {
    */
   private _outputCache: Array<{ root: string; valid: boolean }> = []
 
+  private l2ToL1MessagePasser: Contract
   /**
    * Creates a new CrossChainProvider instance.
    *
@@ -190,6 +195,11 @@ export class CrossChainMessenger {
       overrides: opts.bridges,
       contracts: opts.contracts,
     })
+    this.l2ToL1MessagePasser = new Contract(
+      toAddress('0x4200000000000000000000000000000000000016'),
+      l2ToL1MessagePasser.abi,
+      this.l2SignerOrProvider
+    )
   }
 
   /**
@@ -310,45 +320,92 @@ export class CrossChainMessenger {
         ? this.contracts.l1.L1CrossDomainMessenger
         : this.contracts.l2.L2CrossDomainMessenger
 
+    const optimismPortal =
+      opts.direction === MessageDirection.L1_TO_L2
+        ? this.contracts.l1.OptimismPortal
+        : undefined
+
     return receipt.logs
       .filter((log) => {
-        // Only look at logs emitted by the messenger address
-        return log.address === messenger.address
+        return (
+          log.address === this.l2ToL1MessagePasser.address ||
+          log.address === messenger.address
+        )
       })
       .filter((log) => {
-        // Only look at SentMessage logs specifically
-        const parsed = messenger.interface.parseLog(log)
-        return parsed.name === 'SentMessage'
+        let parsed
+        if (log.address === messenger.address) {
+          parsed = messenger.interface.parseLog(log)
+          return parsed.name === 'SentMessage'
+        } else if (log.address === this.l2ToL1MessagePasser.address) {
+          parsed = this.l2ToL1MessagePasser.interface.parseLog(log)
+          return parsed.name === 'MessagePassed'
+        } else if (log.address === optimismPortal.address) {
+          parsed = optimismPortal.interface.parseLog(log)
+          return parsed.name === 'TransactionDeposited'
+        }
       })
       .map((log) => {
-        // Try to pull out the value field, but only if the very next log is a SentMessageExtension1
-        // event which was introduced in the Bedrock upgrade.
-        let value = ethers.BigNumber.from(0)
-        const next = receipt.logs.find((l) => {
-          return (
-            l.logIndex === log.logIndex + 1 && l.address === messenger.address
-          )
-        })
-        if (next) {
-          const nextParsed = messenger.interface.parseLog(next)
-          if (nextParsed.name === 'SentMessageExtension1') {
-            value = nextParsed.args.value
+        if (log.address === this.l2ToL1MessagePasser.address) {
+          const parsed = this.l2ToL1MessagePasser.interface.parseLog(log)
+          return {
+            direction: opts.direction,
+            target: parsed.args.target,
+            sender: parsed.args.sender,
+            message: parsed.args.message,
+            messageNonce: parsed.args.messageNonce,
+            value: parsed.args.value,
+            minGasLimit: parsed.args.gasLimit,
+            logIndex: log.logIndex,
+            blockNumber: log.blockNumber,
+            transactionHash: log.transactionHash,
           }
-        }
+        } else if (log.address === messenger.address) {
+          // Try to pull out the value field, but only if the very next log is a SentMessageExtension1
+          // event which was introduced in the Bedrock upgrade.
+          let value = ethers.BigNumber.from(0)
+          const next = receipt.logs.find((l) => {
+            return (
+              l.logIndex === log.logIndex + 1 && l.address === messenger.address
+            )
+          })
+          if (next) {
+            const nextParsed = messenger.interface.parseLog(next)
+            if (nextParsed.name === 'SentMessageExtension1') {
+              value = nextParsed.args.value
+            }
+          }
 
-        // Convert each SentMessage log into a message object
-        const parsed = messenger.interface.parseLog(log)
-        return {
-          direction: opts.direction,
-          target: parsed.args.target,
-          sender: parsed.args.sender,
-          message: parsed.args.message,
-          messageNonce: parsed.args.messageNonce,
-          value,
-          minGasLimit: parsed.args.gasLimit,
-          logIndex: log.logIndex,
-          blockNumber: log.blockNumber,
-          transactionHash: log.transactionHash,
+          // Convert each SentMessage log into a message object
+          const parsed = messenger.interface.parseLog(log)
+          return {
+            direction: opts.direction,
+            target: parsed.args.target,
+            sender: parsed.args.sender,
+            message: parsed.args.message,
+            messageNonce: parsed.args.messageNonce,
+            value,
+            minGasLimit: parsed.args.gasLimit,
+            logIndex: log.logIndex,
+            blockNumber: log.blockNumber,
+            transactionHash: log.transactionHash,
+          }
+        } else if (log.address === optimismPortal.address) {
+          const parsed = optimismPortal.interface.parseLog(log)
+          const obj = opaqueDataToDepositData(parsed.args.opaqueData)
+
+          return {
+            direction: opts.direction,
+            target: parsed.args.to,
+            sender: parsed.args.from,
+            message: parsed.args.opaqueData,
+            messageNonce: undefined,
+            value: obj['value'],
+            minGasLimit: obj['gas'],
+            logIndex: log.logIndex,
+            blockNumber: log.blockNumber,
+            transactionHash: log.transactionHash,
+          }
         }
       })
   }
@@ -635,6 +692,24 @@ export class CrossChainMessenger {
     // TODO: Convert these checks into proper type checks.
     if ((message as CrossChainMessage).message) {
       return message as CrossChainMessage
+    }
+    if ((message as TokenBridgeMessage).data) {
+      if ((message as TokenBridgeMessage).data.startsWith('PortalBridge')) {
+        const messages = await this.getMessagesByTransaction(
+          message as TransactionLike
+        )
+        return messages[messageIndex]
+      }
+    }
+    if (
+      (message as TokenBridgeMessage).l2Token ===
+        '0x4200000000000000000000000000000000000006' &&
+      (message as TokenBridgeMessage).direction === 1
+    ) {
+      const messages = await this.getMessagesByTransaction(
+        message as TransactionLike
+      )
+      return messages[messageIndex]
     } else if (
       (message as TokenBridgeMessage).l1Token &&
       (message as TokenBridgeMessage).l2Token &&
@@ -704,6 +779,7 @@ export class CrossChainMessenger {
     toBlockOrBlockHash?: BlockTag
   ): Promise<MessageStatus> {
     const resolved = await this.toCrossChainMessage(message, messageIndex)
+
     // legacy withdrawals relayed prebedrock are v1
     const messageHashV0 = hashCrossDomainMessagev0(
       resolved.target,
@@ -1142,7 +1218,7 @@ export class CrossChainMessenger {
       throw new Error(`cannot estimate gas limit for L2 => L1 message`)
     }
 
-    const estimate = await this.l2Provider.estimateGas({
+    const estimate = await this.l2SignerOrProvider.estimateGas({
       from,
       to: resolved.target,
       data: resolved.message,
@@ -2090,6 +2166,10 @@ export class CrossChainMessenger {
       overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
+    if (opts.recipient === undefined) {
+      const s = opts?.signer || this.l1Signer
+      opts.recipient = await s.getAddress()
+    }
     return (opts?.signer || this.l1Signer).sendTransaction(
       await this.populateTransaction.depositERC20(
         l1Token,
@@ -2130,6 +2210,25 @@ export class CrossChainMessenger {
         opts
       )
     )
+  }
+
+  public async feeToken(): Promise<boolean | AddressLike> {
+    if (!this.contracts.l1.SystemConfig.isCustomGasToken()) {
+      return false
+    }
+    const gasPayingToken = (
+      await this.contracts.l1.SystemConfig.gasPayingToken()
+    ).addr_
+    return gasPayingToken
+  }
+
+  public async isCustomGasToken(): Promise<boolean> {
+    if (
+      this.contracts.l1.SystemConfig.address === ethers.constants.AddressZero
+    ) {
+      return false
+    }
+    return this.contracts.l1.SystemConfig.isCustomGasToken()
   }
 
   /**
@@ -2404,7 +2503,7 @@ export class CrossChainMessenger {
       opts?: {
         recipient?: AddressLike
         l2GasLimit?: NumberLike
-        overrides?: PayableOverrides
+        overrides?: CallOverrides
       },
       isEstimatingGas: boolean = false
     ): Promise<TransactionRequest> => {
@@ -2499,7 +2598,7 @@ export class CrossChainMessenger {
       isEstimatingGas: boolean = false
     ): Promise<TransactionRequest> => {
       const bridge = await this.getBridgeForTokenPair(l1Token, l2Token)
-      // we need extra buffer for gas limit
+
       const getOpts = async () => {
         if (isEstimatingGas) {
           return opts
@@ -2508,25 +2607,17 @@ export class CrossChainMessenger {
         if (!ethers.Signer.isSigner(this.l1SignerOrProvider)) {
           throw new Error('unable to deposit without an l1 signer')
         }
-        const from = (this.l1SignerOrProvider as Signer).getAddress()
         const gasEstimation = await this.estimateGas.depositERC20(
           l1Token,
           l2Token,
           amount,
-          {
-            ...opts,
-            overrides: {
-              ...opts?.overrides,
-              from: opts?.overrides?.from ?? from,
-            },
-          }
+          opts
         )
         return {
           ...opts,
           overrides: {
             ...opts?.overrides,
             gasLimit: gasEstimation.add(gasEstimation.div(2)),
-            from: opts?.overrides?.from ?? from,
           },
         }
       }
@@ -2586,9 +2677,9 @@ export class CrossChainMessenger {
     ): Promise<BigNumber> => {
       const tx = await this.populateTransaction.sendMessage(message, opts)
       if (message.direction === MessageDirection.L1_TO_L2) {
-        return this.l1Provider.estimateGas(tx)
+        return this.l1SignerOrProvider.estimateGas(tx)
       } else {
-        return this.l2Provider.estimateGas(tx)
+        return this.l2SignerOrProvider.estimateGas(tx)
       }
     },
 
@@ -2608,7 +2699,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.resendMessage(
           message,
           messageGasLimit,
@@ -2633,7 +2724,7 @@ export class CrossChainMessenger {
       },
       messageIndex = 0
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.proveMessage(message, opts, messageIndex)
       )
     },
@@ -2654,7 +2745,7 @@ export class CrossChainMessenger {
       },
       messageIndex = 0
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.finalizeMessage(
           message,
           opts,
@@ -2681,7 +2772,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.depositETH(amount, opts, true)
       )
     },
@@ -2702,7 +2793,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l2Provider.estimateGas(
+      return this.l2SignerOrProvider.estimateGas(
         await this.populateTransaction.withdrawETH(amount, opts)
       )
     },
@@ -2725,7 +2816,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.approveERC20(
           l1Token,
           l2Token,
@@ -2757,7 +2848,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l1Provider.estimateGas(
+      return this.l1SignerOrProvider.estimateGas(
         await this.populateTransaction.depositERC20(
           l1Token,
           l2Token,
@@ -2788,7 +2879,7 @@ export class CrossChainMessenger {
         overrides?: CallOverrides
       }
     ): Promise<BigNumber> => {
-      return this.l2Provider.estimateGas(
+      return this.l2SignerOrProvider.estimateGas(
         await this.populateTransaction.withdrawERC20(
           l1Token,
           l2Token,
