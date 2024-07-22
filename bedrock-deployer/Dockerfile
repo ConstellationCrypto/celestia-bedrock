@@ -32,7 +32,7 @@ RUN mkdir manifests && \
 
 FROM op-geth as op-geth
 FROM op-node as op-node
-FROM ghcr.io/foundry-rs/foundry:nightly-63fff3510408b552f11efb8196f48cfe6c1da664 as foundry
+FROM ghcr.io/foundry-rs/foundry:nightly-fe2acca4e379793539db80e032d76ffe0110298b as foundry
 # bullseye-slim is debian based
 # we use it rather than alpien because it's not much
 # bigger and alpine is often missing packages for node applications
