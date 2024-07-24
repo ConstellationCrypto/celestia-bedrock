@@ -204,6 +204,7 @@ abstract contract StandardBridge is Initializable {
         bytes calldata _extraData
     )
         public
+        payable
         virtual
         onlyEOA
     {
@@ -228,6 +229,7 @@ abstract contract StandardBridge is Initializable {
         bytes calldata _extraData
     )
         public
+        payable
         virtual
     {
         _initiateBridgeERC20(_localToken, _remoteToken, msg.sender, _to, _amount, _minGasLimit, _extraData);

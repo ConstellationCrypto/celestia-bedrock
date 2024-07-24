@@ -50,15 +50,22 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
     l1Bridge: AddressLike
     l2Bridge: AddressLike
   }) {
+    const wrap = (x) =>
+      new ethers.utils.Interface(x)
+        .format()
+        .concat(
+          'function REMOTE_TOKEN() view returns(address)',
+          'function LOCAL_TOKEN() view returns(address)'
+        )
     this.messenger = opts.messenger
     this.l1Bridge = new Contract(
       toAddress(opts.l1Bridge),
-      l1StandardBridgeArtifact.abi,
+      wrap(l1StandardBridgeArtifact.abi),
       this.messenger.l1Provider
     )
     this.l2Bridge = new Contract(
       toAddress(opts.l2Bridge),
-      l2StandardBridgeArtifact.abi,
+      wrap(l2StandardBridgeArtifact.abi),
       this.messenger.l2Provider
     )
   }
