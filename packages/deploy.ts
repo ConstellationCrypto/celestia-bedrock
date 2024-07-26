@@ -152,7 +152,7 @@ const main = async () => {
       l2GenesisDeltaTimeOffset: '0x0',
       l2GenesisEcotoneTimeOffset: '0x0',
       l2GenesisFjordTimeOffset: '0x0',
-      l2GenesisInteropTimeOffset: '0x0',
+      l2GenesisInteropTimeOffset: undefined,
 
       systemConfigStartBlock: 0,
       requiredProtocolVersion: "0x0000000000000000000000000000000000000000000000000000000000000000",
