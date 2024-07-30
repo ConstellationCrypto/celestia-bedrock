@@ -68,7 +68,9 @@ func (d *Sequencer) StartBuildingBlock(ctx context.Context) error {
 	l2Head := d.engine.UnsafeL2Head()
 
 	// Figure out which L1 origin block we're going to be building on top of.
-	l1Origin, err := d.l1OriginSelector.FindL1Origin(ctx, l2Head)
+	originCtx, originCancel := context.WithTimeout(ctx, time.Second*time.Duration(d.rollupCfg.BlockTime)/2)
+	l1Origin, err := d.l1OriginSelector.FindL1Origin(originCtx, l2Head)
+	originCancel()
 	if err != nil {
 		d.log.Error("Error finding next L1 Origin", "err", err)
 		return err

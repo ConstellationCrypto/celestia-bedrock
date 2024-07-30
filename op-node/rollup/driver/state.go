@@ -299,6 +299,7 @@ func (s *Driver) eventLoop() {
 			altSyncTicker.Reset(syncCheckInterval)
 		}
 
+		// prioritize sequencing blocks over other operations (until the l1-proxy recovers)
 		select {
 		case <-sequencerCh:
 			// the payload publishing is handled by the async gossiper, which will begin gossiping as soon as available
@@ -311,6 +312,12 @@ func (s *Driver) eventLoop() {
 				return
 			}
 			planSequencerAction() // schedule the next sequencer action to keep the sequencing looping
+			continue
+		default:
+			_
+		}
+
+		select {
 		case <-altSyncTicker.C:
 			// Check if there is a gap in the current unsafe payload queue.
 			ctx, cancel := context.WithTimeout(s.driverCtx, time.Second*2)
