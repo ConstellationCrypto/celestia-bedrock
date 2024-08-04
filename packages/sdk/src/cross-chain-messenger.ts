@@ -1948,7 +1948,7 @@ export class CrossChainMessenger {
     opts?: {
       signer?: Signer
       l2GasLimit?: NumberLike
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     const tx = await this.populateTransaction.sendMessage(message, opts)
@@ -1975,7 +1975,7 @@ export class CrossChainMessenger {
     messageGasLimit: NumberLike,
     opts?: {
       signer?: Signer
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     return (opts?.signer || this.l1Signer).sendTransaction(
@@ -2001,7 +2001,7 @@ export class CrossChainMessenger {
     message: MessageLike,
     opts?: {
       signer?: Signer
-      overrides?: Overrides
+      overrides?: CallOverrides
     },
     /**
      * The index of the withdrawal if multiple are made with multicall
@@ -2061,7 +2061,7 @@ export class CrossChainMessenger {
       recipient?: AddressLike
       signer?: Signer
       l2GasLimit?: NumberLike
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     return (opts?.signer || this.l1Signer).sendTransaction(
@@ -2084,7 +2084,7 @@ export class CrossChainMessenger {
     opts?: {
       recipient?: AddressLike
       signer?: Signer
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     return (opts?.signer || this.l2Signer).sendTransaction(
@@ -2129,7 +2129,7 @@ export class CrossChainMessenger {
     amount: NumberLike,
     opts?: {
       signer?: Signer
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     return (opts?.signer || this.l1Signer).sendTransaction(
@@ -2199,7 +2199,7 @@ export class CrossChainMessenger {
     opts?: {
       recipient?: AddressLike
       signer?: Signer
-      overrides?: Overrides
+      overrides?: CallOverrides
     }
   ): Promise<TransactionResponse> {
     return (opts?.signer || this.l2Signer).sendTransaction(
@@ -2250,7 +2250,7 @@ export class CrossChainMessenger {
       message: CrossChainMessageRequest,
       opts?: {
         l2GasLimit?: NumberLike
-        overrides?: Overrides
+        overrides?: CallOverrides
       }
     ): Promise<TransactionRequest> => {
       if (message.direction === MessageDirection.L1_TO_L2) {
@@ -2284,7 +2284,7 @@ export class CrossChainMessenger {
       message: MessageLike,
       messageGasLimit: NumberLike,
       opts?: {
-        overrides?: Overrides
+        overrides?: CallOverrides
       },
       /**
        * The index of the withdrawal if multiple are made with multicall
@@ -2541,7 +2541,7 @@ export class CrossChainMessenger {
       amount: NumberLike,
       opts?: {
         recipient?: AddressLike
-        overrides?: Overrides
+        overrides?: CallOverrides
       }
     ): Promise<TransactionRequest> => {
       return this.bridges.ETH.populateTransaction.withdraw(
@@ -2567,7 +2567,7 @@ export class CrossChainMessenger {
       l2Token: AddressLike,
       amount: NumberLike,
       opts?: {
-        overrides?: Overrides
+        overrides?: CallOverrides
       }
     ): Promise<TransactionRequest> => {
       const bridge = await this.getBridgeForTokenPair(l1Token, l2Token)
@@ -2604,7 +2604,10 @@ export class CrossChainMessenger {
           return opts
         }
         // if we don't include the users address the estimation will fail from lack of allowance
-        if (!ethers.Signer.isSigner(this.l1SignerOrProvider)) {
+        if (
+          !ethers.Signer.isSigner(this.l1SignerOrProvider) &&
+          !opts?.overrides?.from
+        ) {
           throw new Error('unable to deposit without an l1 signer')
         }
         const gasEstimation = await this.estimateGas.depositERC20(
@@ -2646,7 +2649,7 @@ export class CrossChainMessenger {
       amount: NumberLike,
       opts?: {
         recipient?: AddressLike
-        overrides?: Overrides
+        overrides?: CallOverrides
       }
     ): Promise<TransactionRequest> => {
       const bridge = await this.getBridgeForTokenPair(l1Token, l2Token)
