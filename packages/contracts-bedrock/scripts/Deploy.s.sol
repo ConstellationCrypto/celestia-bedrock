@@ -645,9 +645,11 @@ contract Deploy is Deployer {
     function deployOptimismPortal() public broadcast returns (address addr_) {
         console.log("Deploying OptimismPortal implementation");
         if (cfg.useInterop()) {
-            addr_ = address(new OptimismPortalInterop{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismPortalInterop).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new OptimismPortalInterop{ salt: _implSalt() }());
         } else {
-            addr_ = address(new OptimismPortal{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismPortal).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new OptimismPortal{ salt: _implSalt() }());
         }
         save("OptimismPortal", addr_);
         console.log("OptimismPortal deployed at %s", addr_);
@@ -828,9 +830,11 @@ contract Deploy is Deployer {
     function deploySystemConfig() public broadcast returns (address addr_) {
         console.log("Deploying SystemConfig implementation");
         if (cfg.useInterop()) {
-            addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfigInterop).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
         } else {
-            addr_ = address(new SystemConfig{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfig).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new SystemConfig{ salt: _implSalt() }());
         }
         save("SystemConfig", addr_);
         console.log("SystemConfig deployed at %s", addr_);
