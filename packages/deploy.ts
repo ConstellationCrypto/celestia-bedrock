@@ -188,7 +188,7 @@ const main = async () => {
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
-    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy IMPL_SALT=$(openssl rand -hex 32) DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
+    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
 
@@ -276,10 +276,6 @@ const main = async () => {
   copyFileSync('contracts.json', '/root/config/contracts.json')
   console.log('copying genesis.json to /root/config')
   copyFileSync('genesis.json', '/root/config/genesis.json')
-  console.log('writing password')
-  writeFileSync('/root/config/password', 'pwd')
-  console.log('writing block signer key')
-  writeFileSync('/root/config/block-signer-key', process.env.SEQUENCER_PRIVATE_KEY)
   console.log('creating l2oo-address.txt')
   writeFileSync(
     '/root/config/l2oo-address.txt',
