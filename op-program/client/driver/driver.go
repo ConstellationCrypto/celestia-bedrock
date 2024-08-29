@@ -6,11 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/attributes"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
@@ -22,18 +19,6 @@ type EndCondition interface {
 	Closing() bool
 	Result() error
 }
-
-type NoopFinalizer struct{}
-
-func (n NoopFinalizer) OnDerivationL1End(ctx context.Context, derivedFrom eth.L1BlockRef) error {
-	return nil
-}
-
-func (n NoopFinalizer) PostProcessSafeL2(l2Safe eth.L2BlockRef, derivedFrom eth.L1BlockRef) {}
-
-func (n NoopFinalizer) Reset() {}
-
-var _ derive.FinalizerHooks = (*NoopFinalizer)(nil)
 
 type Driver struct {
 	logger log.Logger
