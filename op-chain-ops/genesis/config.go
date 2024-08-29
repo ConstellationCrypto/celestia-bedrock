@@ -10,9 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/holiman/uint256"
-	"golang.org/x/exp/maps"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -440,15 +437,27 @@ func (d *DeployConfig) Check() error {
 		log.Warn("DisputeGameFinalityDelaySeconds is 0")
 	}
 	if d.UsePlasma {
-		if d.DAChallengeWindow == 0 {
-			return fmt.Errorf("%w: DAChallengeWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		if !(d.DACommitmentType == plasma.KeccakCommitmentString || d.DACommitmentType == plasma.GenericCommitmentString) {
+			return fmt.Errorf("%w: DACommitmentType must be either KeccakCommitment or GenericCommitment", ErrInvalidDeployConfig)
 		}
-		if d.DAResolveWindow == 0 {
-			return fmt.Errorf("%w: DAResolveWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		// only enforce challenge and resolve window if using alt-da mode with Keccak Commitments
+		if d.DACommitmentType != plasma.GenericCommitmentString {
+			if d.DAChallengeWindow == 0 {
+				return fmt.Errorf("%w: DAChallengeWindow cannot be 0 when using alt-da mode with Keccak Commitments", ErrInvalidDeployConfig)
+			}
+			if d.DAResolveWindow == 0 {
+				return fmt.Errorf("%w: DAResolveWindow cannot be 0 when using alt-da mode with Keccak Commitments", ErrInvalidDeployConfig)
+			}
 		}
 		if !(d.DACommitmentType == plasma.KeccakCommitmentString || d.DACommitmentType == plasma.GenericCommitmentString) {
 			return fmt.Errorf("%w: DACommitmentType must be either KeccakCommtiment or GenericCommitment", ErrInvalidDeployConfig)
 		}
+	}
+	if d.UseCustomGasToken {
+		if d.CustomGasTokenAddress == (common.Address{}) {
+			return fmt.Errorf("%w: CustomGasTokenAddress cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		log.Info("Using custom gas token", "address", d.CustomGasTokenAddress)
 	}
 	if d.UseCustomGasToken {
 		if d.CustomGasTokenAddress == (common.Address{}) {
@@ -520,9 +529,9 @@ func (d *DeployConfig) CheckAddresses() error {
 		return fmt.Errorf("%w: OptimismPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.UsePlasma && d.DACommitmentType == plasma.KeccakCommitmentString && d.DAChallengeProxy == (common.Address{}) {
-		return fmt.Errorf("%w: DAChallengeContract cannot be address(0) when using plasma mode", ErrInvalidDeployConfig)
+		return fmt.Errorf("%w: DAChallengeContract cannot be address(0) when using alt-da mode", ErrInvalidDeployConfig)
 	} else if d.UsePlasma && d.DACommitmentType == plasma.GenericCommitmentString && d.DAChallengeProxy != (common.Address{}) {
-		return fmt.Errorf("%w: DAChallengeContract must be address(0) when using generic commitments in plasma mode", ErrInvalidDeployConfig)
+		return fmt.Errorf("%w: DAChallengeContract must be address(0) when using generic commitments in alt-da mode", ErrInvalidDeployConfig)
 	}
 	return nil
 }
@@ -690,9 +699,9 @@ func NewDeployConfigWithNetwork(network, path string) (*DeployConfig, error) {
 }
 
 // L1Deployments represents a set of L1 contracts that are deployed.
+// This should be consolidated with https://github.com/ethereum-optimism/superchain-registry/blob/f9702a89214244c8dde39e45f5c2955f26d857d0/superchain/superchain.go#L227
 type L1Deployments struct {
 	AddressManager                    common.Address `json:"AddressManager"`
-	BlockOracle                       common.Address `json:"BlockOracle"`
 	DisputeGameFactory                common.Address `json:"DisputeGameFactory"`
 	DisputeGameFactoryProxy           common.Address `json:"DisputeGameFactoryProxy"`
 	L1CrossDomainMessenger            common.Address `json:"L1CrossDomainMessenger"`
@@ -738,10 +747,9 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	}
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
-		// Skip the non production ready contracts
-		if name == "DisputeGameFactory" ||
-			name == "DisputeGameFactoryProxy" ||
-			name == "BlockOracle" {
+		if !deployConfig.UseFaultProofs &&
+			(name == "DisputeGameFactory" ||
+				name == "DisputeGameFactoryProxy") {
 			continue
 		}
 		if !deployConfig.UsePlasma &&
@@ -795,42 +803,6 @@ func NewL1Deployments(path string) (*L1Deployments, error) {
 	}
 
 	return &deployments, nil
-}
-
-type ForgeAllocs struct {
-	Accounts types.GenesisAlloc
-}
-
-func (d *ForgeAllocs) Copy() *ForgeAllocs {
-	out := make(types.GenesisAlloc, len(d.Accounts))
-	maps.Copy(out, d.Accounts)
-	return &ForgeAllocs{Accounts: out}
-}
-
-func (d *ForgeAllocs) UnmarshalJSON(b []byte) error {
-	// forge, since integrating Alloy, likes to hex-encode everything.
-	type forgeAllocAccount struct {
-		Balance hexutil.U256                `json:"balance"`
-		Nonce   hexutil.Uint64              `json:"nonce"`
-		Code    hexutil.Bytes               `json:"code,omitempty"`
-		Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
-	}
-	var allocs map[common.Address]forgeAllocAccount
-	if err := json.Unmarshal(b, &allocs); err != nil {
-		return err
-	}
-	d.Accounts = make(types.GenesisAlloc, len(allocs))
-	for addr, acc := range allocs {
-		acc := acc
-		d.Accounts[addr] = types.Account{
-			Code:       acc.Code,
-			Storage:    acc.Storage,
-			Balance:    (*uint256.Int)(&acc.Balance).ToBig(),
-			Nonce:      (uint64)(acc.Nonce),
-			PrivateKey: nil,
-		}
-	}
-	return nil
 }
 
 type MarshalableRPCBlockNumberOrHash rpc.BlockNumberOrHash

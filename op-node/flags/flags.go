@@ -6,7 +6,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	openum "github.com/ethereum-optimism/optimism/op-service/enum"
@@ -26,7 +26,7 @@ const (
 	SequencerCategory  = "3. SEQUENCER"
 	OperationsCategory = "4. LOGGING, METRICS, DEBUGGING, AND API"
 	P2PCategory        = "5. PEER-TO-PEER"
-	PlasmaCategory     = "6. PLASMA (EXPERIMENTAL)"
+	AltDACategory      = "6. ALT-DA (EXPERIMENTAL)"
 	MiscCategory       = "7. MISC"
 )
 
@@ -159,7 +159,7 @@ var (
 	}
 	L1RethDBPath = &cli.StringFlag{
 		Name:     "l1.rethdb",
-		Usage:    "The L1 RethDB path, used to fetch receipts for L1 blocks. Only applicable when using the `reth_db` RPC kind with `l1.rpckind`.",
+		Usage:    "The L1 RethDB path, used to fetch receipts for L1 blocks.",
 		EnvVars:  prefixEnvVars("L1_RETHDB"),
 		Hidden:   true,
 		Category: L1RPCCategory,
@@ -191,6 +191,17 @@ var (
 		EnvVars:  prefixEnvVars("L1_HTTP_POLL_INTERVAL"),
 		Value:    time.Second * 12,
 		Category: L1RPCCategory,
+	}
+	L2EngineKind = &cli.GenericFlag{
+		Name: "l2.enginekind",
+		Usage: "The kind of engine client, used to control the behavior of optimism in respect to different types of engine clients. Valid options: " +
+			openum.EnumString(engine.Kinds),
+		EnvVars: prefixEnvVars("L2_ENGINE_KIND"),
+		Value: func() *engine.Kind {
+			out := engine.Geth
+			return &out
+		}(),
+		Category: RollupCategory,
 	}
 	VerifierL1Confs = &cli.Uint64Flag{
 		Name:     "verifier.l1-confs",
@@ -261,9 +272,10 @@ var (
 	}
 	SnapshotLog = &cli.StringFlag{
 		Name:     "snapshotlog.file",
-		Usage:    "Path to the snapshot log file",
+		Usage:    "Deprecated. This flag is ignored, but here for compatibility.",
 		EnvVars:  prefixEnvVars("SNAPSHOT_LOG"),
 		Category: OperationsCategory,
+		Hidden:   true, // non-critical function, removed, flag is no-op to avoid breaking setups.
 	}
 	HeartbeatEnabledFlag = &cli.BoolFlag{
 		Name:     "heartbeat.enabled",
@@ -404,6 +416,7 @@ var optionalFlags = []cli.Flag{
 	ConductorRpcFlag,
 	ConductorRpcTimeoutFlag,
 	SafeDBPath,
+	L2EngineKind,
 }
 
 var DeprecatedFlags = []cli.Flag{
@@ -425,8 +438,7 @@ func init() {
 	optionalFlags = append(optionalFlags, oppprof.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory)...)
 	optionalFlags = append(optionalFlags, DeprecatedFlags...)
 	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
-	optionalFlags = append(optionalFlags, plasma.CLIFlags(EnvVarPrefix, PlasmaCategory)...)
-	optionalFlags = append(optionalFlags, celestia.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, plasma.CLIFlags(EnvVarPrefix, AltDACategory)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 

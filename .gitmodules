@@ -23,9 +23,6 @@
 [submodule "packages/contracts-bedrock/lib/lib-keccak"]
 	path = packages/contracts-bedrock/lib/lib-keccak
 	url = https://github.com/ethereum-optimism/lib-keccak
-[submodule "op-geth"]
-	path = op-geth
-	url = https://github.com/ethereum-optimism/op-geth.git
 [submodule "packages/contracts-bedrock/lib/automate"]
 	path = packages/contracts-bedrock/lib/automate
 	url = https://github.com/gelatodigital/automate

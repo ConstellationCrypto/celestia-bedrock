@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"

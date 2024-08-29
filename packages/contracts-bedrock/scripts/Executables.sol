@@ -24,7 +24,7 @@ library Executables {
         string[] memory commands = new string[](3);
         commands[0] = bash;
         commands[1] = "-c";
-        commands[2] = "cast abi-encode 'f(string)' v1.7.7";
-        return abi.decode(vm.ffi(commands), (string));
+        commands[2] = "cast abi-encode 'f(string)' $(git rev-parse HEAD)";
+        return abi.decode(Process.run(commands), (string));
     }
 }
