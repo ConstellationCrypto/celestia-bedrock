@@ -290,20 +290,4 @@ contract DeployConfig is Script {
     {
         return vm.keyExists(json, key) ? json.readString(key) : defaultValue;
     }
-
-    function _readOr(string memory json, string memory key, address defaultValue) internal view returns (address) {
-        return vm.keyExists(json, key) ? stdJson.readAddress(json, key) : defaultValue;
-    }
-
-    function _readOr(
-        string memory json,
-        string memory key,
-        string memory defaultValue
-    )
-        internal
-        view
-        returns (string memory)
-    {
-        return vm.keyExists(json, key) ? stdJson.readString(json, key) : defaultValue;
-    }
 }
