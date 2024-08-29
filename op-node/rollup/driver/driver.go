@@ -87,23 +87,6 @@ type EngineController interface {
 
 type CLSync interface {
 	LowestQueuedUnsafeBlock() eth.L2BlockRef
-	AddUnsafePayload(payload *eth.ExecutionPayloadEnvelope)
-	Proceed(ctx context.Context) error
-}
-
-type Finalizer interface {
-	Finalize(ctx context.Context, ref eth.L1BlockRef)
-	FinalizedL1() eth.L1BlockRef
-	derive.FinalizerHooks
-}
-
-type PlasmaIface interface {
-	// Notify L1 finalized head so plasma finality is always behind L1
-	Finalize(ref eth.L1BlockRef)
-	// Set the engine finalization signal callback
-	OnFinalizedHeadSignal(f plasma.HeadSignalFn)
-
-	derive.PlasmaInputFetcher
 }
 
 type AttributesHandler interface {
