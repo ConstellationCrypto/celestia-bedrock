@@ -203,7 +203,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
             : 0
         } catch (error) {
           // LOCAL_TOKEN() may not exist
-          console.log(error)
+          if (error?.code !== 'CALL_EXCEPTION') {
+            console.error('Unexpected err when fetching local token', error)
+            throw error
+          }
           return 0
         }
       }
@@ -219,7 +222,10 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
             : 0
         } catch (error) {
           // REMOTE_TOKEN() may not exist
-          console.log(error)
+          if (error?.code !== 'CALL_EXCEPTION') {
+            console.error('Unexpected err when fetching remote token', error)
+            throw error
+          }
           return 0
         }
       }
@@ -253,6 +259,7 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
       } catch (err) {
         if (err?.code !== 'CALL_EXCEPTION') {
           console.error('Unexpected err when checking bridge', err)
+          throw err
         }
       }
 
@@ -281,10 +288,14 @@ export class StandardBridgeAdapter implements IBridgeAdapter {
       // exception then we assume that the token is not supported. Other errors are thrown. Since
       // the JSON-RPC API is not well-specified, we need to handle multiple possible error codes.
       if (
+        /*
         !err?.message?.toString().includes('CALL_EXCEPTION') &&
         !err?.stack?.toString().includes('execution reverted')
+        */
+        err?.code !== 'CALL_EXCEPTION'
       ) {
         console.error('Unexpected error when checking bridge', err)
+        throw err
       }
       return 0
     }
