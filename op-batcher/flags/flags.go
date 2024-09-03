@@ -8,10 +8,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	openum "github.com/ethereum-optimism/optimism/op-service/enum"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -44,6 +43,7 @@ var (
 		Usage:   "HTTP provider URL for Rollup node. A comma-separated list enables the active L2 endpoint provider. Such a list needs to match the number of l2-eth-rpcs provided.",
 		EnvVars: prefixEnvVars("ROLLUP_RPC"),
 	}
+	// Optional flags
 	SubSafetyMarginFlag = &cli.Uint64Flag{
 		Name: "sub-safety-margin",
 		Usage: "The batcher tx submission safety margin (in #L1-blocks) to subtract " +
@@ -75,6 +75,11 @@ var (
 		Usage:   "The maximum size of a batch tx submitted to L1. Ignored for blobs, where max blob size will be used.",
 		Value:   120_000, // will be overwritten to max for blob da-type
 		EnvVars: prefixEnvVars("MAX_L1_TX_SIZE_BYTES"),
+	}
+	MaxBlocksPerSpanBatch = &cli.IntFlag{
+		Name:    "max-blocks-per-span-batch",
+		Usage:   "Maximum number of blocks to add to a span batch. Default is 0 - no maximum.",
+		EnvVars: prefixEnvVars("MAX_BLOCKS_PER_SPAN_BATCH"),
 	}
 	TargetNumFramesFlag = &cli.IntFlag{
 		Name:    "target-num-frames",
@@ -169,6 +174,7 @@ var optionalFlags = []cli.Flag{
 	MaxPendingTransactionsFlag,
 	MaxChannelDurationFlag,
 	MaxL1TxSizeBytesFlag,
+	MaxBlocksPerSpanBatch,
 	TargetNumFramesFlag,
 	ApproxComprRatioFlag,
 	CompressorFlag,
@@ -186,8 +192,7 @@ func init() {
 	optionalFlags = append(optionalFlags, opmetrics.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, txmgr.CLIFlags(EnvVarPrefix)...)
-	optionalFlags = append(optionalFlags, plasma.CLIFlags(EnvVarPrefix, "")...)
-	optionalFlags = append(optionalFlags, celestia.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, "")...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }

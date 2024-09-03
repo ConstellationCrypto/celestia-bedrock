@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"time"
 
-	kmssigner "github.com/ethereum-optimism/optimism/go-ethereum-kms-signer"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/urfave/cli/v2"
 )
 
@@ -95,6 +96,9 @@ var (
 		TxNotInMempoolTimeout:     1 * time.Minute,
 		ReceiptQueryInterval:      12 * time.Second,
 	}
+
+	// geth enforces a 1 gwei minimum for blob tx fee
+	defaultMinBlobTxFee = big.NewInt(params.GWei)
 )
 
 func CLIFlags(envPrefix string) []cli.Flag {
@@ -105,7 +109,7 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 	prefixEnvVars := func(name string) []string {
 		return opservice.PrefixEnvVar(envPrefix, name)
 	}
-	flags := append([]cli.Flag{
+	return append([]cli.Flag{
 		&cli.StringFlag{
 			Name:    MnemonicFlagName,
 			Usage:   "The mnemonic used to derive the wallets for either the service",
@@ -188,7 +192,6 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			EnvVars: prefixEnvVars("TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
 	}, opsigner.CLIFlags(envPrefix)...)
-	return append(flags, kmssigner.CLIFlags(envPrefix)...)
 }
 
 type CLIConfig struct {
@@ -199,7 +202,6 @@ type CLIConfig struct {
 	L2OutputHDPath            string
 	PrivateKey                string
 	SignerCLIConfig           opsigner.CLIConfig
-	KMSCLIConfig              kmssigner.CLIConfig
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
 	FeeLimitMultiplier        uint64
@@ -228,7 +230,6 @@ func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
 		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		SignerCLIConfig:           opsigner.NewCLIConfig(),
-		KMSCLIConfig:              kmssigner.NewCLIConfig(),
 	}
 }
 
@@ -264,9 +265,6 @@ func (m CLIConfig) Check() error {
 	if err := m.SignerCLIConfig.Check(); err != nil {
 		return err
 	}
-	if err := m.KMSCLIConfig.Check(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -279,7 +277,6 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		L2OutputHDPath:            ctx.String(L2OutputHDPathFlag.Name),
 		PrivateKey:                ctx.String(PrivateKeyFlagName),
 		SignerCLIConfig:           opsigner.ReadCLIConfig(ctx),
-		KMSCLIConfig:              kmssigner.ReadCLIConfig(ctx),
 		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
 		SafeAbortNonceTooLowCount: ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
 		FeeLimitMultiplier:        ctx.Uint64(FeeLimitMultiplierFlagName),
@@ -294,23 +291,23 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	}
 }
 
-func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
+func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 	if err := cfg.Check(); err != nil {
-		return Config{}, fmt.Errorf("invalid config: %w", err)
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.NetworkTimeout)
 	defer cancel()
 	l1, err := ethclient.DialContext(ctx, cfg.L1RPCURL)
 	if err != nil {
-		return Config{}, fmt.Errorf("could not dial eth client: %w", err)
+		return nil, fmt.Errorf("could not dial eth client: %w", err)
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), cfg.NetworkTimeout)
 	defer cancel()
 	chainID, err := l1.ChainID(ctx)
 	if err != nil {
-		return Config{}, fmt.Errorf("could not dial fetch L1 chain ID: %w", err)
+		return nil, fmt.Errorf("could not dial fetch L1 chain ID: %w", err)
 	}
 
 	// Allow backwards compatible ways of specifying the HD path
@@ -321,33 +318,28 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		hdPath = cfg.L2OutputHDPath
 	}
 
-	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig, cfg.KMSCLIConfig)
+	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
 	if err != nil {
-		return Config{}, fmt.Errorf("could not init signer: %w", err)
+		return nil, fmt.Errorf("could not init signer: %w", err)
 	}
 
 	feeLimitThreshold, err := eth.GweiToWei(cfg.FeeLimitThresholdGwei)
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid fee limit threshold: %w", err)
+		return nil, fmt.Errorf("invalid fee limit threshold: %w", err)
 	}
 
 	minBaseFee, err := eth.GweiToWei(cfg.MinBaseFeeGwei)
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid min base fee: %w", err)
+		return nil, fmt.Errorf("invalid min base fee: %w", err)
 	}
 
 	minTipCap, err := eth.GweiToWei(cfg.MinTipCapGwei)
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid min tip cap: %w", err)
+		return nil, fmt.Errorf("invalid min tip cap: %w", err)
 	}
 
-	return Config{
+	res := Config{
 		Backend:                   l1,
-		ResubmissionTimeout:       cfg.ResubmissionTimeout,
-		FeeLimitMultiplier:        cfg.FeeLimitMultiplier,
-		FeeLimitThreshold:         feeLimitThreshold,
-		MinBaseFee:                minBaseFee,
-		MinTipCap:                 minTipCap,
 		ChainID:                   chainID,
 		TxSendTimeout:             cfg.TxSendTimeout,
 		TxNotInMempoolTimeout:     cfg.TxNotInMempoolTimeout,
@@ -357,7 +349,16 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
 		Signer:                    signerFactory(chainID),
 		From:                      from,
-	}, nil
+	}
+
+	res.ResubmissionTimeout.Store(int64(cfg.ResubmissionTimeout))
+	res.FeeLimitThreshold.Store(feeLimitThreshold)
+	res.FeeLimitMultiplier.Store(cfg.FeeLimitMultiplier)
+	res.MinBaseFee.Store(minBaseFee)
+	res.MinTipCap.Store(minTipCap)
+	res.MinBlobTxFee.Store(defaultMinBlobTxFee)
+
+	return &res, nil
 }
 
 // Config houses parameters for altering the behavior of a SimpleTxManager.
@@ -367,21 +368,23 @@ type Config struct {
 	// published transaction has been mined, the new tx with a bumped gas
 	// price will be published. Only one publication at MaxGasPrice will be
 	// attempted.
-	ResubmissionTimeout time.Duration
+	ResubmissionTimeout atomic.Int64
 
 	// The multiplier applied to fee suggestions to put a hard limit on fee increases.
-	FeeLimitMultiplier uint64
+	FeeLimitMultiplier atomic.Uint64
 
 	// Minimum threshold (in Wei) at which the FeeLimitMultiplier takes effect.
 	// On low-fee networks, like test networks, this allows for arbitrary fee bumps
 	// below this threshold.
-	FeeLimitThreshold *big.Int
+	FeeLimitThreshold atomic.Pointer[big.Int]
 
 	// Minimum base fee (in Wei) to assume when determining tx fees.
-	MinBaseFee *big.Int
+	MinBaseFee atomic.Pointer[big.Int]
 
 	// Minimum tip cap (in Wei) to enforce when determining tx fees.
-	MinTipCap *big.Int
+	MinTipCap atomic.Pointer[big.Int]
+
+	MinBlobTxFee atomic.Pointer[big.Int]
 
 	// ChainID is the chain ID of the L1 chain.
 	ChainID *big.Int
@@ -398,7 +401,7 @@ type Config struct {
 	// This is intended to be used for network requests that can be replayed.
 	NetworkTimeout time.Duration
 
-	// RequireQueryInterval is the interval at which the tx manager will
+	// ReceiptQueryInterval is the interval at which the tx manager will
 	// query the backend to check for confirmations after a tx at a
 	// specific gas price has been published.
 	ReceiptQueryInterval time.Duration
@@ -417,7 +420,7 @@ type Config struct {
 	From   common.Address
 }
 
-func (m Config) Check() error {
+func (m *Config) Check() error {
 	if m.Backend == nil {
 		return errors.New("must provide the Backend")
 	}
@@ -427,14 +430,16 @@ func (m Config) Check() error {
 	if m.NetworkTimeout == 0 {
 		return errors.New("must provide NetworkTimeout")
 	}
-	if m.FeeLimitMultiplier == 0 {
+	if m.FeeLimitMultiplier.Load() == 0 {
 		return errors.New("must provide FeeLimitMultiplier")
 	}
-	if m.MinBaseFee != nil && m.MinTipCap != nil && m.MinBaseFee.Cmp(m.MinTipCap) == -1 {
+	minBaseFee := m.MinBaseFee.Load()
+	minTipCap := m.MinTipCap.Load()
+	if minBaseFee != nil && minTipCap != nil && minBaseFee.Cmp(minTipCap) == -1 {
 		return fmt.Errorf("minBaseFee smaller than minTipCap, have %v < %v",
-			m.MinBaseFee, m.MinTipCap)
+			minBaseFee, minTipCap)
 	}
-	if m.ResubmissionTimeout == 0 {
+	if m.ResubmissionTimeout.Load() == 0 {
 		return errors.New("must provide ResubmissionTimeout")
 	}
 	if m.ReceiptQueryInterval == 0 {

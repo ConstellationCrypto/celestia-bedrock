@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
+
+	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
-	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	openum "github.com/ethereum-optimism/optimism/op-service/enum"
 	opflags "github.com/ethereum-optimism/optimism/op-service/flags"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -279,22 +279,24 @@ var (
 	}
 	HeartbeatEnabledFlag = &cli.BoolFlag{
 		Name:     "heartbeat.enabled",
-		Usage:    "Enables or disables heartbeating",
+		Usage:    "Deprecated, no-op flag.",
 		EnvVars:  prefixEnvVars("HEARTBEAT_ENABLED"),
 		Category: OperationsCategory,
+		Hidden:   true,
 	}
 	HeartbeatMonikerFlag = &cli.StringFlag{
 		Name:     "heartbeat.moniker",
-		Usage:    "Sets a moniker for this node",
+		Usage:    "Deprecated, no-op flag.",
 		EnvVars:  prefixEnvVars("HEARTBEAT_MONIKER"),
 		Category: OperationsCategory,
+		Hidden:   true,
 	}
 	HeartbeatURLFlag = &cli.StringFlag{
 		Name:     "heartbeat.url",
-		Usage:    "Sets the URL to heartbeat to",
+		Usage:    "Deprecated, no-op flag.",
 		EnvVars:  prefixEnvVars("HEARTBEAT_URL"),
-		Value:    "https://heartbeat.optimism.io",
 		Category: OperationsCategory,
+		Hidden:   true,
 	}
 	RollupHalt = &cli.StringFlag{
 		Name:     "rollup.halt",
@@ -438,8 +440,7 @@ func init() {
 	optionalFlags = append(optionalFlags, oppprof.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory)...)
 	optionalFlags = append(optionalFlags, DeprecatedFlags...)
 	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
-	optionalFlags = append(optionalFlags, plasma.CLIFlags(EnvVarPrefix, AltDACategory)...)
-	optionalFlags = append(optionalFlags, celestia.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, AltDACategory)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 

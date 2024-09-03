@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
+	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/ethereum-optimism/optimism/op-node/node"
 	p2pcli "github.com/ethereum-optimism/optimism/op-node/p2p/cli"
@@ -76,6 +75,12 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		haltOption = ""
 	}
 
+	if ctx.IsSet(flags.HeartbeatEnabledFlag.Name) ||
+		ctx.IsSet(flags.HeartbeatMonikerFlag.Name) ||
+		ctx.IsSet(flags.HeartbeatURLFlag.Name) {
+		log.Warn("Heartbeat functionality is not supported anymore, CLI flags will be removed in following release.")
+	}
+
 	cfg := &node.Config{
 		L1:     l1Endpoint,
 		L2:     l2Endpoint,
@@ -97,23 +102,17 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		P2PSigner:                   p2pSignerSetup,
 		L1EpochPollInterval:         ctx.Duration(flags.L1EpochPollIntervalFlag.Name),
 		RuntimeConfigReloadInterval: ctx.Duration(flags.RuntimeConfigReloadIntervalFlag.Name),
-		Heartbeat: node.HeartbeatConfig{
-			Enabled: ctx.Bool(flags.HeartbeatEnabledFlag.Name),
-			Moniker: ctx.String(flags.HeartbeatMonikerFlag.Name),
-			URL:     ctx.String(flags.HeartbeatURLFlag.Name),
-		},
-		ConfigPersistence: configPersistence,
-		SafeDBPath:        ctx.String(flags.SafeDBPath.Name),
-		Sync:              *syncConfig,
-		RollupHalt:        haltOption,
-		RethDBPath:        ctx.String(flags.L1RethDBPath.Name),
+		ConfigPersistence:           configPersistence,
+		SafeDBPath:                  ctx.String(flags.SafeDBPath.Name),
+		Sync:                        *syncConfig,
+		RollupHalt:                  haltOption,
+		RethDBPath:                  ctx.String(flags.L1RethDBPath.Name),
 
 		ConductorEnabled:    ctx.Bool(flags.ConductorEnabledFlag.Name),
 		ConductorRpc:        ctx.String(flags.ConductorRpcFlag.Name),
 		ConductorRpcTimeout: ctx.Duration(flags.ConductorRpcTimeoutFlag.Name),
 
-		Plasma:   plasma.ReadCLIConfig(ctx),
-		DaConfig: celestia.ReadCLIConfig(ctx),
+		AltDA: altda.ReadCLIConfig(ctx),
 	}
 
 	if err := cfg.LoadPersisted(log); err != nil {
@@ -261,6 +260,14 @@ func applyOverrides(ctx *cli.Context, rollupConfig *rollup.Config) {
 	if ctx.IsSet(opflags.FjordOverrideFlagName) {
 		fjord := ctx.Uint64(opflags.FjordOverrideFlagName)
 		rollupConfig.FjordTime = &fjord
+	}
+	if ctx.IsSet(opflags.GraniteOverrideFlagName) {
+		granite := ctx.Uint64(opflags.GraniteOverrideFlagName)
+		rollupConfig.GraniteTime = &granite
+	}
+	if ctx.IsSet(opflags.HoloceneOverrideFlagName) {
+		holocene := ctx.Uint64(opflags.HoloceneOverrideFlagName)
+		rollupConfig.HoloceneTime = &holocene
 	}
 }
 

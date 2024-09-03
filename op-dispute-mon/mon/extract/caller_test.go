@@ -12,7 +12,6 @@ import (
 
 	faultTypes "github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
-	"github.com/ethereum-optimism/optimism/op-dispute-mon/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	batchingTest "github.com/ethereum-optimism/optimism/op-service/sources/batching/test"
 	"github.com/stretchr/testify/require"
@@ -33,12 +32,20 @@ func TestMetadataCreator_CreateContract(t *testing.T) {
 			game: types.GameMetadata{GameType: uint32(faultTypes.CannonGameType), Proxy: fdgAddr},
 		},
 		{
+			name: "validPermissionedGameType",
+			game: types.GameMetadata{GameType: uint32(faultTypes.PermissionedGameType), Proxy: fdgAddr},
+		},
+		{
 			name: "validAsteriscGameType",
 			game: types.GameMetadata{GameType: uint32(faultTypes.AsteriscGameType), Proxy: fdgAddr},
 		},
 		{
 			name: "validAlphabetGameType",
 			game: types.GameMetadata{GameType: uint32(faultTypes.AlphabetGameType), Proxy: fdgAddr},
+		},
+		{
+			name: "validFastGameType",
+			game: types.GameMetadata{GameType: uint32(faultTypes.FastGameType), Proxy: fdgAddr},
 		},
 		{
 			name:        "InvalidGameType",

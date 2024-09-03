@@ -179,18 +179,6 @@ func TestNetwork(t *testing.T) {
 	})
 }
 
-func TestNetwork(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
-		opSepoliaChainId := uint64(11155420)
-		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--game-factory-address", "--network=op-sepolia"))
-		require.EqualValues(t, superchain.Addresses[opSepoliaChainId].DisputeGameFactoryProxy, cfg.GameFactoryAddress)
-	})
-
-	t.Run("UnknownNetwork", func(t *testing.T) {
-		verifyArgsInvalid(t, "unknown chain: not-a-network", addRequiredArgsExcept(config.TraceTypeAlphabet, "--game-factory-address", "--network=not-a-network"))
-	})
-}
-
 func TestGameAllowlist(t *testing.T) {
 	t.Run("Optional", func(t *testing.T) {
 		cfg := configForArgs(t, addRequiredArgsExcept(types.TraceTypeAlphabet, "--game-allowlist"))

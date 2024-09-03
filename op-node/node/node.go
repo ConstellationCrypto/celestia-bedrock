@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-node/heartbeat"
+	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -24,8 +23,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
-	"github.com/ethereum-optimism/optimism/op-node/version"
-	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/httputil"
@@ -109,11 +106,7 @@ func New(ctx context.Context, cfg *Config, log log.Logger, appVersion string, m 
 	if err != nil {
 		log.Error("Error initializing the rollup node", "err", err)
 		// ensure we always close the node resources if we fail to initialize the node.
-		ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		// Stop() can still hang despite the ctx timeout
-		time.AfterFunc(10*time.Second, func() { os.Exit(1) })
-		if closeErr := n.Stop(ctx2); closeErr != nil {
+		if closeErr := n.Stop(ctx); closeErr != nil {
 			return nil, multierror.Append(err, closeErr)
 		}
 		return nil, err
@@ -153,7 +146,6 @@ func (n *OpNode) init(ctx context.Context, cfg *Config) error {
 	}
 	n.metrics.RecordInfo(n.appVersion)
 	n.metrics.RecordUp()
-	n.initHeartbeat(cfg)
 	if err := n.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
 	}
@@ -390,12 +382,12 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config) error {
 		sequencerConductor = NewConductorClient(cfg, n.log, n.metrics)
 	}
 
-	// if plasma is not explicitly activated in the node CLI, the config + any error will be ignored.
-	rpCfg, err := cfg.Rollup.GetOPPlasmaConfig()
-	if cfg.Plasma.Enabled && err != nil {
-		return fmt.Errorf("failed to get plasma config: %w", err)
+	// if altDA is not explicitly activated in the node CLI, the config + any error will be ignored.
+	rpCfg, err := cfg.Rollup.GetOPAltDAConfig()
+	if cfg.AltDA.Enabled && err != nil {
+		return fmt.Errorf("failed to get altDA config: %w", err)
 	}
-	plasmaDA := plasma.NewPlasmaDA(n.log, cfg.Plasma, rpCfg, n.metrics.PlasmaMetrics)
+	altDA := altda.NewAltDA(n.log, cfg.AltDA, rpCfg, n.metrics.AltDAMetrics)
 	if cfg.SafeDBPath != "" {
 		n.log.Info("Safe head database enabled", "path", cfg.SafeDBPath)
 		safeDB, err := safedb.NewSafeDB(n.log, cfg.SafeDBPath)
@@ -406,7 +398,7 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config) error {
 	} else {
 		n.safeDB = safedb.Disabled
 	}
-	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n.beacon, n, n, n.log, n.metrics, cfg.ConfigPersistence, n.safeDB, &cfg.Sync, sequencerConductor, plasmaDA)
+	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n.beacon, n, n, n.log, n.metrics, cfg.ConfigPersistence, n.safeDB, &cfg.Sync, sequencerConductor, altDA)
 	return nil
 }
 
@@ -443,32 +435,6 @@ func (n *OpNode) initMetricsServer(cfg *Config) error {
 	n.log.Info("started metrics server", "addr", metricsSrv.Addr())
 	n.metricsSrv = metricsSrv
 	return nil
-}
-
-func (n *OpNode) initHeartbeat(cfg *Config) {
-	if !cfg.Heartbeat.Enabled {
-		return
-	}
-	var peerID string
-	if cfg.P2P.Disabled() {
-		peerID = "disabled"
-	} else {
-		peerID = n.P2P().Host().ID().String()
-	}
-
-	payload := &heartbeat.Payload{
-		Version: version.Version,
-		Meta:    version.Meta,
-		Moniker: cfg.Heartbeat.Moniker,
-		PeerID:  peerID,
-		ChainID: cfg.Rollup.L2ChainID.Uint64(),
-	}
-
-	go func(url string) {
-		if err := heartbeat.Beat(n.resourcesCtx, n.log, url, payload); err != nil {
-			log.Error("heartbeat goroutine crashed", "err", err)
-		}
-	}(cfg.Heartbeat.URL)
 }
 
 func (n *OpNode) initPProf(cfg *Config) error {
