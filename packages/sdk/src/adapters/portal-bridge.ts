@@ -143,7 +143,6 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
       opts?.fromBlock,
       opts?.toBlock
     )
-    console.log(events)
     return (
       events
         // .filter((event) => {
@@ -227,7 +226,6 @@ export class OptimismPortalBridgeAdapter implements IBridgeAdapter {
       overrides?: Overrides
     }
   ): Promise<TransactionResponse> {
-    console.log('predeposit deposit!')
     return signer.sendTransaction(
       await this.populateTransaction.deposit(l1Token, l2Token, amount, opts)
     )
