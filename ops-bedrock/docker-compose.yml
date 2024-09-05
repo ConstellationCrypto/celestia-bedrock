@@ -14,27 +14,6 @@ volumes:
 
 
 services:
-  op_stack_go_builder:  # Not an actual service, but builds the prerequisite go images
-    build:
-      context: ../
-      dockerfile: ops/docker/op-stack-go/Dockerfile
-      args:
-        GIT_COMMIT: "dev"
-        GIT_DATE: "0"
-    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
-    entrypoint: ["echo", "build complete"]
-  da:
-    image: ghcr.io/rollkit/local-celestia-devnet:v0.12.7
-    ports:
-      - "26650:26650"
-    environment:
-      CELESTIA_NAMESPACE: 000008e5f679bf7116cb
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:26659/header/1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   l1:
     build:
@@ -97,7 +76,6 @@ services:
       --p2p.listen.udp=9003
       --p2p.scoring.peers=light
       --p2p.ban.peers=true
-      --snapshotlog.file=/op_log/snapshot.log
       --p2p.priv.path=/config/p2p-node-key.txt
       --metrics.enabled
       --metrics.addr=0.0.0.0
@@ -155,16 +133,9 @@ services:
 
   op-batcher:
     depends_on:
-      op_stack_go_builder:
-        condition: service_started
-      l1:
-        condition: service_started
-      l2:
-        condition: service_started
-      op-node:
-        condition: service_started
-      da:
-        condition: service_healthy
+      - l1
+      - l2
+      - op-node
     build:
       context: ../
       dockerfile: ops/docker/op-stack-go/Dockerfile

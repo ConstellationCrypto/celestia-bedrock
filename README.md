@@ -31,35 +31,18 @@
 
 ## What is Optimism?
 
-[Optimism](https://www.optimism.io/) is a project dedicated to scaling Ethereum's technology and expanding its ability to coordinate people from across the world to build effective decentralized economies and governance systems. The [Optimism Collective](https://app.optimism.io/announcement) builds open-source software for running L2 blockchains and aims to address key governance and economic challenges in the wider cryptocurrency ecosystem. Optimism operates on the principle of **impact=profit**, the idea that individuals who positively impact the Collective should be proportionally rewarded with profit. **Change the incentives and you change the world.**
+[Optimism](https://www.optimism.io/) is a project dedicated to scaling Ethereum's technology and expanding its ability to coordinate people from across the world to build effective decentralized economies and governance systems. The [Optimism Collective](https://www.optimism.io/vision) builds open-source software that powers scalable blockchains and aims to address key governance and economic challenges in the wider Ethereum ecosystem. Optimism operates on the principle of **impact=profit**, the idea that individuals who positively impact the Collective should be proportionally rewarded with profit. **Change the incentives and you change the world.**
 
-The OP Stack powers Optimism, an Ethereum L2 blockchain, and forms the technical foundation for the [the Optimism Collective](https://app.optimism.io/announcement)—a group committed to the **impact=profit** principle. This principle rewards individuals for their positive contributions to the collective.
-
-Optimism addresses critical coordination failures in the crypto ecosystem, such as funding public goods and infrastructure. The OP Stack focuses on creating a shared, open-source system for developing new L2 blockchains within the proposed Superchain ecosystem, promoting collaboration and preventing redundant efforts.
-
-As Optimism evolves, the OP Stack will adapt, encompassing components ranging from blockchain infrastructure to governance systems. This software suite aims to simplify L2 blockchain creation while supporting the growth and development of the Optimism ecosystem.
-
-## What is Celestia?
-
-Celestia is a modular consensus and data network, built to enable anyone to easily deploy their own blockchain with minimal overhead.
-
-Celestia is a minimal blockchain that only orders and publishes transactions and does not execute them. By decoupling the consensus and application execution layers, Celestia modularizes the blockchain technology stack and unlocks new possibilities for decentralized application builders. Lean more at [Celestia.org](https://celestia.org).
-
-## Maintenance
-
-The maintenance guide for this repository can be found in the Wiki tab of the repository or [here](https://github.com/celestiaorg/optimism/wiki).
+In this repository you'll find numerous core components of the OP Stack, the decentralized software stack maintained by the Optimism Collective that powers Optimism and forms the backbone of blockchains like [OP Mainnet](https://explorer.optimism.io/) and [Base](https://base.org). The OP Stack is designed to be aggressively open-source — you are welcome to explore, modify, and extend this code.
 
 ## Documentation
 
 - If you want to build on top of OP Mainnet, refer to the [Optimism Documentation](https://docs.optimism.io)
-- If you want to build your own OP Stack based blockchain, refer to the [OP Stack Guide](https://docs.optimism.io/stack/getting-started), and make sure to understand this repository's [Development and Release Process](#development-and-release-process)
+- If you want to build your own OP Stack based blockchain, refer to the [OP Stack Guide](https://docs.optimism.io/stack/getting-started) and make sure to understand this repository's [Development and Release Process](#development-and-release-process)
 
 ## Specification
 
-If you're interested in the technical details of how Optimism works, refer to the [Optimism Protocol Specification](https://github.com/ethereum-optimism/specs).
-If you want to build on top of Celestia, take a look at the documentation at [docs.celestia.org](https://docs.celestia.org).
-
-If you want to learn more about the OP Stack, check out the documentation at [stack.optimism.io](https://stack.optimism.io/).
+Detailed specifications for the OP Stack can be found within the [OP Stack Specs](https://github.com/ethereum-optimism/specs) repository.
 
 ## Community
 
@@ -70,54 +53,17 @@ Governance discussion can also be found on the [Optimism Governance Forum](https
 
 ### Celestia
 
-General discussion happens most frequently on the [Celestia discord](https://discord.com/invite/YsnTPcSfWQ).
-Other discussions can be found on the [Celestia forum](https://forum.celestia.org).
+The OP Stack is a collaborative project. By collaborating on free, open software and shared standards, the Optimism Collective aims to prevent siloed software development and rapidly accelerate the development of the Ethereum ecosystem. Come contribute, build the future, and redefine power, together.
 
-<!-- ## Contributing
+[CONTRIBUTING.md](./CONTRIBUTING.md) contains a detailed explanation of the contributing process for this repository. Make sure to use the [Developer Quick Start](./CONTRIBUTING.md#development-quick-start) to properly set up your development environment.
 
-Read through [CONTRIBUTING.md](./CONTRIBUTING.md) for a general overview of our contribution process.
-Use the [Developer Quick Start](./CONTRIBUTING.md#development-quick-start) to get your development environment set up to start working on the Optimism Monorepo.
-Then check out the list of [Good First Issues](https://github.com/ethereum-optimism/optimism/issues?q=is:open+is:issue+label:D-good-first-issue) to find something fun to work on!
-Typo fixes are welcome; however, please create a single commit with all of the typo fixes & batch as many fixes together in a PR as possible. Spammy PRs will be closed.
+[Good First Issues](https://github.com/ethereum-optimism/optimism/issues?q=is:open+is:issue+label:D-good-first-issue) are a great place to look for tasks to tackle if you're not sure where to start.
 
 ## e2e testing
 
-This repository has updated end-to-end tests in the `op-e2e` package to work with
-Celestia as the data availability (DA) layer.
-
-Currently, the tests assume a working [Celestia devnet](https://github.com/rollkit/local-celestia-devnet) running locally:
-
-```bash
-docker run -p 26650:26650 ghcr.io/rollkit/local-celestia-devnet:v0.12.7
-```
-
-The e2e tests can be triggered with:
-
-```bash
-cd $HOME/optimism
-cd op-e2e
-OP_E2E_DISABLE_PARALLEL=true OP_E2E_CANNON_ENABLED=false OP_NODE_DA_RPC=localhost:26650 OP_BATCHER_DA_RPC=localhost:26650 make test
-```
-
-## Bridging
-
-If you have the OP Stack + Celestia setup running, you can test out bridging from the L1
-to the L2.
-
-To do this, first navigate to the `packages/contracts-bedrock` directory and create a
-`.env` file with the following contents:
-
-```bash
-L1_PROVIDER_URL=http://localhost:8545
-L2_PROVIDER_URL=http://localhost:9545
-PRIVATE_KEY=bf7604d9d3a1c7748642b1b7b05c2bd219c9faa91458b370f85e5a40f3b03af7
-```
-
-Then, run the following from the same directory:
-
-```bash
-npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 --l2-provider-url http://localhost:9545 --amount-eth <AMOUNT> --to <ADDRESS>
-```
+Please refer to the canonical [Security Policy](https://github.com/ethereum-optimism/.github/blob/master/SECURITY.md) document for detailed information about how to report vulnerabilities in this codebase.
+Bounty hunters are encouraged to check out the [Optimism Immunefi bug bounty program](https://immunefi.com/bounty/optimism/).
+The Optimism Immunefi program offers up to $2,000,042 for in-scope critical vulnerabilities.
 
 ## Directory Structure
 
@@ -140,8 +86,8 @@ npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 -
 ├── <a href="./ops-bedrock">ops-bedrock</a>: Bedrock devnet work
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/chain-mon">chain-mon</a>: Chain monitoring services
-│   ├── <a href="./packages/contracts-bedrock">contracts-bedrock</a>: Bedrock smart contracts
-│   ├── <a href="./packages/sdk">sdk</a>: provides a set of tools for interacting with Optimism
+│   ├── <a href="./packages/contracts-bedrock">contracts-bedrock</a>: OP Stack smart contracts
+│   ├── <a href="./packages/devnet-tasks">devnet-tasks</a>: Legacy Hardhat tasks used within devnet CI tests
 ├── <a href="./proxyd">proxyd</a>: Configurable RPC request router and proxy
 ├── <a href="./specs">specs</a>: Specs of the rollup starting at the Bedrock upgrade
 </pre>
@@ -150,7 +96,7 @@ npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 -
 
 ### Overview
 
-Please read this section if you're planning to fork this repository, or make frequent PRs into this repository.
+Please read this section carefully if you're planning to fork or make frequent PRs into this repository.
 
 ### Production Releases
 
@@ -159,11 +105,11 @@ For example, an `op-node` release might be versioned as `op-node/v1.1.2`, and  s
 Release candidates are versioned in the format `op-node/v1.1.2-rc.1`.
 We always start with `rc.1` rather than `rc`.
 
-For contract releases, refer to the GitHub release notes for a given release, which will list the specific contracts being released—not all contracts are considered production ready within a release, and many are under active development.
+For contract releases, refer to the GitHub release notes for a given release which will list the specific contracts being released. Not all contracts are considered production ready within a release and many are under active development.
 
 Tags of the form `v<semver>`, such as `v1.1.4`, indicate releases of all Go code only, and **DO NOT** include smart contracts.
 This naming scheme is required by Golang.
-In the above list, this means these `v<semver` releases contain all `op-*` components, and exclude all `contracts-*` components.
+In the above list, this means these `v<semver` releases contain all `op-*` components and exclude all `contracts-*` components.
 
 `op-geth` embeds upstream geth’s version inside it’s own version as follows: `vMAJOR.GETH_MAJOR GETH_MINOR GETH_PATCH.PATCH`.
 Basically, geth’s version is our minor version.
@@ -172,12 +118,12 @@ Note that we pad out to three characters for the geth minor version and two char
 Since we cannot left-pad with zeroes, the geth major version is not padded.
 
 See the [Node Software Releases](https://docs.optimism.io/builders/node-operators/releases) page of the documentation for more information about releases for the latest node components.
+
 The full set of components that have releases are:
 
 - `chain-mon`
 - `ci-builder`
 - `ci-builder`
-- `indexer`
 - `op-batcher`
 - `op-contracts`
 - `op-challenger`

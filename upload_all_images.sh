@@ -5,24 +5,14 @@ if [ "$#" -ne 1 ]; then echo "Usage: ./upload_all_images VERSION_TAG"; exit; fi
 
 VERSION=$1
 ACCOUNT=001138754299 #$(aws sts get-caller-identity --query Account --output text)
-REGION=us-west-2
-
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
-
+aws ecr get-login-password --region us-west-2 --profile Constellation-Admin/PowerUser  | docker login --username AWS --password-stdin 001138754299.dkr.ecr.us-west-2.amazonaws.com
 build_tag_push () {
   echo $1
   docker build -t $1 -f $1/Dockerfile $2 &&
   docker tag $1 $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION &&
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$1:$VERSION
 }
-build_tag_push_plasma () {
-  name=da-server
-  path=op-plasma
-  echo $1
-  docker build -t $path -f $path/Dockerfile . &&
-  docker tag $path $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$name:$VERSION &&
-  docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$name:$VERSION
-}
+
 build_tag_push_op_pipe () {
   make golang-docker && echo OK || echo "Failed build_tag_push_op_pipe"
   GIT_COMMIT=$(git rev-parse HEAD)
@@ -47,7 +37,5 @@ build_tag_push_op_pipe () {
 docker build -t us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:latest -f ops/docker/op-stack-go/Dockerfile .
 build_tag_push_op_pipe
 build_tag_push op-geth op-geth
-build_tag_push_plasma
 # bedrock-deployer depends on the op-node, op-geth images
 build_tag_push bedrock-deployer .
-

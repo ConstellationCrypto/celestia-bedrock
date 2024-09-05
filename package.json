@@ -21,10 +21,9 @@
     "lint:ts:check": "npx nx run-many --target=lint:ts:check",
     "lint:check": "npx nx run-many --target=lint:check",
     "lint:fix": "npx nx run-many --target=lint:fix",
-    "lint:shellcheck": "find . -type f -name '*.sh' -not -path '*/node_modules/*' -not -path './packages/contracts-bedrock/lib/*' -not -path './packages/contracts-bedrock/kout*/*' -not -path './.husky/_/husky.sh' -exec sh -c 'echo \"Checking $1\"; shellcheck \"$1\"' _ {} \\;",
+    "lint:shellcheck": "find . -type f -name '*.sh' -not -path '*/node_modules/*' -not -path './packages/contracts-bedrock/lib/*' -not -path './packages/contracts-bedrock/kout*/*' -exec sh -c 'echo \"Checking $1\"; shellcheck \"$1\"' _ {} \\;",
     "preinstall": "npx only-allow pnpm",
     "ready": "pnpm lint && pnpm test",
-    "prepare": "husky install",
     "release": "npx nx run-many --target=build --skip-nx-cache && pnpm changeset publish",
     "release:check": "changeset status --verbose --since=origin/main",
     "release:publish": "pnpm install --frozen-lockfile && npx nx run-many --target=build && pnpm build && changeset publish",
@@ -48,7 +47,7 @@
     "@changesets/changelog-github": "^0.4.8",
     "@types/chai": "^4.3.11",
     "@types/chai-as-promised": "^7.1.8",
-    "@types/mocha": "^10.0.6",
+    "@types/mocha": "^10.0.7",
     "@types/node": "^20.11.17",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
@@ -66,19 +65,17 @@
     "eslint-plugin-promise": "^5.1.0",
     "eslint-plugin-react": "^7.24.0",
     "eslint-plugin-unicorn": "^50.0.1",
-    "husky": "^9.0.10",
-    "lint-staged": "15.2.0",
-    "mocha": "^10.2.0",
+    "mocha": "^10.6.0",
     "nx": "18.2.2",
     "nx-cloud": "latest",
     "nyc": "^15.1.0",
     "prettier": "^2.8.0",
     "rimraf": "^5.0.5",
     "ts-mocha": "^10.0.0",
-    "typescript": "^5.4.5",
+    "typescript": "^5.5.3",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
-    "@changesets/cli": "^2.27.1"
+    "@changesets/cli": "^2.27.7"
   }
 }

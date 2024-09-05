@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	_ "net/http/pprof"
 	"sync"
 	"time"
 
@@ -173,7 +172,7 @@ func (l *BatchSubmitter) loadBlocksIntoState(ctx context.Context) error {
 			l.lastStoredBlock = eth.BlockID{}
 			return err
 		} else if err != nil {
-			l.Log.Warn("failed to load block into state", "err", err)
+			l.Log.Warn("Failed to load block into state", "err", err)
 			return err
 		}
 		l.lastStoredBlock = eth.ToBlockID(block)
@@ -209,7 +208,7 @@ func (l *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uin
 		return nil, fmt.Errorf("adding L2 block to state: %w", err)
 	}
 
-	l.Log.Info("added L2 block to local state", "block", eth.ToBlockID(block), "tx_count", len(block.Transactions()), "time", block.Time())
+	l.Log.Info("Added L2 block to local state", "block", eth.ToBlockID(block), "tx_count", len(block.Transactions()), "time", block.Time())
 	return block, nil
 }
 
@@ -239,7 +238,7 @@ func (l *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.
 		l.Log.Info("Starting batch-submitter work at safe-head", "safe", syncStatus.SafeL2)
 		l.lastStoredBlock = syncStatus.SafeL2.ID()
 	} else if l.lastStoredBlock.Number < syncStatus.SafeL2.Number {
-		l.Log.Warn("last submitted block lagged behind L2 safe head: batch submission will continue from the safe head now", "last", l.lastStoredBlock, "safe", syncStatus.SafeL2)
+		l.Log.Warn("Last submitted block lagged behind L2 safe head: batch submission will continue from the safe head now", "last", l.lastStoredBlock, "safe", syncStatus.SafeL2)
 		l.lastStoredBlock = syncStatus.SafeL2.ID()
 	}
 
@@ -282,10 +281,10 @@ func (l *BatchSubmitter) loop() {
 		for {
 			select {
 			case r := <-receiptsCh:
-				l.Log.Info("handling receipt", "id", r.ID)
+				l.Log.Info("Handling receipt", "id", r.ID)
 				l.handleReceipt(r)
 			case <-receiptLoopDone:
-				l.Log.Info("receipt processing loop done")
+				l.Log.Info("Receipt processing loop done")
 				return
 			}
 		}
@@ -388,7 +387,7 @@ func (l *BatchSubmitter) publishStateToL1(queue *txmgr.Queue[txID], receiptsCh c
 		err := l.publishTxToL1(l.killCtx, queue, receiptsCh)
 		if err != nil {
 			if err != io.EOF {
-				l.Log.Error("error publishing tx to l1", "err", err)
+				l.Log.Error("Error publishing tx to l1", "err", err)
 			}
 			return
 		}
@@ -448,10 +447,10 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 	txdata, err := l.state.TxData(l1tip.ID())
 
 	if err == io.EOF {
-		l.Log.Trace("no transaction data available")
+		l.Log.Trace("No transaction data available")
 		return err
 	} else if err != nil {
-		l.Log.Error("unable to get tx data", "err", err)
+		l.Log.Error("Unable to get tx data", "err", err)
 		return err
 	}
 
@@ -503,7 +502,7 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 	} else {
 		// sanity check
 		if nf := len(txdata.frames); nf != 1 {
-			l.Log.Crit("unexpected number of frames in calldata tx", "num_frames", nf)
+			l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
 		}
 		data := txdata.CallData()
 		// if plasma DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
@@ -515,6 +514,7 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 				l.recordFailedTx(txdata.ID(), err)
 				return nil
 			}
+			l.Log.Info("Set plasma input", "commitment", comm, "tx", txdata.ID())
 			// signal plasma commitment tx with TxDataVersion1
 			data = comm.TxData()
 		}
@@ -540,7 +540,7 @@ func (l *BatchSubmitter) blobTxCandidate(data txData) (*txmgr.TxCandidate, error
 	}
 	size := data.Len()
 	lastSize := len(data.frames[len(data.frames)-1].data)
-	l.Log.Info("building Blob transaction candidate",
+	l.Log.Info("Building Blob transaction candidate",
 		"size", size, "last_size", lastSize, "num_blobs", len(blobs))
 	l.Metr.RecordBlobUsedBytes(lastSize)
 	return &txmgr.TxCandidate{
@@ -598,6 +598,7 @@ func (l *BatchSubmitter) calldataTxCandidate(ctx context.Context, data []byte) *
 			l.Log.Info("celestia: failed to create commitment", "err", err)
 		}
 	}
+	l.Log.Info("Building Calldata transaction candidate", "size", len(data))
 	return &txmgr.TxCandidate{
 		To:     &l.RollupConfig.BatchInboxAddress,
 		TxData: data,

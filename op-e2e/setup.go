@@ -41,7 +41,6 @@ import (
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
@@ -692,9 +691,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		}
 	}
 
-	// Don't log state snapshots in test output
-	snapLog := log.NewLogger(log.DiscardHandler())
-
 	// Rollup nodes
 
 	// Ensure we are looping through the nodes in alphabetical order
@@ -735,8 +731,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				l.Warn("closed op-node!")
 			}()
 		}
-
-		node, err := rollupNode.New(context.Background(), &c, cfg.Loggers[name], snapLog, "", metrics.NewMetrics(""))
+		node, err := rollupNode.New(context.Background(), &c, l, "", metrics.NewMetrics(""))
 		if err != nil {
 			return nil, err
 		}
@@ -858,7 +853,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		Stopped:              sys.Cfg.DisableBatcher, // Batch submitter may be enabled later
 		BatchType:            batchType,
 		DataAvailabilityType: sys.Cfg.DataAvailabilityType,
-		DaConfig:             celestia.CLIConfig{DaRpc: "localhost:26650"},
 		CompressionAlgo:      compressionAlgo,
 	}
 	// Batch Submitter
