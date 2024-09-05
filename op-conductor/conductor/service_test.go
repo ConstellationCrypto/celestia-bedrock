@@ -64,7 +64,7 @@ func mockConfig(t *testing.T) Config {
 			BlockTime:               2,
 			MaxSequencerDrift:       600,
 			SeqWindowSize:           3600,
-			ChannelTimeout:          300,
+			ChannelTimeoutBedrock:   300,
 			L1ChainID:               big.NewInt(1),
 			L2ChainID:               big.NewInt(2),
 			RegolithTime:            &now,
@@ -848,7 +848,7 @@ func (s *OpConductorTestSuite) TestFailureAndRetry4() {
 			s.executeAction()
 		}
 		return res
-	}, 2*time.Second, time.Millisecond)
+	}, 2*time.Second, 100*time.Millisecond)
 }
 
 func (s *OpConductorTestSuite) TestConductorRestart() {

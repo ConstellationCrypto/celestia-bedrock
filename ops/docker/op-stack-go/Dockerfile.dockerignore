@@ -3,17 +3,13 @@
 *
 
 !/cannon
-!/go-ethereum-kms-signer
 !/op-batcher
 !/op-bootnode
-!/op-celestia
 !/op-chain-ops
 !/op-challenger
 !/packages/contracts-bedrock/snapshots
 !/op-dispute-mon
-!/op-geth
 !/op-conductor
-!/op-heartbeat
 !/op-node
 !/op-preimage
 !/op-program
@@ -21,6 +17,6 @@
 !/op-service
 !/op-supervisor
 !/op-wheel
-!/op-plasma
+!/op-alt-da
 !/go.mod
 !/go.sum

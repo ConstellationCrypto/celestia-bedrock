@@ -2,11 +2,8 @@
   <br />
   <br />
   <a href="https://optimism.io"><img alt="Optimism" src="https://raw.githubusercontent.com/ethereum-optimism/brand-kit/main/assets/svg/OPTIMISM-R.svg" width=600></a>
-  <h3><a href="https://optimism.io">Optimism</a> is a low-cost and lightning-fast Ethereum L2 blockchain, built with the OP Stack.</h3>
   <br />
-  <h3>+</h3>
-  <a href="https://celestia.org"><img alt="Celestia" src="docs/op-stack/src/assets/docs/understand/Celestia-logo-color-color.svg" width=600></a>
-  <h3><a href="https://celestia.org">Celestia</a> is a modular data availability network that securely scales with the number of users, making it easy for anyone to launch their own blockchain.</h3>
+  <h3><a href="https://optimism.io">Optimism</a> is Ethereum, scaled.</h3>
   <br />
 </div>
 
@@ -46,12 +43,10 @@ Detailed specifications for the OP Stack can be found within the [OP Stack Specs
 
 ## Community
 
-### Optimism
-
 General discussion happens most frequently on the [Optimism discord](https://discord.gg/optimism).
 Governance discussion can also be found on the [Optimism Governance Forum](https://gov.optimism.io/).
 
-### Celestia
+## Contributing
 
 The OP Stack is a collaborative project. By collaborating on free, open software and shared standards, the Optimism Collective aims to prevent siloed software development and rapidly accelerate the development of the Ethereum ecosystem. Come contribute, build the future, and redefine power, together.
 
@@ -59,7 +54,7 @@ The OP Stack is a collaborative project. By collaborating on free, open software
 
 [Good First Issues](https://github.com/ethereum-optimism/optimism/issues?q=is:open+is:issue+label:D-good-first-issue) are a great place to look for tasks to tackle if you're not sure where to start.
 
-## e2e testing
+## Security Policy and Vulnerability Reporting
 
 Please refer to the canonical [Security Policy](https://github.com/ethereum-optimism/.github/blob/master/SECURITY.md) document for detailed information about how to report vulnerabilities in this codebase.
 Bounty hunters are encouraged to check out the [Optimism Immunefi bug bounty program](https://immunefi.com/bounty/optimism/).
@@ -74,7 +69,6 @@ The Optimism Immunefi program offers up to $2,000,042 for in-scope critical vuln
 ├── <a href="./op-chain-ops">op-chain-ops</a>: State surgery utilities
 ├── <a href="./op-challenger">op-challenger</a>: Dispute game challenge agent
 ├── <a href="./op-e2e">op-e2e</a>: End-to-End testing of all bedrock components in Go
-├── <a href="./op-heartbeat">op-heartbeat</a>: Heartbeat monitor service
 ├── <a href="./op-node">op-node</a>: rollup consensus-layer client
 ├── <a href="./op-preimage">op-preimage</a>: Go bindings for Preimage Oracle
 ├── <a href="./op-program">op-program</a>: Fault proof program
@@ -85,9 +79,7 @@ The Optimism Immunefi program offers up to $2,000,042 for in-scope critical vuln
 ├── <a href="./ops">ops</a>: Various operational packages
 ├── <a href="./ops-bedrock">ops-bedrock</a>: Bedrock devnet work
 ├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/chain-mon">chain-mon</a>: Chain monitoring services
 │   ├── <a href="./packages/contracts-bedrock">contracts-bedrock</a>: OP Stack smart contracts
-│   ├── <a href="./packages/devnet-tasks">devnet-tasks</a>: Legacy Hardhat tasks used within devnet CI tests
 ├── <a href="./proxyd">proxyd</a>: Configurable RPC request router and proxy
 ├── <a href="./specs">specs</a>: Specs of the rollup starting at the Bedrock upgrade
 </pre>
@@ -111,7 +103,7 @@ Tags of the form `v<semver>`, such as `v1.1.4`, indicate releases of all Go code
 This naming scheme is required by Golang.
 In the above list, this means these `v<semver` releases contain all `op-*` components and exclude all `contracts-*` components.
 
-`op-geth` embeds upstream geth’s version inside it’s own version as follows: `vMAJOR.GETH_MAJOR GETH_MINOR GETH_PATCH.PATCH`.
+`op-geth` embeds upstream geth’s version inside its own version as follows: `vMAJOR.GETH_MAJOR GETH_MINOR GETH_PATCH.PATCH`.
 Basically, geth’s version is our minor version.
 For example if geth is at `v1.12.0`, the corresponding op-geth version would be `v1.101200.0`.
 Note that we pad out to three characters for the geth minor version and two characters for the geth patch version.
@@ -121,17 +113,12 @@ See the [Node Software Releases](https://docs.optimism.io/builders/node-operator
 
 The full set of components that have releases are:
 
-- `chain-mon`
-- `ci-builder`
 - `ci-builder`
 - `op-batcher`
 - `op-contracts`
 - `op-challenger`
-- `op-heartbeat`
 - `op-node`
 - `op-proposer`
-- `op-ufm`
-- `proxyd`
 
 All other components and packages should be considered development components only and do not have releases.
 
