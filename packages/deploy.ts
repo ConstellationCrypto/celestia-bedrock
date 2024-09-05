@@ -10,7 +10,7 @@ import { pipeline } from 'node:stream/promises'
 import { randomBytes } from 'node:crypto'
 
 import { ethers } from 'ethers'
-import { emptyDirSync, copySync } from 'fs-extra'
+import { emptyDirSync } from 'fs-extra'
 import {
   S3Client,
   ListObjectsCommand,
