@@ -1,6 +1,8 @@
 package batcher
 
 import (
+	"bytes"
+	"encoding/hex"
 	"context"
 	"errors"
 	"fmt"
@@ -10,9 +12,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
-	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/dial"

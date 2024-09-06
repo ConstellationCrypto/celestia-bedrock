@@ -110,7 +110,7 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 	prefixEnvVars := func(name string) []string {
 		return opservice.PrefixEnvVar(envPrefix, name)
 	}
-	return append([]cli.Flag{
+	flags := append([]cli.Flag{
 		&cli.StringFlag{
 			Name:    MnemonicFlagName,
 			Usage:   "The mnemonic used to derive the wallets for either the service",
