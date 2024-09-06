@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-
+	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
@@ -441,6 +441,7 @@ func init() {
 	optionalFlags = append(optionalFlags, DeprecatedFlags...)
 	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
 	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, AltDACategory)...)
+	optionalFlags = append(optionalFlags, celestia.CLIFlags(EnvVarPrefix)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 

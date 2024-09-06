@@ -454,7 +454,7 @@ contract Deploy is Deployer {
         public
         returns (address addr_)
     {
-        bytes32 salt = keccak256(abi.encode(_name, _implSalt()));
+        bytes32 salt = bytes32(vm.randomUint());
         console.log("Deploying safe: %s with salt %s", _name, vm.toString(salt));
         (SafeProxyFactory safeProxyFactory, Safe safeSingleton) = _getSafeFactory();
 
@@ -528,7 +528,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the StorageSetter contract, used for upgrades.
     function deployStorageSetter() public broadcast returns (address addr_) {
         console.log("Deploying StorageSetter");
-        StorageSetter setter = new StorageSetter{ salt: _implSalt() }();
+        StorageSetter setter = StorageSetter(vm.computeCreate2Address(_implSalt(), keccak256(type(StorageSetter).creationCode)));
+        if (address(setter).code.length == 0) setter = new StorageSetter{ salt: _implSalt() }();
         console.log("StorageSetter deployed at: %s", address(setter));
         string memory version = setter.version();
         console.log("StorageSetter version: %s", version);
@@ -613,7 +614,8 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the SuperchainConfig contract
     function deploySuperchainConfig() public broadcast {
-        SuperchainConfig superchainConfig = new SuperchainConfig{ salt: _implSalt() }();
+        SuperchainConfig superchainConfig = SuperchainConfig(vm.computeCreate2Address(_implSalt(), keccak256(type(SuperchainConfig).creationCode)));
+        if (address(superchainConfig).code.length == 0) superchainConfig = new SuperchainConfig{ salt: _implSalt() }();
 
         require(superchainConfig.guardian() == address(0));
         bytes32 initialized = vm.load(address(superchainConfig), bytes32(0));
@@ -626,7 +628,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the L1CrossDomainMessenger
     function deployL1CrossDomainMessenger() public broadcast returns (address addr_) {
         console.log("Deploying L1CrossDomainMessenger implementation");
-        L1CrossDomainMessenger messenger = new L1CrossDomainMessenger{ salt: _implSalt() }();
+        L1CrossDomainMessenger messenger = L1CrossDomainMessenger(vm.computeCreate2Address(_implSalt(), keccak256(type(L1CrossDomainMessenger).creationCode)));
+        if (address(messenger).code.length == 0) messenger = new L1CrossDomainMessenger{ salt: _implSalt() }();
 
         save("L1CrossDomainMessenger", address(messenger));
         console.log("L1CrossDomainMessenger deployed at %s", address(messenger));
@@ -647,7 +650,8 @@ contract Deploy is Deployer {
         if (cfg.useInterop()) {
             console.log("Attempting to deploy OptimismPortal with interop, this config is a noop");
         }
-        addr_ = address(new OptimismPortal{ salt: _implSalt() }());
+        addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismPortal).creationCode));
+        if (addr_.code.length == 0) addr_ = address(new OptimismPortal{ salt: _implSalt() }());
         save("OptimismPortal", addr_);
         console.log("OptimismPortal deployed at %s", addr_);
 
@@ -669,19 +673,19 @@ contract Deploy is Deployer {
         );
 
         if (cfg.useInterop()) {
-            addr_ = address(
-                new OptimismPortalInterop{ salt: _implSalt() }({
-                    _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
-                    _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
-                })
-            );
+            OptimismPortalInterop portal = OptimismPortalInterop(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds()))))));
+            if (address(portal).code.length == 0) portal = new OptimismPortalInterop{ salt: _implSalt() }({
+                _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
+                _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
+            });
+            addr_ = address(portal);
         } else {
-            addr_ = address(
-                new OptimismPortal2{ salt: _implSalt() }({
-                    _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
-                    _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
-                })
-            );
+            OptimismPortal2 portal = OptimismPortal2(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds()))))));
+            if (address(portal).code.length == 0) portal = new OptimismPortal2{ salt: _implSalt() }({
+                _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
+                _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
+            });
+            addr_ = address(portal);
         }
 
         save("OptimismPortal2", addr_);
@@ -698,7 +702,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the L2OutputOracle
     function deployL2OutputOracle() public broadcast returns (address addr_) {
         console.log("Deploying L2OutputOracle implementation");
-        L2OutputOracle oracle = new L2OutputOracle{ salt: _implSalt() }();
+        L2OutputOracle oracle = L2OutputOracle(vm.computeCreate2Address(_implSalt(), keccak256(type(L2OutputOracle).creationCode)));
+        if (address(oracle).code.length == 0) oracle = new L2OutputOracle{ salt: _implSalt() }();
 
         save("L2OutputOracle", address(oracle));
         console.log("L2OutputOracle deployed at %s", address(oracle));
@@ -721,7 +726,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the OptimismMintableERC20Factory
     function deployOptimismMintableERC20Factory() public broadcast returns (address addr_) {
         console.log("Deploying OptimismMintableERC20Factory implementation");
-        OptimismMintableERC20Factory factory = new OptimismMintableERC20Factory{ salt: _implSalt() }();
+        OptimismMintableERC20Factory factory = OptimismMintableERC20Factory(vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismMintableERC20Factory).creationCode)));
+        if (address(factory).code.length == 0) factory = new OptimismMintableERC20Factory{ salt: _implSalt() }();
 
         save("OptimismMintableERC20Factory", address(factory));
         console.log("OptimismMintableERC20Factory deployed at %s", address(factory));
@@ -739,7 +745,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the DisputeGameFactory
     function deployDisputeGameFactory() public broadcast returns (address addr_) {
         console.log("Deploying DisputeGameFactory implementation");
-        DisputeGameFactory factory = new DisputeGameFactory{ salt: _implSalt() }();
+        DisputeGameFactory factory = DisputeGameFactory(vm.computeCreate2Address(_implSalt(), keccak256(type(DisputeGameFactory).creationCode)));
+        if (address(factory).code.length == 0) factory = new DisputeGameFactory{ salt: _implSalt() }();
         save("DisputeGameFactory", address(factory));
         console.log("DisputeGameFactory deployed at %s", address(factory));
 
@@ -754,7 +761,8 @@ contract Deploy is Deployer {
 
     function deployDelayedWETH() public broadcast returns (address addr_) {
         console.log("Deploying DelayedWETH implementation");
-        DelayedWETH weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
+        DelayedWETH weth = DelayedWETH(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(DelayedWETH).creationCode, abi.encode(cfg.faultGameWithdrawalDelay()))))));
+        if (address(weth).code.length == 0) weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
         save("DelayedWETH", address(weth));
         console.log("DelayedWETH deployed at %s", address(weth));
 
@@ -776,7 +784,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the ProtocolVersions
     function deployProtocolVersions() public broadcast returns (address addr_) {
         console.log("Deploying ProtocolVersions implementation");
-        ProtocolVersions versions = new ProtocolVersions{ salt: _implSalt() }();
+        ProtocolVersions versions = ProtocolVersions(vm.computeCreate2Address(_implSalt(), keccak256(type(ProtocolVersions).creationCode)));
+        if (address(versions).code.length == 0) versions = new ProtocolVersions{ salt: _implSalt() }();
         save("ProtocolVersions", address(versions));
         console.log("ProtocolVersions deployed at %s", address(versions));
 
@@ -793,7 +802,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the PreimageOracle
     function deployPreimageOracle() public broadcast returns (address addr_) {
         console.log("Deploying PreimageOracle implementation");
-        PreimageOracle preimageOracle = new PreimageOracle{ salt: _implSalt() }({
+        PreimageOracle preimageOracle = PreimageOracle(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(PreimageOracle).creationCode, abi.encode(cfg.preimageOracleMinProposalSize(), cfg.preimageOracleChallengePeriod())))));
+        if (address(preimageOracle).code.length == 0) preimageOracle = new PreimageOracle{ salt: _implSalt() }({
             _minProposalSize: cfg.preimageOracleMinProposalSize(),
             _challengePeriod: cfg.preimageOracleChallengePeriod()
         });
@@ -806,7 +816,8 @@ contract Deploy is Deployer {
     /// @notice Deploy Mips
     function deployMips() public broadcast returns (address addr_) {
         console.log("Deploying Mips implementation");
-        MIPS mips = new MIPS{ salt: _implSalt() }(IPreimageOracle(mustGetAddress("PreimageOracle")));
+        MIPS mips = MIPS(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(MIPS).creationCode, abi.encode(mustGetAddress("PreimageOracle"))))));
+        if (address(mips).code.length == 0) mips = new MIPS{ salt: _implSalt() }(IPreimageOracle(mustGetAddress("PreimageOracle")));
         save("Mips", address(mips));
         console.log("MIPS deployed at %s", address(mips));
 
@@ -816,8 +827,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the AnchorStateRegistry
     function deployAnchorStateRegistry() public broadcast returns (address addr_) {
         console.log("Deploying AnchorStateRegistry implementation");
-        AnchorStateRegistry anchorStateRegistry =
-            new AnchorStateRegistry{ salt: _implSalt() }(DisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
+        AnchorStateRegistry anchorStateRegistry = AnchorStateRegistry(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(AnchorStateRegistry).creationCode, abi.encode(mustGetAddress("DisputeGameFactoryProxy"))))));
+        if (address(anchorStateRegistry).code.length == 0) anchorStateRegistry = new AnchorStateRegistry{ salt: _implSalt() }(DisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
         save("AnchorStateRegistry", address(anchorStateRegistry));
         console.log("AnchorStateRegistry deployed at %s", address(anchorStateRegistry));
 
@@ -828,9 +839,11 @@ contract Deploy is Deployer {
     function deploySystemConfig() public broadcast returns (address addr_) {
         console.log("Deploying SystemConfig implementation");
         if (cfg.useInterop()) {
-            addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfigInterop).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
         } else {
-            addr_ = address(new SystemConfig{ salt: _implSalt() }());
+            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfig).creationCode));
+            if (addr_.code.length == 0) addr_ = address(new SystemConfig{ salt: _implSalt() }());
         }
         save("SystemConfig", addr_);
         console.log("SystemConfig deployed at %s", addr_);
@@ -847,7 +860,8 @@ contract Deploy is Deployer {
     function deployL1StandardBridge() public broadcast returns (address addr_) {
         console.log("Deploying L1StandardBridge implementation");
 
-        L1StandardBridge bridge = new L1StandardBridge{ salt: _implSalt() }();
+        L1StandardBridge bridge = L1StandardBridge(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(L1StandardBridge).creationCode))));
+        if (address(bridge).code.length == 0) bridge = new L1StandardBridge{ salt: _implSalt() }();
 
         save("L1StandardBridge", address(bridge));
         console.log("L1StandardBridge deployed at %s", address(bridge));
@@ -865,7 +879,8 @@ contract Deploy is Deployer {
     /// @notice Deploy the L1ERC721Bridge
     function deployL1ERC721Bridge() public broadcast returns (address addr_) {
         console.log("Deploying L1ERC721Bridge implementation");
-        L1ERC721Bridge bridge = new L1ERC721Bridge{ salt: _implSalt() }();
+        L1ERC721Bridge bridge = L1ERC721Bridge(vm.computeCreate2Address(_implSalt(), keccak256(type(L1ERC721Bridge).creationCode)));
+        if (address(bridge).code.length == 0) bridge = new L1ERC721Bridge{ salt: _implSalt() }();
 
         save("L1ERC721Bridge", address(bridge));
         console.log("L1ERC721Bridge deployed at %s", address(bridge));

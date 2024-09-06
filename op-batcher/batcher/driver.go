@@ -10,7 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
+	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -66,6 +66,7 @@ type DriverSetup struct {
 	EndpointProvider dial.L2EndpointProvider
 	ChannelConfig    ChannelConfigProvider
 	AltDA            *altda.DAClient
+	DAClient         *celestia.DAClient
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -619,6 +620,45 @@ func (l *BatchSubmitter) blobTxCandidate(data txData) (*txmgr.TxCandidate, error
 
 func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
 	l.Log.Info("Building Calldata transaction candidate", "size", len(data))
+	ctx := context.Background()
+	if l.DAClient != nil && l.DAClient.Client != nil {
+	commit, err := celestia.CreateCommitment(data, l.DAClient.Namespace)
+		if err == nil {
+			ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+			ids, err := l.DAClient.Client.Submit(ctx2, [][]byte{data}, -1, l.DAClient.Namespace)
+			cancel()
+			if err == nil && len(ids) == 1 && len(ids[0]) == 40 && bytes.Equal(commit, ids[0][8:]) {
+				l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(ids[0]))
+				ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+				proofs, err := l.DAClient.Client.GetProofs(ctx2, ids, l.DAClient.Namespace)
+				cancel()
+				if err == nil && len(proofs) == 1 {
+					ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+					valids, err := l.DAClient.Client.Validate(ctx2, ids, proofs, l.DAClient.Namespace)
+					cancel()
+					if err == nil && len(valids) == 1 && valids[0] == true {
+						ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+						frame := append([]byte{celestia.DerivationVersionCelestia}, ids[0]...)
+						err = l.uploadS3Data(ctx2, frame, data)
+						cancel()
+						if err == nil {
+							data = frame
+						} else {
+							l.Log.Error("celestia: failed to upload data to s3", "err", err)
+						}
+					} else {
+						l.Log.Error("celestia: failed to validate proof", "err", err, "valid", valids)
+					}
+				} else {
+					l.Log.Error("celestia: failed to get proof", "err", err)
+				}
+			} else {
+				l.Log.Info("celestia: blob submission failed; falling back to eth", "err", err, "ids", ids, "commit", commit)
+			}
+		} else {
+			l.Log.Info("celestia: failed to create commitment", "err", err)
+		}
+	}
 	return &txmgr.TxCandidate{
 		To:     &l.RollupConfig.BatchInboxAddress,
 		TxData: data,
@@ -663,6 +703,15 @@ func (l *BatchSubmitter) l1Tip(ctx context.Context) (eth.L1BlockRef, error) {
 		return eth.L1BlockRef{}, fmt.Errorf("getting latest L1 block: %w", err)
 	}
 	return eth.InfoToL1BlockRef(eth.HeaderBlockInfo(head)), nil
+}
+
+func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, txData []byte) error {
+	_, err := l.DAClient.S3Client.PutObject(ctx, &s3.PutObjectInput{
+		Body:   bytes.NewReader(txData),
+		Bucket: &l.DAClient.S3Bucket,
+		Key:    aws.String(fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData)),
+	})
+	return err
 }
 
 func logFields(xs ...any) (fs []any) {

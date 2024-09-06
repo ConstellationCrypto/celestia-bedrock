@@ -188,6 +188,7 @@ const main = async () => {
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
+
     execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/deploy/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
