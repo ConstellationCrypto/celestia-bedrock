@@ -179,8 +179,8 @@ const main = async () => {
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
       customGasTokenAddress: process.env.L1_FPE_TOKEN,
 
-      usePlasma: process.env.PLASMA === "true",
-      //is not used if PLASMA=false
+      useAltDA: process.env.ALTDA === "true",
+      //is not used if ALTDA=false
       daChallengeProxy: "0x0000000000000000000000000000000000000000",
       daCommitmentType: "GenericCommitment",
       daChallengeWindow: 300,

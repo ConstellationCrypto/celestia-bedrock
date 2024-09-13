@@ -3,6 +3,9 @@
 *
 
 !/cannon
+!/go-ethereum-kms-signer
+!/op-celestia
+!/op-geth
 !/op-batcher
 !/op-bootnode
 !/op-chain-ops
