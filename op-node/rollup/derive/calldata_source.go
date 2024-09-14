@@ -30,6 +30,7 @@ func SetDAClient(c *celestia.DAClient) error {
 		return errors.New("da client already configured")
 	}
 	daClient = c
+	log.Info("celestia: setting DA client")
 	return nil
 }
 

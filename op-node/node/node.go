@@ -135,6 +135,9 @@ func (n *OpNode) init(ctx context.Context, cfg *Config) error {
 	if err := n.initL2(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to init L2: %w", err)
 	}
+	if err := n.initDA(ctx, cfg); err != nil {
+		return fmt.Errorf("failed to init da: %w", err)
+	}
 	if err := n.initRuntimeConfig(ctx, cfg); err != nil { // depends on L2, to signal initial runtime values to
 		return fmt.Errorf("failed to init the runtime config: %w", err)
 	}
@@ -158,6 +161,10 @@ func (n *OpNode) init(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("failed to init profiling: %w", err)
 	}
 	return nil
+}
+
+func (n *OpNode) initDA(ctx context.Context, cfg *Config) error {
+	return driver.SetDAClient(cfg.DaConfig)
 }
 
 func (n *OpNode) initTracer(ctx context.Context, cfg *Config) error {
