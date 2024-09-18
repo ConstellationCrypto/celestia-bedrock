@@ -180,12 +180,16 @@ const main = async () => {
       useCustomGasToken: process.env.L1_FPE_TOKEN !== ethers.constants.AddressZero,
       customGasTokenAddress: process.env.L1_FPE_TOKEN,
 
+      useInterop: false,
+
       useAltDA: process.env.ALTDA === "true",
       //is not used if ALTDA=false
       daChallengeProxy: "0x0000000000000000000000000000000000000000",
       daCommitmentType: "GenericCommitment",
       daChallengeWindow: 300,
-      daResolveWindow: 300
+      daResolveWindow: 300,
+      daBondSize: 0,
+      daResolverRefundPercentage: 100,
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))

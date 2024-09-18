@@ -5,10 +5,8 @@ go 1.21.5
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/andybalholm/brotli v1.1.0
-	github.com/aws/aws-sdk-go-v2 v1.30.5
 	github.com/aws/aws-sdk-go-v2/config v1.18.45
-	github.com/aws/aws-sdk-go-v2/service/kms v1.35.7
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.0
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/celestiaorg/go-square v1.1.0
@@ -69,7 +67,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.45 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.19 // indirect
@@ -263,6 +261,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
+)
+
+require (
+	github.com/aws/aws-sdk-go-v2 v1.30.5
+	github.com/aws/aws-sdk-go-v2/service/kms v1.35.8
 )
 
 replace github.com/ethereum/go-ethereum v1.14.8 => github.com/ethereum-optimism/op-geth v1.101408.0-rc.4.0.20240827042333-110c433a2469
