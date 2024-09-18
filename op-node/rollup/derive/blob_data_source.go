@@ -128,6 +128,10 @@ func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batc
 		// handle non-blob batcher transactions by extracting their calldata
 		if tx.Type() != types.BlobTxType {
 			calldata := eth.Data(tx.Data())
+			if len(calldata) == 0 {
+				log.Warn("celestia: skipping empty calldata")
+				continue
+			}
 			data = append(data, blobOrCalldata{nil, &calldata})
 			continue
 		}

@@ -28,6 +28,7 @@ import (
 // The beacon chain on mainnet has 32 slots per epoch,
 // and new finalization events happen at most 4 epochs behind the head.
 // And then we add 1 to make pruning easier by leaving room for a new item without pruning the 32*4.
+// L1 blocks are 6x as fast on base compared to mainnet - muliply by 10 just in case.
 const defaultFinalityLookback = 4*32*10 + 1
 
 // finalityDelay is the number of L1 blocks to traverse before trying to finalize L2 blocks again.

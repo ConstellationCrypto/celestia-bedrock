@@ -626,7 +626,7 @@ func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
 	l.Log.Info("Building Calldata transaction candidate", "size", len(data))
 	ctx := context.Background()
 	if l.DAClient != nil && l.DAClient.Client != nil {
-	commit, err := celestia.CreateCommitment(data, l.DAClient.Namespace)
+		commit, err := celestia.CreateCommitment(data, l.DAClient.Namespace)
 		if err == nil {
 			ctx2, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
 			ids, err := l.DAClient.Client.Submit(ctx2, [][]byte{data}, -1, l.DAClient.Namespace)
