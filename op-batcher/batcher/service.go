@@ -9,13 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
+	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/params"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -27,6 +25,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var ErrAlreadyStopped = errors.New("already stopped")
@@ -39,6 +39,8 @@ type BatcherConfig struct {
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
 	UseAltDA bool
+	// maximum number of concurrent blob put requests to the DA server
+	MaxConcurrentDARequests uint64
 
 	WaitNodeSync        bool
 	CheckRecentTxsDepth int
@@ -51,7 +53,7 @@ type BatcherService struct {
 	Metrics          metrics.Metricer
 	L1Client         *ethclient.Client
 	EndpointProvider dial.L2EndpointProvider
-	TxManager        *txmgr.SimpleTxManager
+	TxManager        txmgr.TxManager
 	AltDA            *altda.DAClient
 
 	BatcherConfig
@@ -71,7 +73,7 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
-	DAClient *celestia.DAClient
+	DAClient             *celestia.DAClient
 }
 
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.
@@ -94,6 +96,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 
 	bs.PollInterval = cfg.PollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
+	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
 	bs.CheckRecentTxsDepth = cfg.CheckRecentTxsDepth
 	bs.WaitNodeSync = cfg.WaitNodeSync
@@ -106,6 +109,13 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	if err := bs.initTxManager(cfg); err != nil {
 		return fmt.Errorf("failed to init Tx manager: %w", err)
 	}
+	// must be init before driver and channel config
+	if err := bs.initAltDA(cfg); err != nil {
+		return fmt.Errorf("failed to init AltDA: %w", err)
+	}
+	if err := bs.initCelestiaDA(cfg); err != nil {
+		return fmt.Errorf("failed to start celestia da server: %w", err)
+	}
 	if err := bs.initChannelConfig(cfg); err != nil {
 		return fmt.Errorf("failed to init channel config: %w", err)
 	}
@@ -115,13 +125,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	if err := bs.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
-	}
-	// init before driver
-	if err := bs.initAltDA(cfg); err != nil {
-		return fmt.Errorf("failed to init AltDA: %w", err)
-	}
-	if err := bs.initCelestiaDA(cfg); err != nil {
-		return fmt.Errorf("failed to start celestia da server: %w", err)
 	}
 	bs.initDriver()
 	if err := bs.initRPCServer(cfg); err != nil {

@@ -2,8 +2,8 @@ package derive
 
 import (
 	"bytes"
-	"encoding/hex"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -12,13 +12,14 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	celestia "github.com/ethereum-optimism/optimism/op-celestia"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
+
 var celestiaLegacyMode = os.Getenv("CELESTIA_LEGACY_MODE") == "true"
 
 var daClient *celestia.DAClient
@@ -31,6 +32,7 @@ func SetDAClient(c *celestia.DAClient) error {
 	log.Info("celestia: setting DA client")
 	return nil
 }
+
 // CalldataSource is a fault tolerant approach to fetching data.
 // The constructor will never fail & it will instead re-attempt the fetcher
 // at a later point.
@@ -96,7 +98,7 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 func DataFromEVMTransactions(dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, log log.Logger) []eth.Data {
 	out := []eth.Data{}
 	for _, tx := range txs {
-		if isValidBatchTx(tx, dsCfg.l1Signer, dsCfg.batchInboxAddress, batcherAddr) {
+		if isValidBatchTx(tx, dsCfg.l1Signer, dsCfg.batchInboxAddress, batcherAddr, log) {
 			data := tx.Data()
 			switch len(data) {
 			case 0:
