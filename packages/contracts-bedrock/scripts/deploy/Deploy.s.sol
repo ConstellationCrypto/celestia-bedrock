@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 // Testing
 import { VmSafe } from "forge-std/Vm.sol";
+
 import { Script } from "forge-std/Script.sol";
 import { console2 as console } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -914,7 +915,7 @@ contract Deploy is Deployer {
     function deployAnchorStateRegistry() public broadcast returns (address addr_) {
         console.log("Deploying AnchorStateRegistry implementation");
         AnchorStateRegistry anchorStateRegistry = AnchorStateRegistry(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(AnchorStateRegistry).creationCode, abi.encode(mustGetAddress("DisputeGameFactoryProxy"))))));
-        if (address(anchorStateRegistry).code.length == 0) anchorStateRegistry = new AnchorStateRegistry{ salt: _implSalt() }(DisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
+        if (address(anchorStateRegistry).code.length == 0) anchorStateRegistry = new AnchorStateRegistry{ salt: _implSalt() }(IDisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
         save("AnchorStateRegistry", address(anchorStateRegistry));
         console.log("AnchorStateRegistry deployed at %s", address(anchorStateRegistry));
 
@@ -995,7 +996,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the DataAvailabilityChallenge
     function deployDataAvailabilityChallenge() public broadcast returns (address addr_) {
-        DataAvailabilityChallenge dac = DataAvailabilityChallenge(vm.computeCreate2Address(_implSalt(), keccak256(type(DataAvailabilityChallenge).creationCode)));
+        DataAvailabilityChallenge dac = DataAvailabilityChallenge(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(DataAvailabilityChallenge).creationCode))));
         if (address(dac).code.length == 0) dac = new DataAvailabilityChallenge{ salt: _implSalt() }();
         addr_ = address(dac);
     }

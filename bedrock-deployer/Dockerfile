@@ -9,7 +9,7 @@ WORKDIR /tmp
 
 FROM op-geth as op-geth
 FROM op-node as op-node
-FROM ghcr.io/foundry-rs/foundry:nightly-1197fbea0b0f9dde45579a61a5ff956fc0aee426 as foundry
+FROM ghcr.io/foundry-rs/foundry:nightly-143abd6a768eeb52a5785240b763d72a56987b4a as foundry
 # bullseye-slim is debian based
 # we use it rather than alpien because it's not much
 # bigger and alpine is often missing packages for node applications
