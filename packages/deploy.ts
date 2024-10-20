@@ -185,16 +185,16 @@ const main = async () => {
       useAltDA: process.env.ALTDA === "true",
       //is not used if ALTDA=false
       daChallengeProxy: "0x0000000000000000000000000000000000000000",
-      daCommitmentType: "GenericCommitment",
-      daChallengeWindow: 300,
-      daResolveWindow: 300,
-      daBondSize: 0,
-      daResolverRefundPercentage: 100,
+      daCommitmentType: process.env.COMMITMENT_TYPE || "GenericCommitment",
+      daChallengeWindow: Number(process.env.COMMITMENT_TYPE) || 300,
+      daResolveWindow: Number(process.env.RESOLVE_WINDOW) || 300,
+      daBondSize: Number(process.env.BOND_SIZE) || 0,
+      daResolverRefundPercentage: Number(process.env.RESOLVER_REFUND_PERCENTAGE) || 100,
     }
 
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
 
-    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/deploy/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
+    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy IMPL_SALT=$(openssl rand -hex 32) DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/deploy/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 // Testing
 import { VmSafe } from "forge-std/Vm.sol";
-
 import { Script } from "forge-std/Script.sol";
 import { console2 as console } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -43,29 +42,6 @@ import { Predeploys } from "src/libraries/Predeploys.sol";
 import { Types } from "scripts/libraries/Types.sol";
 import "src/dispute/lib/Types.sol";
 
-
-// Implementations
-import { SystemConfigInterop } from "src/L1/SystemConfigInterop.sol";
-import { OptimismPortal } from "src/L1/OptimismPortal.sol";
-import { OptimismPortal2 } from "src/L1/OptimismPortal2.sol";
-import { OptimismPortalInterop } from "src/L1/OptimismPortalInterop.sol";
-import { CrossDomainMessenger } from "src/universal/CrossDomainMessenger.sol";
-import { L1CrossDomainMessenger } from "src/L1/L1CrossDomainMessenger.sol";
-import { L2OutputOracle } from "src/L1/L2OutputOracle.sol";
-import { SuperchainConfig } from "src/L1/SuperchainConfig.sol";
-import { SystemConfig } from "src/L1/SystemConfig.sol";
-import { DataAvailabilityChallenge } from "src/L1/DataAvailabilityChallenge.sol";
-import { L1ERC721Bridge } from "src/L1/L1ERC721Bridge.sol";
-import { L1StandardBridge } from "src/L1/L1StandardBridge.sol";
-import { ProtocolVersions } from "src/L1/ProtocolVersions.sol";
-import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
-import { FaultDisputeGame } from "src/dispute/FaultDisputeGame.sol";
-import { PermissionedDisputeGame } from "src/dispute/PermissionedDisputeGame.sol";
-import { DelayedWETH } from "src/dispute/DelayedWETH.sol";
-import { AnchorStateRegistry } from "src/dispute/AnchorStateRegistry.sol";
-import { PreimageOracle } from "src/cannon/PreimageOracle.sol";
-import { OptimismMintableERC20Factory } from "src/universal/OptimismMintableERC20Factory.sol";
-
 // Interfaces
 import { IOptimismPortal } from "src/L1/interfaces/IOptimismPortal.sol";
 import { IOptimismPortal2 } from "src/L1/interfaces/IOptimismPortal2.sol";
@@ -75,20 +51,17 @@ import { IL1CrossDomainMessenger } from "src/L1/interfaces/IL1CrossDomainMesseng
 import { IL2OutputOracle } from "src/L1/interfaces/IL2OutputOracle.sol";
 import { ISuperchainConfig } from "src/L1/interfaces/ISuperchainConfig.sol";
 import { ISystemConfig } from "src/L1/interfaces/ISystemConfig.sol";
+import { IDataAvailabilityChallenge } from "src/L1/interfaces/IDataAvailabilityChallenge.sol";
 import { IL1ERC721Bridge } from "src/L1/interfaces/IL1ERC721Bridge.sol";
 import { IL1StandardBridge } from "src/L1/interfaces/IL1StandardBridge.sol";
 import { IProtocolVersions, ProtocolVersion } from "src/L1/interfaces/IProtocolVersions.sol";
-import { IDisputeGame } from "src/dispute/interfaces/IDisputeGame.sol";
-import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
-import { IOptimismMintableERC20Factory } from "src/universal/interfaces/IOptimismMintableERC20Factory.sol";
-import { ISuperchainConfig } from "src/L1/interfaces/ISuperchainConfig.sol";
-import { IDataAvailabilityChallenge } from "src/L1/interfaces/IDataAvailabilityChallenge.sol";
+import { IBigStepper } from "src/dispute/interfaces/IBigStepper.sol";
 import { IDisputeGameFactory } from "src/dispute/interfaces/IDisputeGameFactory.sol";
+import { IDisputeGame } from "src/dispute/interfaces/IDisputeGame.sol";
 import { IDelayedWETH } from "src/dispute/interfaces/IDelayedWETH.sol";
 import { IAnchorStateRegistry } from "src/dispute/interfaces/IAnchorStateRegistry.sol";
-import { IBigStepper } from "src/dispute/interfaces/IBigStepper.sol";
-
-
+import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
+import { IOptimismMintableERC20Factory } from "src/universal/interfaces/IOptimismMintableERC20Factory.sol";
 
 /// @title Deploy
 /// @notice Script used to deploy a bedrock system. The entire system is deployed within the `run` function.
@@ -607,8 +580,7 @@ contract Deploy is Deployer {
     /// @notice Deploy the StorageSetter contract, used for upgrades.
     function deployStorageSetter() public broadcast returns (address addr_) {
         console.log("Deploying StorageSetter");
-        StorageSetter setter = StorageSetter(vm.computeCreate2Address(_implSalt(), keccak256(type(StorageSetter).creationCode)));
-        if (address(setter).code.length == 0) setter = new StorageSetter{ salt: _implSalt() }();
+        StorageSetter setter = new StorageSetter{ salt: _implSalt() }();
         console.log("StorageSetter deployed at: %s", address(setter));
         string memory version = setter.version();
         console.log("StorageSetter version: %s", version);
@@ -693,8 +665,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the SuperchainConfig contract
     function deploySuperchainConfig() public broadcast {
-        SuperchainConfig superchainConfig = SuperchainConfig(vm.computeCreate2Address(_implSalt(), keccak256(type(SuperchainConfig).creationCode)));
-        if (address(superchainConfig).code.length == 0) superchainConfig = new SuperchainConfig{ salt: _implSalt() }();
+        ISuperchainConfig superchainConfig = ISuperchainConfig(_deploy("SuperchainConfig", hex""));
 
         require(superchainConfig.guardian() == address(0));
         bytes32 initialized = vm.load(address(superchainConfig), bytes32(0));
@@ -703,12 +674,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the L1CrossDomainMessenger
     function deployL1CrossDomainMessenger() public broadcast returns (address addr_) {
-        console.log("Deploying L1CrossDomainMessenger implementation");
-        L1CrossDomainMessenger messenger = L1CrossDomainMessenger(vm.computeCreate2Address(_implSalt(), keccak256(type(L1CrossDomainMessenger).creationCode)));
-        if (address(messenger).code.length == 0) messenger = new L1CrossDomainMessenger{ salt: _implSalt() }();
-
-        save("L1CrossDomainMessenger", address(messenger));
-        console.log("L1CrossDomainMessenger deployed at %s", address(messenger));
+        IL1CrossDomainMessenger messenger = IL1CrossDomainMessenger(_deploy("L1CrossDomainMessenger", hex""));
 
         // Override the `L1CrossDomainMessenger` contract to the deployed implementation. This is necessary
         // to check the `L1CrossDomainMessenger` implementation alongside dependent contracts, which
@@ -725,10 +691,8 @@ contract Deploy is Deployer {
         if (cfg.useInterop()) {
             console.log("Attempting to deploy OptimismPortal with interop, this config is a noop");
         }
-        addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismPortal).creationCode));
-        if (addr_.code.length == 0) addr_ = address(new OptimismPortal{ salt: _implSalt() }());
-        save("OptimismPortal", addr_);
-        console.log("OptimismPortal deployed at %s", addr_);
+
+        addr_ = _deploy("OptimismPortal", hex"");
 
         // Override the `OptimismPortal` contract to the deployed implementation. This is necessary
         // to check the `OptimismPortal` implementation alongside dependent contracts, which
@@ -746,19 +710,15 @@ contract Deploy is Deployer {
         );
 
         if (cfg.useInterop()) {
-            OptimismPortalInterop portal = OptimismPortalInterop(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds()))))));
-            if (address(portal).code.length == 0) portal = new OptimismPortalInterop{ salt: _implSalt() }({
-                _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
-                _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
-            });
-            addr_ = address(portal);
+            addr_ = _deploy(
+                "OptimismPortalInterop",
+                abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds())
+            );
+            save("OptimismPortal2", addr_);
         } else {
-            OptimismPortal2 portal = OptimismPortal2(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(OptimismPortal2).creationCode, abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds()))))));
-            if (address(portal).code.length == 0) portal = new OptimismPortal2{ salt: _implSalt() }({
-                _proofMaturityDelaySeconds: cfg.proofMaturityDelaySeconds(),
-                _disputeGameFinalityDelaySeconds: cfg.disputeGameFinalityDelaySeconds()
-            });
-            addr_ = address(portal);
+            addr_ = _deploy(
+                "OptimismPortal2", abi.encode(cfg.proofMaturityDelaySeconds(), cfg.disputeGameFinalityDelaySeconds())
+            );
         }
 
         // Override the `OptimismPortal2` contract to the deployed implementation. This is necessary
@@ -771,12 +731,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the L2OutputOracle
     function deployL2OutputOracle() public broadcast returns (address addr_) {
-        console.log("Deploying L2OutputOracle implementation");
-        L2OutputOracle oracle = L2OutputOracle(vm.computeCreate2Address(_implSalt(), keccak256(type(L2OutputOracle).creationCode)));
-        if (address(oracle).code.length == 0) oracle = new L2OutputOracle{ salt: _implSalt() }();
-
-        save("L2OutputOracle", address(oracle));
-        console.log("L2OutputOracle deployed at %s", address(oracle));
+        IL2OutputOracle oracle = IL2OutputOracle(_deploy("L2OutputOracle", hex""));
 
         // Override the `L2OutputOracle` contract to the deployed implementation. This is necessary
         // to check the `L2OutputOracle` implementation alongside dependent contracts, which
@@ -795,12 +750,8 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the OptimismMintableERC20Factory
     function deployOptimismMintableERC20Factory() public broadcast returns (address addr_) {
-        console.log("Deploying OptimismMintableERC20Factory implementation");
-        OptimismMintableERC20Factory factory = OptimismMintableERC20Factory(vm.computeCreate2Address(_implSalt(), keccak256(type(OptimismMintableERC20Factory).creationCode)));
-        if (address(factory).code.length == 0) factory = new OptimismMintableERC20Factory{ salt: _implSalt() }();
-
-        save("OptimismMintableERC20Factory", address(factory));
-        console.log("OptimismMintableERC20Factory deployed at %s", address(factory));
+        IOptimismMintableERC20Factory factory =
+            IOptimismMintableERC20Factory(_deploy("OptimismMintableERC20Factory", hex""));
 
         // Override the `OptimismMintableERC20Factory` contract to the deployed implementation. This is necessary
         // to check the `OptimismMintableERC20Factory` implementation alongside dependent contracts, which
@@ -814,11 +765,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the DisputeGameFactory
     function deployDisputeGameFactory() public broadcast returns (address addr_) {
-        console.log("Deploying DisputeGameFactory implementation");
-        DisputeGameFactory factory = DisputeGameFactory(vm.computeCreate2Address(_implSalt(), keccak256(type(DisputeGameFactory).creationCode)));
-        if (address(factory).code.length == 0) factory = new DisputeGameFactory{ salt: _implSalt() }();
-        save("DisputeGameFactory", address(factory));
-        console.log("DisputeGameFactory deployed at %s", address(factory));
+        IDisputeGameFactory factory = IDisputeGameFactory(_deploy("DisputeGameFactory", hex""));
 
         // Override the `DisputeGameFactory` contract to the deployed implementation. This is necessary to check the
         // `DisputeGameFactory` implementation alongside dependent contracts, which are always proxies.
@@ -830,11 +777,7 @@ contract Deploy is Deployer {
     }
 
     function deployDelayedWETH() public broadcast returns (address addr_) {
-        console.log("Deploying DelayedWETH implementation");
-        DelayedWETH weth = DelayedWETH(payable(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(DelayedWETH).creationCode, abi.encode(cfg.faultGameWithdrawalDelay()))))));
-        if (address(weth).code.length == 0) weth = new DelayedWETH{ salt: _implSalt() }(cfg.faultGameWithdrawalDelay());
-        save("DelayedWETH", address(weth));
-        console.log("DelayedWETH deployed at %s", address(weth));
+        IDelayedWETH weth = IDelayedWETH(payable(_deploy("DelayedWETH", abi.encode(cfg.faultGameWithdrawalDelay()))));
 
         // Override the `DelayedWETH` contract to the deployed implementation. This is necessary
         // to check the `DelayedWETH` implementation alongside dependent contracts, which are
@@ -853,11 +796,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the ProtocolVersions
     function deployProtocolVersions() public broadcast returns (address addr_) {
-        console.log("Deploying ProtocolVersions implementation");
-        ProtocolVersions versions = ProtocolVersions(vm.computeCreate2Address(_implSalt(), keccak256(type(ProtocolVersions).creationCode)));
-        if (address(versions).code.length == 0) versions = new ProtocolVersions{ salt: _implSalt() }();
-        save("ProtocolVersions", address(versions));
-        console.log("ProtocolVersions deployed at %s", address(versions));
+        IProtocolVersions versions = IProtocolVersions(_deploy("ProtocolVersions", hex""));
 
         // Override the `ProtocolVersions` contract to the deployed implementation. This is necessary
         // to check the `ProtocolVersions` implementation alongside dependent contracts, which
@@ -872,8 +811,7 @@ contract Deploy is Deployer {
     /// @notice Deploy the PreimageOracle
     function deployPreimageOracle() public broadcast returns (address addr_) {
         console.log("Deploying PreimageOracle implementation");
-        PreimageOracle preimageOracle = PreimageOracle(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(PreimageOracle).creationCode, abi.encode(cfg.preimageOracleMinProposalSize(), cfg.preimageOracleChallengePeriod())))));
-        if (address(preimageOracle).code.length == 0) preimageOracle = new PreimageOracle{ salt: _implSalt() }({
+        PreimageOracle preimageOracle = new PreimageOracle{ salt: _implSalt() }({
             _minProposalSize: cfg.preimageOracleMinProposalSize(),
             _challengePeriod: cfg.preimageOracleChallengePeriod()
         });
@@ -896,9 +834,7 @@ contract Deploy is Deployer {
     /// @notice Deploy MIPS
     function _deployMips() internal returns (address addr_) {
         console.log("Deploying Mips implementation");
-        MIPS mips = MIPS(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(MIPS).creationCode, abi.encode(mustGetAddress("PreimageOracle"))))));
-        if (address(mips).code.length == 0) mips = new MIPS{ salt: _implSalt() }(IPreimageOracle(mustGetAddress("PreimageOracle")));
-        save("Mips", address(mips));
+        MIPS mips = new MIPS{ salt: _implSalt() }(IPreimageOracle(mustGetAddress("PreimageOracle")));
         console.log("MIPS deployed at %s", address(mips));
         addr_ = address(mips);
     }
@@ -913,11 +849,8 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the AnchorStateRegistry
     function deployAnchorStateRegistry() public broadcast returns (address addr_) {
-        console.log("Deploying AnchorStateRegistry implementation");
-        AnchorStateRegistry anchorStateRegistry = AnchorStateRegistry(vm.computeCreate2Address(_implSalt(), keccak256(abi.encodePacked(type(AnchorStateRegistry).creationCode, abi.encode(mustGetAddress("DisputeGameFactoryProxy"))))));
-        if (address(anchorStateRegistry).code.length == 0) anchorStateRegistry = new AnchorStateRegistry{ salt: _implSalt() }(IDisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")));
-        save("AnchorStateRegistry", address(anchorStateRegistry));
-        console.log("AnchorStateRegistry deployed at %s", address(anchorStateRegistry));
+        IAnchorStateRegistry anchorStateRegistry =
+            IAnchorStateRegistry(_deploy("AnchorStateRegistry", abi.encode(mustGetAddress("DisputeGameFactoryProxy"))));
 
         addr_ = address(anchorStateRegistry);
     }
@@ -925,11 +858,10 @@ contract Deploy is Deployer {
     /// @notice Deploy the SystemConfig
     function deploySystemConfig() public broadcast returns (address addr_) {
         if (cfg.useInterop()) {
-            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfigInterop).creationCode));
-            if (addr_.code.length == 0) addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
+            addr_ = _deploy("SystemConfigInterop", hex"");
+            save("SystemConfig", addr_);
         } else {
-            addr_ = vm.computeCreate2Address(_implSalt(), keccak256(type(SystemConfig).creationCode));
-            if (addr_.code.length == 0) addr_ = address(new SystemConfig{ salt: _implSalt() }());
+            addr_ = _deploy("SystemConfig", hex"");
         }
 
         // Override the `SystemConfig` contract to the deployed implementation. This is necessary
@@ -942,13 +874,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the L1StandardBridge
     function deployL1StandardBridge() public broadcast returns (address addr_) {
-        console.log("Deploying L1StandardBridge implementation");
-
-        L1StandardBridge bridge = L1StandardBridge(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(L1StandardBridge).creationCode))));
-        if (address(bridge).code.length == 0) bridge = new L1StandardBridge{ salt: _implSalt() }();
-
-        save("L1StandardBridge", address(bridge));
-        console.log("L1StandardBridge deployed at %s", address(bridge));
+        IL1StandardBridge bridge = IL1StandardBridge(payable(_deploy("L1StandardBridge", hex"")));
 
         // Override the `L1StandardBridge` contract to the deployed implementation. This is necessary
         // to check the `L1StandardBridge` implementation alongside dependent contracts, which
@@ -962,12 +888,7 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the L1ERC721Bridge
     function deployL1ERC721Bridge() public broadcast returns (address addr_) {
-        console.log("Deploying L1ERC721Bridge implementation");
-        L1ERC721Bridge bridge = L1ERC721Bridge(vm.computeCreate2Address(_implSalt(), keccak256(type(L1ERC721Bridge).creationCode)));
-        if (address(bridge).code.length == 0) bridge = new L1ERC721Bridge{ salt: _implSalt() }();
-
-        save("L1ERC721Bridge", address(bridge));
-        console.log("L1ERC721Bridge deployed at %s", address(bridge));
+        IL1ERC721Bridge bridge = IL1ERC721Bridge(_deploy("L1ERC721Bridge", hex""));
 
         // Override the `L1ERC721Bridge` contract to the deployed implementation. This is necessary
         // to check the `L1ERC721Bridge` implementation alongside dependent contracts, which
@@ -996,8 +917,8 @@ contract Deploy is Deployer {
 
     /// @notice Deploy the DataAvailabilityChallenge
     function deployDataAvailabilityChallenge() public broadcast returns (address addr_) {
-        DataAvailabilityChallenge dac = DataAvailabilityChallenge(payable(vm.computeCreate2Address(_implSalt(), keccak256(type(DataAvailabilityChallenge).creationCode))));
-        if (address(dac).code.length == 0) dac = new DataAvailabilityChallenge{ salt: _implSalt() }();
+        IDataAvailabilityChallenge dac =
+            IDataAvailabilityChallenge(payable(_deploy("DataAvailabilityChallenge", hex"")));
         addr_ = address(dac);
     }
 
@@ -1778,9 +1699,11 @@ contract Deploy is Deployer {
         bytes memory initCode = abi.encodePacked(vm.getCode(_name), _constructorParams);
         address preComputedAddress = vm.computeCreate2Address(salt, keccak256(initCode));
         require(preComputedAddress.code.length == 0, "Deploy: contract already deployed");
-        assembly {
-            addr_ := create2(0, add(initCode, 0x20), mload(initCode), salt)
-        }
+        //if (preComputedAddress.code.length == 0) {
+            assembly {
+                addr_ := create2(0, add(initCode, 0x20), mload(initCode), salt)
+            }
+        //}
         require(addr_ != address(0), "deployment failed");
         save(_nickname, addr_);
         console.log("%s deployed at %s", _nickname, addr_);

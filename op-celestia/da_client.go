@@ -30,7 +30,7 @@ func NewDAClient(cfg CLIConfig, auth bool) (*DAClient, error) {
 		return nil, err
 	}
 	if len(nsBytes) != 10 {
-		return nil, errors.New("wrong namespace length")
+		return nil, errors.New("celestia: wrong namespace length")
 	}
 	var client da.DA
 	if cfg.DaRpc != "" {
