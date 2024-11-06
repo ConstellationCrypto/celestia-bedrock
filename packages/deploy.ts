@@ -184,9 +184,9 @@ const main = async () => {
 
       useAltDA: process.env.ALTDA === "true",
       //is not used if ALTDA=false
-      daChallengeProxy: "0x0000000000000000000000000000000000000000",
+      daChallengeProxy: process.env.CHALLENGE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
       daCommitmentType: process.env.COMMITMENT_TYPE || "GenericCommitment",
-      daChallengeWindow: Number(process.env.COMMITMENT_TYPE) || 300,
+      daChallengeWindow: Number(process.env.CHALLENGE_WINDOW) || 300,
       daResolveWindow: Number(process.env.RESOLVE_WINDOW) || 300,
       daBondSize: Number(process.env.BOND_SIZE) || 0,
       daResolverRefundPercentage: Number(process.env.RESOLVER_REFUND_PERCENTAGE) || 100,
