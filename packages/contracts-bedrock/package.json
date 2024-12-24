@@ -51,7 +51,7 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.537.0",
+    "@aws-sdk/client-s3": "^3.717.0",
     "ethers": "^5.7.2",
     "fs-extra": "^11.2.0",
     "ts-node": "^10.9.2"
