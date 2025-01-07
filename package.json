@@ -65,7 +65,7 @@
     "eslint-plugin-promise": "^5.1.0",
     "eslint-plugin-react": "^7.24.0",
     "eslint-plugin-unicorn": "^50.0.1",
-    "mocha": "^10.6.0",
+    "mocha": "^10.8.2",
     "nx": "18.2.2",
     "nx-cloud": "latest",
     "nyc": "^15.1.0",
