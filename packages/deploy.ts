@@ -198,9 +198,11 @@ const main = async () => {
     writeFileSync("allocs-l2.json", JSON.stringify({accounts: JSON.parse(readFileSync('allocs-l2-raw.json', 'utf-8'))}, null, 2))
 
     console.log('generating rollup.json, genesis.json files')
-    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --l2-allocs allocs-l2-raw.json --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json`,
+    //for the sake of op-node 1.10 or something we need to remove da_challenge_contract_address because it's deprecated
+    execSync(`op-node genesis l2 --l1-rpc ${L1_RPC} --l2-allocs allocs-l2-raw.json --deploy-config deploy-config/deployer.json --l1-deployments deployments/deployer/.deploy --outfile.l2 genesis.json --outfile.rollup rollup.json && cat rollup.json | jq 'del(.da_challenge_contract_address)' > rollup.json`,
       { stdio: 'inherit' }
     )
+
     console.log('generating contracts.json file')
     const addrs = JSON.parse(readFileSync(`deployments/deployer/.deploy`, 'utf-8'))
     writeFileSync(
