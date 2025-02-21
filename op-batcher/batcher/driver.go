@@ -866,7 +866,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		}
 	} else {
 		if l.DAClient != nil && l.DAClient.Client != nil {
-			//celestia is in tha house
+			l.Log.Info("celestia: submission enabled")
 			if nf := len(txdata.frames); nf > l.ChannelConfig.ChannelConfig(isPectra).TargetNumFrames {
 				l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
 			}

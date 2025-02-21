@@ -36,7 +36,7 @@ const (
 	NamespaceSize = 58
 
 	// defaultRPC is the default rpc dial address
-	defaultRPC = "grpc://localhost:26650"
+	//defaultRPC = "grpc://localhost:26650"
 
 	// defaultGasPrice is the default gas price
 	defaultGasPrice = -1
@@ -47,7 +47,6 @@ func CLIFlags(envPrefix string) []cli.Flag {
 		&cli.StringFlag{
 			Name:    RPCFlagName,
 			Usage:   "dial address of the data availability rpc client; supports grpc, http, https",
-			Value:   defaultRPC,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_RPC"),
 		},
 		&cli.StringFlag{
@@ -127,9 +126,7 @@ func (c CLIConfig) Check() error {
 }
 
 func NewCLIConfig() CLIConfig {
-	return CLIConfig{
-		Rpc: defaultRPC,
-	}
+	return CLIConfig{}
 }
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {

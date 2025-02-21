@@ -20,8 +20,8 @@ build_tag_push_op_pipe () {
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-node:$VERSION
   docker tag us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:$GIT_COMMIT docker.io/library/op-node:latest #needed for bedrock-deployer
 
-  docker tag us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:$GIT_COMMIT $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-batcher:$VERSION &&
-  docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-batcher:$VERSION
+  # docker tag us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:$GIT_COMMIT $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-batcher:$VERSION &&
+  # docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-batcher:$VERSION
 
   docker tag us-docker.pkg.dev/oplabs-tools-artifacts/images/op-proposer:$GIT_COMMIT $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-proposer:$VERSION &&
   docker image push $ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/op-proposer:$VERSION

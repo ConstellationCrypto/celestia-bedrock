@@ -24,16 +24,21 @@ type DAClient struct {
 }
 
 func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s3region string, s3bucket string, auth bool) (*DAClient, error) {
-	client, err := proxy.NewClient(rpc, token)
-	if err != nil {
-		return nil, err
+	var client da.DA
+	var err error
+	log.Warn("Celestia RPC seto to", "rpc", rpc)
+	if rpc != "" {
+		client, err = proxy.NewClient(rpc, token)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	//CALDERA does not tolarate 58 size strings for namespace
 	//we have to fix this here
 	//and then again adjust in calldata_source downloadS3Data and driver.go uploadS3Data to trim
 	log.Warn("Checking namespace for backwards compatibility.", "len", len(namespace))
-	if len(namespace) != 58 {
+	if len(namespace) != 58 && len(namespace) > 0 {
 		namespace = "00000000000000000000000000000000000000" + namespace
 		log.Warn("Namespace has been adjusted.", "namespace", namespace)
 	}
