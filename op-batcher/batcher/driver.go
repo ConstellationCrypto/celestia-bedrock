@@ -855,28 +855,40 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		return nil
 	}
 
-	// force celestia tx candidate, multiframe is set by UseBlobs which is not affected
-	txdata.asBlob = false
-	// sanity check
-	if nf := len(txdata.frames); nf > l.ChannelConfig.ChannelConfig(isPectra).TargetNumFrames {
-		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
-	}
-	candidate, err := l.celestiaTxCandidate(txdata.CallData())
-	if err != nil {
-		l.Log.Error("celestia: blob submission failed", "err", err)
-		candidate, err = l.fallbackTxCandidate(txdata)
-		if err != nil {
-			l.Log.Error("celestia: fallback failed", "err", err)
-			l.recordFailedTx(txdata.ID(), err)
-			return nil
+	var candidate *txmgr.TxCandidate
+	if txdata.asBlob {
+		if candidate, err = l.blobTxCandidate(txdata); err != nil {
+			// We could potentially fall through and try a calldata tx instead, but this would
+			// likely result in the chain spending more in gas fees than it is tuned for, so best
+			// to just fail. We do not expect this error to trigger unless there is a serious bug
+			// or configuration issue.
+			return fmt.Errorf("could not create blob tx candidate: %w", err)
+		}
+	} else {
+		if l.DAClient != nil && l.DAClient.Client != nil {
+			l.Log.Info("celestia: submission enabled")
+			if nf := len(txdata.frames); nf > l.ChannelConfig.ChannelConfig(isPectra).TargetNumFrames {
+				l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
+			}
+			candidate, err = l.celestiaTxCandidate(txdata.CallData())
+			if err != nil {
+				l.Log.Error("celestia: blob submission failed", "err", err)
+				candidate, err = l.fallbackTxCandidate(txdata)
+				if err != nil {
+					l.Log.Error("celestia: fallback failed", "err", err)
+					l.recordFailedTx(txdata.ID(), err)
+					return nil
+				}
+			}
+		} else {
+			// sanity check
+			if nf := len(txdata.frames); nf != 1 {
+				l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
+			}
+			candidate = l.calldataTxCandidate(txdata.CallData())
 		}
 	}
-	// restore asBlob for cancellation in case of blobdata fallback
-	if len(candidate.Blobs) > 0 {
-		txdata.asBlob = true
-	}
 	l.Log.Info("tx candidate", "ID", txdata.ID(), "len(txdata.frames)", len(txdata.frames), "txdata.asBlob", txdata.asBlob)
-
 	l.sendTx(txdata, false, candidate, queue, receiptsCh)
 	return nil
 }

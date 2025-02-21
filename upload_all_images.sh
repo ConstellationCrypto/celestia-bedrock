@@ -35,7 +35,7 @@ build_tag_push_op_pipe () {
 }
 
 docker build -t us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:latest -f ops/docker/op-stack-go/Dockerfile .
-#build_tag_push_op_pipe
-build_tag_push op-geth op-geth
+build_tag_push_op_pipe
+#build_tag_push op-geth op-geth
 # bedrock-deployer depends on the op-node, op-geth images
 #build_tag_push bedrock-deployer .
