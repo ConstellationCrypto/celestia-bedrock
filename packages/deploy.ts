@@ -186,13 +186,12 @@ const main = async () => {
       daChallengeWindow: 300,
       daResolveWindow: 300
     }
-
     writeFileSync('deploy-config/deployer.json', JSON.stringify(json, null, 2))
-    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv scripts/deploy/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
+    execSync(`DEPLOYMENT_OUTFILE=deployments/deployer/.deploy DEPLOYMENT_CONTEXT=deployer DEPLOY_CONFIG_PATH=deploy-config/deployer.json forge script -vvv  --non-interactive --skip-simulation scripts/deploy/Deploy.s.sol:Deploy --rpc-url $L1_RPC --broadcast --private-key $PRIVATE_KEY_DEPLOYER ${process.env.ETHERSCAN_API_KEY ? "--verify ": ""}${process.env.FORGE_FLAGS ?? ""}`,
       { stdio: 'inherit' }
     )
 
-    execSync(`DEPLOY_CONFIG_PATH=deploy-config/deployer.json DEPLOYMENT_CONTEXT=deployer CONTRACT_ADDRESSES_PATH=deployments/deployer/.deploy STATE_DUMP_PATH=allocs-l2-raw.json forge script -vvv scripts/L2Genesis.s.sol:L2Genesis --sig "runWithStateDump()" --private-key $PRIVATE_KEY_DEPLOYER --chain-id $L2_CHAIN_ID`)
+    execSync(`DEPLOY_CONFIG_PATH=deploy-config/deployer.json DEPLOYMENT_CONTEXT=deployer CONTRACT_ADDRESSES_PATH=deployments/deployer/.deploy STATE_DUMP_PATH=allocs-l2-raw.json forge script -vvv  --non-interactive --skip-simulation scripts/L2Genesis.s.sol:L2Genesis --sig "runWithStateDump()" --private-key $PRIVATE_KEY_DEPLOYER --chain-id $L2_CHAIN_ID`)
 
     console.log("generating allocs-l2")
     writeFileSync("allocs-l2.json", JSON.stringify({accounts: JSON.parse(readFileSync('allocs-l2-raw.json', 'utf-8'))}, null, 2))
