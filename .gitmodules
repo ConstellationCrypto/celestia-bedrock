@@ -29,9 +29,9 @@
 [submodule "packages/contracts-bedrock/lib/solady-v0.0.245"]
 	path = packages/contracts-bedrock/lib/solady-v0.0.245
 	url = https://github.com/vectorized/solady
-[submodule "op-geth"]
-	path = op-geth
-	url = https://github.com/ethereum-optimism/op-geth.git
 [submodule "packages/contracts-bedrock/lib/superchain-registry"]
 	path = packages/contracts-bedrock/lib/superchain-registry
 	url = https://github.com/ethereum-optimism/superchain-registry
+[submodule "op-geth"]
+	path = op-geth
+	url = https://github.com/ethereum-optimism/op-geth.git
