@@ -43,7 +43,7 @@ func TestEmitterContract(gt *testing.T) {
 		actors = is.CreateActors()
 		aliceA = setupUser(t, is, actors.ChainA, 0)
 		aliceB = setupUser(t, is, actors.ChainB, 0)
-		initializeChainState(t, actors)
+		actors.PrepareChainState(t)
 		emitTx = initializeEmitterContractTest(t, aliceA, actors)
 	}
 
@@ -52,7 +52,7 @@ func TestEmitterContract(gt *testing.T) {
 		resetTest(t)
 
 		// Execute message on destination chain and verify that the heads progress
-		execTx := newExecuteMessageTx(t, actors, actors.ChainB, aliceB, emitTx)
+		execTx := newExecuteMessageTx(t, actors.ChainB, aliceB, actors.ChainA, emitTx)
 		includeTxOnChain(t, actors, actors.ChainB, execTx, aliceB.address)
 		// assert the tx is included
 		rec, err := actors.ChainB.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), execTx.Hash())
@@ -68,7 +68,7 @@ func TestEmitterContract(gt *testing.T) {
 		// Create a message with a conflicting payload
 		fakeMessage := []byte("this message was never emitted")
 		auth := newL2TxOpts(t, aliceB.secret, actors.ChainB)
-		id := idForTx(t, actors, emitTx)
+		id := idForTx(t, emitTx, actors.ChainA)
 		contract, err := inbox.NewInbox(predeploys.CrossL2InboxAddr, actors.ChainB.SequencerEngine.EthClient())
 		require.NoError(t, err)
 		tx, err := contract.ValidateMessage(auth, id, crypto.Keccak256Hash(fakeMessage))
@@ -113,10 +113,10 @@ func newEmitMessageTx(t helpers.Testing, chain *dsl.Chain, user *userWithKeys, e
 	return tx
 }
 
-func newExecuteMessageTx(t helpers.Testing, actors *dsl.InteropActors, destChain *dsl.Chain, executor *userWithKeys, srcTx *types.Transaction) *types.Transaction {
+func newExecuteMessageTx(t helpers.Testing, destChain *dsl.Chain, executor *userWithKeys, srcChain *dsl.Chain, srcTx *types.Transaction) *types.Transaction {
 	// Create the id and payload
-	id := idForTx(t, actors, srcTx)
-	receipt, err := actors.ChainA.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), srcTx.Hash())
+	id := idForTx(t, srcTx, srcChain)
+	receipt, err := srcChain.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), srcTx.Hash())
 	require.NoError(t, err)
 	payload := stypes.LogToMessagePayload(receipt.Logs[0])
 
@@ -130,10 +130,10 @@ func newExecuteMessageTx(t helpers.Testing, actors *dsl.InteropActors, destChain
 	return tx
 }
 
-func idForTx(t helpers.Testing, actors *dsl.InteropActors, tx *types.Transaction) inbox.Identifier {
-	receipt, err := actors.ChainA.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), tx.Hash())
+func idForTx(t helpers.Testing, tx *types.Transaction, srcChain *dsl.Chain) inbox.Identifier {
+	receipt, err := srcChain.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), tx.Hash())
 	require.NoError(t, err)
-	block, err := actors.ChainA.SequencerEngine.EthClient().BlockByNumber(t.Ctx(), receipt.BlockNumber)
+	block, err := srcChain.SequencerEngine.EthClient().BlockByNumber(t.Ctx(), receipt.BlockNumber)
 	require.NoError(t, err)
 
 	return inbox.Identifier{
@@ -141,27 +141,8 @@ func idForTx(t helpers.Testing, actors *dsl.InteropActors, tx *types.Transaction
 		BlockNumber: receipt.BlockNumber,
 		LogIndex:    common.Big0,
 		Timestamp:   big.NewInt(int64(block.Time())),
-		ChainId:     actors.ChainA.RollupCfg.L2ChainID,
+		ChainId:     srcChain.RollupCfg.L2ChainID,
 	}
-}
-
-func initializeChainState(t helpers.Testing, actors *dsl.InteropActors) {
-	// Initialize both chain states
-	actors.ChainA.Sequencer.ActL2PipelineFull(t)
-	actors.ChainB.Sequencer.ActL2PipelineFull(t)
-
-	// Sync supervisors
-	actors.ChainA.Sequencer.SyncSupervisor(t)
-	actors.ChainB.Sequencer.SyncSupervisor(t)
-
-	// Verify initial state
-	statusA := actors.ChainA.Sequencer.SyncStatus()
-	statusB := actors.ChainB.Sequencer.SyncStatus()
-	require.Equal(t, uint64(0), statusA.UnsafeL2.Number)
-	require.Equal(t, uint64(0), statusB.UnsafeL2.Number)
-
-	// Complete initial sync
-	actors.Supervisor.ProcessFull(t)
 }
 
 func initializeEmitterContractTest(t helpers.Testing, aliceA *userWithKeys, actors *dsl.InteropActors) *types.Transaction {
@@ -185,14 +166,18 @@ func initializeEmitterContractTest(t helpers.Testing, aliceA *userWithKeys, acto
 	return emitTx
 }
 
-func includeTxOnChain(t helpers.Testing, actors *dsl.InteropActors, chain *dsl.Chain, tx *types.Transaction, sender common.Address) {
-	// Create L2 block on the given chain
+func includeTxOnChainBasic(t helpers.Testing, chain *dsl.Chain, tx *types.Transaction, sender common.Address) {
 	chain.Sequencer.ActL2StartBlock(t)
+	// is used for building an empty block with tx==nil
 	if tx != nil {
-		err := chain.SequencerEngine.EngineApi.IncludeTx(tx, sender)
+		_, err := chain.SequencerEngine.EngineApi.IncludeTx(tx, sender)
 		require.NoError(t, err)
 	}
 	chain.Sequencer.ActL2EndBlock(t)
+}
+
+func includeTxOnChain(t helpers.Testing, actors *dsl.InteropActors, chain *dsl.Chain, tx *types.Transaction, sender common.Address) {
+	includeTxOnChainBasic(t, chain, tx, sender)
 
 	// Sync the chain and the supervisor
 	chain.Sequencer.SyncSupervisor(t)

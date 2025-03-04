@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/locks"
+	"github.com/ethereum-optimism/optimism/op-supervisor/metrics"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/db/fromda"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/db/logs"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
@@ -84,11 +85,20 @@ var _ DerivationStorage = (*fromda.DB)(nil)
 
 var _ LogStorage = (*logs.DB)(nil)
 
+type Metrics interface {
+	RecordCrossUnsafeRef(chainID eth.ChainID, ref eth.BlockRef)
+	RecordCrossSafeRef(chainID eth.ChainID, ref eth.BlockRef)
+}
+
 // ChainsDB is a database that stores logs and derived-from data for multiple chains.
 // it implements the LogStorage interface, as well as several DB interfaces needed by the cross package.
 type ChainsDB struct {
 	// unsafe info: the sequence of block seals and events
 	logDBs locks.RWMap[eth.ChainID, LogStorage]
+
+	// initLocks: used to prevent certain database calls until initialization is signaled
+	// uninitialized chains won't have values in the map
+	initialized locks.RWMap[eth.ChainID, struct{}]
 
 	// cross-unsafe: how far we have processed the unsafe data.
 	// If present but set to a zeroed value the cross-unsafe will fallback to cross-safe.
@@ -113,14 +123,21 @@ type ChainsDB struct {
 
 	// emitter used to signal when the DB changes, for other modules to react to
 	emitter event.Emitter
+
+	m Metrics
 }
 
 var _ event.AttachEmitter = (*ChainsDB)(nil)
 
-func NewChainsDB(l log.Logger, depSet depset.DependencySet) *ChainsDB {
+func NewChainsDB(l log.Logger, depSet depset.DependencySet, m Metrics) *ChainsDB {
+	if m == nil {
+		m = metrics.NoopMetrics
+	}
+
 	return &ChainsDB{
 		logger: l,
 		depSet: depSet,
+		m:      m,
 	}
 }
 
@@ -131,10 +148,11 @@ func (db *ChainsDB) AttachEmitter(em event.Emitter) {
 func (db *ChainsDB) OnEvent(ev event.Event) bool {
 	switch x := ev.(type) {
 	case superevents.AnchorEvent:
-		db.maybeInitEventsDB(x.ChainID, x.Anchor)
-		db.maybeInitSafeDB(x.ChainID, x.Anchor)
+		db.logger.Info("Received chain anchor information",
+			"chain", x.ChainID, "derived", x.Anchor.Derived, "source", x.Anchor.Source)
+		db.initFromAnchor(x.ChainID, x.Anchor)
 	case superevents.LocalDerivedEvent:
-		db.UpdateLocalSafe(x.ChainID, x.Derived.Source, x.Derived.Derived)
+		db.UpdateLocalSafe(x.ChainID, x.Derived.Source, x.Derived.Derived, x.NodeID)
 	case superevents.FinalizedL1RequestEvent:
 		db.onFinalizedL1(x.FinalizedL1)
 	case superevents.ReplaceBlockEvent:

@@ -248,6 +248,7 @@ func IsthmusSystemConfig(t *testing.T, isthmusTimeOffset *hexutil.Uint64, opts .
 	cfg.DeployConfig.L2GenesisIsthmusTimeOffset = isthmusTimeOffset
 	return cfg
 }
+
 func writeDefaultJWT(t testing.TB) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
@@ -517,7 +518,6 @@ func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 func WithBatcherThrottling(interval time.Duration, threshold, txSize, blockSize uint64) StartOption {
 	return StartOption{
 		BatcherMod: func(cfg *bss.CLIConfig) {
-			cfg.ThrottleInterval = interval
 			cfg.ThrottleThreshold = threshold
 			cfg.ThrottleTxSize = txSize
 			cfg.ThrottleBlockSize = blockSize
@@ -652,6 +652,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:             rollupAltDAConfig,
+			ChainOpConfig: &params.OptimismConfig{
+				EIP1559Elasticity:        cfg.DeployConfig.EIP1559Elasticity,
+				EIP1559Denominator:       cfg.DeployConfig.EIP1559Denominator,
+				EIP1559DenominatorCanyon: &cfg.DeployConfig.EIP1559DenominatorCanyon,
+			},
 		}
 	}
 	defaultConfig := makeRollupConfig()

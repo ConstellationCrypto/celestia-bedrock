@@ -31,22 +31,35 @@ Version increments follow the [style guide rules](./STYLE_GUIDE.md#versioning) f
 
 ## Individual Contract Versioning
 
+Individual contract versioning allows us to uniquely identify which version of a contract from the develop branch corresponds to each deployed contract instance.
+
 Versioning for individual contracts works as follows:
 
-- A contract is only `X.Y.Z` on `develop` if it has been governance approved. If it's `X.Y.Z` before that, it must be on a branch. More on this below.
-- For contracts undergoing development, a `-beta.n` identifier must be appended to the version number.
-- For contracts in a release candidate state, an `-rc.n` identifier must be appended to the version number.
+- A contract on develop always has a version of X.Y.Z, regardless of whether is has been governance approved and meets our security bar. This DOES NOT indicate these contracts are always safe for production use. More on this below.
 - For contracts with feature-specific changes, a `+feature-name` identifier must be appended to the version number. See the [Smart Contract Feature Development](https://github.com/ethereum-optimism/design-docs/blob/main/smart-contract-feature-development.md) design document to learn more.
 - When making changes to a contract, always bump to the lowest possible version based on the specific change you are making. We do not want to e.g. optimistically bump to a major version, because protocol development sequencing may change unexpectedly. Use these examples to know how to bump the version:
-  - Example 1: A contract is currently on `1.2.3`.
-    - We don't yet know when the next release of this contract will be. However, you are simply fixing typos in comments so you bump the version to `1.2.4-beta.1`.
-    - The next PR made to that same contract clarifies some comments, so it bumps the version to `1.2.4-beta.2`.
-    - The next PR introduces a breaking change, which bumps the version from `1.2.4-beta.2` to `2.0.0-beta.1`. A `1.2.4-rc.1` and `1.2.4` version both never exist.
+  - Example 1: A contract is currently on `1.2.3` on `develop` and you are working on a new feature on your `feature` branch off `develop`.
+    - We don't yet know when the next release of this contract will be. However, you are simply fixing typos in comments so you bump the version to `1.2.4`.
+    - The next commit to the `feature` branch clarifies some comments. We only consider the aggregated `feature` changes with regards to `develop` when determining the version, so we stay at `1.2.4`.
+    - The next commit to the `feature` branch introduces a breaking change, which bumps the version from `1.2.4` to `2.0.0`.
   - Example 2: A contract is currently on `2.4.7`.
-    - We know the next release of this contract will be a breaking change. Regardless, as you start development by fixing typos in comments, bump the version to `2.4.8-beta.1`. This is because we may end up putting out a release before the breaking change is added.
-    - Once you start working on the breaking change, bump the version to `3.0.0-beta.1`.
-    - Continue to bump the beta version as you make changes. When the contract is ready for release, bump the version to `3.0.0-rc.1`.
-- New contracts start at `1.0.0-beta.1`, increment the `-beta.n` counter during development, and become `1.0.0` when they are ready for production.
+    - We know the next release of this contract will be a breaking change. Regardless, as you start development by fixing typos in comments, bump the version to `2.4.8`. This is because we may end up putting out a release before the breaking change is added.
+    - Once you start working on the breaking change, bump the version to `3.0.0`.
+- New contracts start at `1.0.0`.
+
+Versioning is enforced by CI checks:
+  - Any contract that differs from its version in the `develop` branch must be bumped to a new semver value, or the build will fail.
+  - Any branch with at least one modified contract must have its `semver-lock.json` file updated, or the build will fail. You can use the `semver-lock` or `pre-commit` just commands to do so.
+
+Note: Previously, the versioning scheme included `-beta.n` and `-rc.n` qualifiers. These are no longer used to reduce the amount of work required to execute this versioning system.
+
+## Deprecating Individual Contract Versioning
+
+Individual contract versioning could be deprecated when the following conditions are met:
+
+1. Every OPCM instance is registered in the superchain registry
+2. All contracts are implemented as either proxies or concrete singletons, allowing verification of governance approval through the `OPCM.Implementations` struct
+3. We have validated with engineering teams (such as the fault proofs team) and ecosystem partners (such as L2Beat) that removing `version()` functions would not negatively impact their workflows
 
 ## Monorepo Contracts Release Versioning
 
@@ -57,10 +70,18 @@ Versioning for monorepo releases works as follows:
   - Example 1: The monorepo is at `op-contracts/v1.5.0`. Clarifying comments are made in contracts, so all contracts only bump the patch version. The next monorepo release will be `op-contracts/v1.5.1`.
   - Example 2: The monorepo is at `op-contracts/v1.5.1`. Various tech debt and code is cleaned up in contracts, but no features are added, so at most, contracts bumped the minor version. The next monorepo release will be `op-contracts/v1.6.0`.
   - Example 3: The monorepo is at `op-contracts/v1.5.1`. Legacy `ALL_CAPS()` getter methods are removed from a contract, causing that contract to bump the major version. The next monorepo release will be `op-contracts/v2.0.0`.
-- Feature specific monorepo releases (such as a beta release of the custom gas token feature) are supported, and should follow the guidelines in the [Smart Contract Feature Development](https://github.com/ethereum-optimism/design-docs/blob/main/smart-contract-feature-development.md) design doc. Bump the overall monorepo semver as required by the above rules, and append the `-beta,n` modifier to the version number. For example, if the last release before the custom gas token feature was `op-contracts/v1.5.1`, because the custom gas token introduces breaking changes, its beta release will be `op-contracts/v2.0.0-beta.n`.
-  - A subsequent release of the custom gas token feature that fixes bugs and introduces an additional breaking change would be `op-contracts/v2.0.0-beta.2`.
+- Feature specific monorepo releases (such as a release of the custom gas token feature) are supported, and should follow the guidelines in the [Smart Contract Feature Development](https://github.com/ethereum-optimism/design-docs/blob/main/smart-contract-feature-development.md) design doc. Bump the overall monorepo semver as required by the above rules. For example, if the last release before the custom gas token feature was `op-contracts/v1.5.1`, because the custom gas token introduces breaking changes, its release will be `op-contracts/v2.0.0`.
+  - A subsequent release of the custom gas token feature that fixes bugs and introduces an additional breaking change would be `op-contracts/v3.0.0`.
   - This means `+feature-name` naming is not used for monorepo releases, only for individual contracts as described below.
 - A monorepo contracts release must map to an exact set of contract semvers, and this mapping must be defined in the contract release notes which are the source of truth. See [`op-contracts/v1.4.0-rc.4`](https://github.com/ethereum-optimism/optimism/releases/tag/op-contracts%2Fv1.4.0-rc.4) for an example of what release notes should look like.
+
+## Optimism Contracts Manager (OPCM) Versioning
+
+The [OPCM](https://github.com/ethereum-optimism/optimism/blob/main/packages/contracts-bedrock/src/L1/OPContractsManager.sol) is the contract that manages the deployment of all contracts on L1.
+
+The `OPCM` is the source of truth for the contracts that belong in a release, available as on-chain addresses by querying [the `getImplementations` function](https://github.com/ethereum-optimism/optimism/blob/4c8764f0453e141555846d8c9dd2af9edbc1d014/packages/contracts-bedrock/src/L1/OPContractsManager.sol#L1061).
+
+When developing a new release of the contracts, [the `isRC` flag](https://github.com/ethereum-optimism/optimism/blob/4c8764f0453e141555846d8c9dd2af9edbc1d014/packages/contracts-bedrock/src/L1/OPContractsManager.sol#L181) must be set to `true` to indicate that the OPCM refers to a release candidate. The flag [is automatically set to `false`](https://github.com/ethereum-optimism/optimism/blob/4c8764f0453e141555846d8c9dd2af9edbc1d014/packages/contracts-bedrock/src/L1/OPContractsManager.sol#L453) the first time the OPCM `upgrade` method is invoked from governance's Upgrade Controller Safe. This Safe is a 2/2 held by the Security Council and Optimism Foundation.
 
 ## Release Process
 
@@ -118,3 +139,4 @@ Now there are two scenarios for the PR that merges the release branch back into 
     - In practice, this one unlikely to occur when using inheritance for feature development, as specified in [Smart Contract Feature Development](https://github.com/ethereum-optimism/design-docs/blob/main/smart-contract-feature-development.md) architecture. It's more likely that (1) is the case, and we merge the version change into the base contract.
 
 This flow also provides a dedicated branch for each release, making it easy to deploy a patch or bug fix, regardless of other changes that may have occurred on develop since the release.
+

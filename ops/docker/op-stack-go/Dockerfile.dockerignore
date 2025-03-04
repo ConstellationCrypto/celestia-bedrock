@@ -25,3 +25,7 @@
 !/go.sum
 !/justfiles
 !/mise.toml
+
+**/bin
+**/testdata
+**/tests
