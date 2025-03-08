@@ -1,20 +1,21 @@
 package genesis
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
+	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/ethereum-optimism/optimism/op-service/retry"
 
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
@@ -139,6 +140,8 @@ var Subcommands = cli.Commands{
 			"or it can be provided as a JSON file.",
 		Flags: l2Flags,
 		Action: func(ctx *cli.Context) error {
+			cfg := oplog.DefaultCLIConfig()
+			logger := oplog.NewLogger(ctx.App.Writer, cfg)
 			deployConfig := ctx.Path("deploy-config")
 			log.Info("Deploy config", "path", deployConfig)
 			config, err := genesis.NewDeployConfig(deployConfig)
@@ -180,44 +183,25 @@ var Subcommands = cli.Commands{
 				return errors.New("missing l2-allocs")
 			}
 
-			if l1RPC != "" {
-				client, err := ethclient.Dial(l1RPC)
-				if err != nil {
-					return fmt.Errorf("cannot dial %s: %w", l1RPC, err)
-				}
-
-				if config.L1StartingBlockTag == nil {
-					l1StartBlock, err = client.BlockByNumber(context.Background(), nil)
-					if err != nil {
-						return fmt.Errorf("cannot fetch latest block: %w", err)
-					}
-					tag := rpc.BlockNumberOrHashWithHash(l1StartBlock.Hash(), true)
-					config.L1StartingBlockTag = (*genesis.MarshalableRPCBlockNumberOrHash)(&tag)
-				} else if config.L1StartingBlockTag.BlockHash != nil {
-					l1StartBlock, err = client.BlockByHash(context.Background(), *config.L1StartingBlockTag.BlockHash)
-					if err != nil {
-						return fmt.Errorf("cannot fetch block by hash: %w", err)
-					}
-				} else if config.L1StartingBlockTag.BlockNumber != nil {
-					l1StartBlock, err = client.BlockByNumber(context.Background(), big.NewInt(config.L1StartingBlockTag.BlockNumber.Int64()))
-					if err != nil {
-						return fmt.Errorf("cannot fetch block by number: %w", err)
-					}
-				}
+			// Retrieve SystemConfig.startBlock()
+			client, err := ethclient.Dial(l1RPC)
+			if err != nil {
+				return fmt.Errorf("cannot dial %s: %w", l1RPC, err)
+			}
+			caller := batching.NewMultiCaller(client.Client(), batching.DefaultBatchSize)
+			sysCfg := NewSystemConfigContract(caller, config.SystemConfigProxy)
+			startBlock, err := sysCfg.StartBlock(ctx.Context)
+			if err != nil {
+				return fmt.Errorf("failed to fetch startBlock from SystemConfig: %w", err)
 			}
 
-			// Ensure that there is a starting L1 block
-			if l1StartBlock == nil {
-				return errors.New("no starting L1 block")
+			logger.Info("Using L1 Start Block", "number", startBlock)
+			// retry because local devnet can experience a race condition where L1 geth isn't ready yet
+			l1StartBlock, err = retry.Do(ctx.Context, 24, retry.Fixed(1*time.Second), func() (*types.Block, error) { return client.BlockByNumber(ctx.Context, startBlock) })
+			if err != nil {
+				return fmt.Errorf("fetching start block by number: %w", err)
 			}
-
-			// Sanity check the config. Do this after filling in the L1StartingBlockTag
-			// if it is not defined.
-			if err := config.Check(); err != nil {
-				return err
-			}
-
-			log.Info("Using L1 Start Block", "number", l1StartBlock.Number(), "hash", l1StartBlock.Hash().Hex())
+			logger.Info("Fetched L1 Start Block", "hash", l1StartBlock.Hash().Hex())
 
 			// Build the L2 genesis block
 			l2Genesis, err := genesis.BuildL2Genesis(config, l2Allocs, l1StartBlock)
