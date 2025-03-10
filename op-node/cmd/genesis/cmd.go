@@ -1,10 +1,8 @@
 package genesis
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -166,11 +164,10 @@ var Subcommands = cli.Commands{
 			}
 			config.SetDeployments(deployments)
 
-			var l1StartBlock *types.Block
-			if l1StartBlockPath != "" {
-				if l1StartBlock, err = readBlockJSON(l1StartBlockPath); err != nil {
-					return fmt.Errorf("cannot read L1 starting block at %s: %w", l1StartBlockPath, err)
-				}
+			// Retrieve SystemConfig.startBlock()
+			client, err := ethclient.Dial(l1RPC)
+			if err != nil {
+				return fmt.Errorf("cannot dial %s: %w", l1RPC, err)
 			}
 
 			var l2Allocs *foundry.ForgeAllocs
@@ -184,7 +181,7 @@ var Subcommands = cli.Commands{
 			}
 
 			// Retrieve SystemConfig.startBlock()
-			client, err := ethclient.Dial(l1RPC)
+
 			if err != nil {
 				return fmt.Errorf("cannot dial %s: %w", l1RPC, err)
 			}
@@ -197,7 +194,7 @@ var Subcommands = cli.Commands{
 
 			logger.Info("Using L1 Start Block", "number", startBlock)
 			// retry because local devnet can experience a race condition where L1 geth isn't ready yet
-			l1StartBlock, err = retry.Do(ctx.Context, 24, retry.Fixed(1*time.Second), func() (*types.Block, error) { return client.BlockByNumber(ctx.Context, startBlock) })
+			l1StartBlock, err := retry.Do(ctx.Context, 24, retry.Fixed(1*time.Second), func() (*types.Block, error) { return client.BlockByNumber(ctx.Context, startBlock) })
 			if err != nil {
 				return fmt.Errorf("fetching start block by number: %w", err)
 			}
@@ -210,6 +207,7 @@ var Subcommands = cli.Commands{
 			}
 
 			l2GenesisBlock := l2Genesis.ToBlock()
+			log.Info("RollupConfig", "l1StartBlock", l1StartBlock)
 			rollupConfig, err := config.RollupConfig(l1StartBlock, l2GenesisBlock.Hash(), l2GenesisBlock.Number().Uint64())
 			if err != nil {
 				return err
@@ -246,34 +244,4 @@ type txExtraInfo struct {
 	BlockNumber *string         `json:"blockNumber,omitempty"`
 	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
 	From        *common.Address `json:"from,omitempty"`
-}
-
-// readBlockJSON will read a JSON file from disk containing a serialized block.
-// This logic can break if the block format changes but there is no modular way
-// to turn a block into JSON in go-ethereum.
-func readBlockJSON(path string) (*types.Block, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("block file at %s not found: %w", path, err)
-	}
-
-	var header types.Header
-	if err := json.Unmarshal(raw, &header); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal block: %w", err)
-	}
-
-	var body rpcBlock
-	if err := json.Unmarshal(raw, &body); err != nil {
-		return nil, err
-	}
-
-	if len(body.UncleHashes) > 0 {
-		return nil, fmt.Errorf("cannot unmarshal block with uncles")
-	}
-
-	txs := make([]*types.Transaction, len(body.Transactions))
-	for i, tx := range body.Transactions {
-		txs[i] = tx.tx
-	}
-	return types.NewBlockWithHeader(&header).WithBody(txs, nil).WithWithdrawals(body.Withdrawals), nil
 }

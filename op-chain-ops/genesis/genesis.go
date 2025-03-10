@@ -41,37 +41,37 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 	}
 
 	optimismChainConfig := params.ChainConfig{
-		ChainID:                       new(big.Int).SetUint64(config.L2ChainID),
-		HomesteadBlock:                big.NewInt(0),
-		DAOForkBlock:                  nil,
-		DAOForkSupport:                false,
-		EIP150Block:                   big.NewInt(0),
-		EIP155Block:                   big.NewInt(0),
-		EIP158Block:                   big.NewInt(0),
-		ByzantiumBlock:                big.NewInt(0),
-		ConstantinopleBlock:           big.NewInt(0),
-		PetersburgBlock:               big.NewInt(0),
-		IstanbulBlock:                 big.NewInt(0),
-		MuirGlacierBlock:              big.NewInt(0),
-		BerlinBlock:                   big.NewInt(0),
-		LondonBlock:                   big.NewInt(0),
-		ArrowGlacierBlock:             big.NewInt(0),
-		GrayGlacierBlock:              big.NewInt(0),
-		MergeNetsplitBlock:            big.NewInt(0),
-		TerminalTotalDifficulty:       big.NewInt(0),
-		TerminalTotalDifficultyPassed: true,
-		BedrockBlock:                  new(big.Int).SetUint64(uint64(config.L2GenesisBlockNumber)),
-		RegolithTime:                  config.RegolithTime(block.Time()),
-		CanyonTime:                    config.CanyonTime(block.Time()),
-		ShanghaiTime:                  config.CanyonTime(block.Time()),
-		CancunTime:                    config.EcotoneTime(block.Time()),
-		EcotoneTime:                   config.EcotoneTime(block.Time()),
-		FjordTime:                     config.FjordTime(block.Time()),
-		InteropTime:                   config.InteropTime(block.Time()),
+		ChainID:                 new(big.Int).SetUint64(config.L2ChainID),
+		HomesteadBlock:          big.NewInt(0),
+		DAOForkBlock:            nil,
+		DAOForkSupport:          false,
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ArrowGlacierBlock:       big.NewInt(0),
+		GrayGlacierBlock:        big.NewInt(0),
+		MergeNetsplitBlock:      big.NewInt(0),
+		TerminalTotalDifficulty: big.NewInt(0),
+		//TerminalTotalDifficultyPassed: true,
+		BedrockBlock: new(big.Int).SetUint64(uint64(config.L2GenesisBlockNumber)),
+		RegolithTime: config.RegolithTime(block.Time()),
+		CanyonTime:   config.CanyonTime(block.Time()),
+		ShanghaiTime: config.CanyonTime(block.Time()),
+		CancunTime:   config.EcotoneTime(block.Time()),
+		EcotoneTime:  config.EcotoneTime(block.Time()),
+		FjordTime:    config.FjordTime(block.Time()),
+		InteropTime:  config.InteropTime(block.Time()),
 		Optimism: &params.OptimismConfig{
 			EIP1559Denominator:       eip1559Denom,
 			EIP1559Elasticity:        eip1559Elasticity,
-			EIP1559DenominatorCanyon: eip1559DenomCanyon,
+			EIP1559DenominatorCanyon: &eip1559DenomCanyon,
 		},
 	}
 
@@ -161,7 +161,6 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 	} else {
 		chainConfig.MergeNetsplitBlock = big.NewInt(0)
 		chainConfig.TerminalTotalDifficulty = big.NewInt(0)
-		chainConfig.TerminalTotalDifficultyPassed = true
 		chainConfig.ShanghaiTime = u64ptr(0)
 		chainConfig.CancunTime = u64ptr(0)
 	}

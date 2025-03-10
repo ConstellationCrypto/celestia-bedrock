@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"log/slog"
+
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 	"golang.org/x/term"
 
 	"github.com/ethereum/go-ethereum/log"

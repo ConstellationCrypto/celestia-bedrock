@@ -634,7 +634,8 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 			DAResolveWindow:    d.DAResolveWindow,
 		}
 	}
-
+	log.Info("RollupConfig", "l1StartBlockHash", l1StartBlock.Hash())
+	log.Info("RollupConfig", "l1StartBlock.NumberU64()", l1StartBlock.NumberU64())
 	return &rollup.Config{
 		Genesis: rollup.Genesis{
 			L1: eth.BlockID{

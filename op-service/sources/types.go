@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
@@ -36,8 +35,6 @@ type headerInfo struct {
 	hash common.Hash
 	*types.Header
 }
-
-var _ eth.BlockInfo = (*headerInfo)(nil)
 
 func (h headerInfo) Hash() common.Hash {
 	return h.hash
@@ -71,12 +68,12 @@ func (h headerInfo) BaseFee() *big.Int {
 	return h.Header.BaseFee
 }
 
-func (h headerInfo) BlobBaseFee() *big.Int {
-	if h.Header.ExcessBlobGas == nil {
-		return nil
-	}
-	return eip4844.CalcBlobFee(*h.Header.ExcessBlobGas)
-}
+// func (h headerInfo) BlobBaseFee() *big.Int {
+// 	if h.Header.ExcessBlobGas == nil {
+// 		return nil
+// 	}
+// 	return eip4844.CalcBlobFee(*h.Header.ExcessBlobGas)
+// }
 
 func (h headerInfo) ReceiptHash() common.Hash {
 	return h.Header.ReceiptHash
@@ -129,6 +126,9 @@ type RPCHeader struct {
 
 	// ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.
 	ParentBeaconRoot *common.Hash `json:"parentBeaconBlockRoot,omitempty"`
+
+	// RequestsHash was added by EIP-7685 and is ignored in legacy headers.
+	RequestsHash *common.Hash `json:"requestsHash,omitempty" rlp:"optional"`
 
 	// untrusted info included by RPC, may have to be checked
 	Hash common.Hash `json:"hash"`
@@ -199,7 +199,35 @@ func (hdr *RPCHeader) Info(trustCache bool, mustBePostMerge bool) (eth.BlockInfo
 			return nil, fmt.Errorf("failed to verify block hash: computed %s but RPC said %s", computed, hdr.Hash)
 		}
 	}
-	return &headerInfo{hdr.Hash, hdr.createGethHeader()}, nil
+	return eth.HeaderBlockInfoTrusted(hdr.Hash, hdr.CreateGethHeader()), nil
+}
+
+func (hdr *RPCHeader) CreateGethHeader() *types.Header {
+	return &types.Header{
+		ParentHash:      hdr.ParentHash,
+		UncleHash:       hdr.UncleHash,
+		Coinbase:        hdr.Coinbase,
+		Root:            hdr.Root,
+		TxHash:          hdr.TxHash,
+		ReceiptHash:     hdr.ReceiptHash,
+		Bloom:           types.Bloom(hdr.Bloom),
+		Difficulty:      (*big.Int)(&hdr.Difficulty),
+		Number:          new(big.Int).SetUint64(uint64(hdr.Number)),
+		GasLimit:        uint64(hdr.GasLimit),
+		GasUsed:         uint64(hdr.GasUsed),
+		Time:            uint64(hdr.Time),
+		Extra:           hdr.Extra,
+		MixDigest:       hdr.MixDigest,
+		Nonce:           hdr.Nonce,
+		BaseFee:         (*big.Int)(hdr.BaseFee),
+		WithdrawalsHash: hdr.WithdrawalsRoot,
+		// Cancun
+		BlobGasUsed:      (*uint64)(hdr.BlobGasUsed),
+		ExcessBlobGas:    (*uint64)(hdr.ExcessBlobGas),
+		ParentBeaconRoot: hdr.ParentBeaconRoot,
+		// Prague
+		RequestsHash: hdr.RequestsHash,
+	}
 }
 
 func (hdr *RPCHeader) BlockID() eth.BlockID {
