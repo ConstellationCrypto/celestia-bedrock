@@ -44,6 +44,8 @@ func NewMiner(t *testing.T, logger log.Logger, isthmusTime uint64) (*Miner, *cor
 		EIP1559Elasticity:        10,
 		EIP1559DenominatorCanyon: &denomCanyon,
 	}
+	// OP-Stack chain configs must have nil blob schedule
+	config.BlobScheduleConfig = nil
 	genesis := &core.Genesis{
 		Config:     &config,
 		Difficulty: common.Big0,
@@ -61,8 +63,7 @@ func NewMiner(t *testing.T, logger log.Logger, isthmusTime uint64) (*Miner, *cor
 		NoPruning:   true,
 	}
 	nodeCfg := &node.Config{
-		Name:    "l2-geth",
-		DataDir: t.TempDir(),
+		Name: "l2-geth",
 	}
 	n, err := node.New(nodeCfg)
 	require.NoError(t, err)

@@ -2,7 +2,10 @@ package celestia
 
 import (
 	"fmt"
+<<<<<<< HEAD
 	"time"
+=======
+>>>>>>> op-node/v1.13.0
 
 	"github.com/urfave/cli/v2"
 
@@ -91,6 +94,7 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:   defaultGasPrice,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_GAS_PRICE"),
 		},
+<<<<<<< HEAD
 		&cli.StringFlag{
 			Name:    "s3-bucket",
 			Usage:   "S3 Bucket for DA layer",
@@ -108,6 +112,8 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:   time.Minute,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "CELESTIA_TIMEOUT"),
 		},
+=======
+>>>>>>> op-node/v1.13.0
 	}
 }
 
@@ -117,9 +123,12 @@ type CLIConfig struct {
 	Namespace    string
 	FallbackMode string
 	GasPrice     float64
+<<<<<<< HEAD
 	S3Bucket     string
 	S3Region     string
 	Timeout      time.Duration
+=======
+>>>>>>> op-node/v1.13.0
 }
 
 func (c CLIConfig) Check() error {
@@ -139,8 +148,11 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		Namespace:    ctx.String(NamespaceFlagName),
 		FallbackMode: ctx.String(FallbackModeFlagName),
 		GasPrice:     ctx.Float64(GasPriceFlagName),
+<<<<<<< HEAD
 		S3Bucket:     ctx.String("s3-bucket"),
 		S3Region:     ctx.String("s3-region"),
 		Timeout:      ctx.Duration("celestia-timeout"),
+=======
+>>>>>>> op-node/v1.13.0
 	}
 }
