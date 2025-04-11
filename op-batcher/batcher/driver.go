@@ -882,7 +882,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		return nil
 	}
 
-<<<<<<< HEAD
 	var candidate *txmgr.TxCandidate
 	if txdata.asBlob {
 		if candidate, err = l.blobTxCandidate(txdata); err != nil {
@@ -917,30 +916,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		}
 	}
 	l.Log.Info("tx candidate", "ID", txdata.ID(), "len(txdata.frames)", len(txdata.frames), "txdata.asBlob", txdata.asBlob)
-=======
-	// force celestia tx candidate, multiframe is set by UseBlobs which is not affected
-	txdata.asBlob = false
-	// sanity check
-	if nf := len(txdata.frames); nf > l.ChannelConfig.ChannelConfig(isPectra).TargetNumFrames {
-		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
-	}
-	candidate, err := l.celestiaTxCandidate(txdata.CallData())
-	if err != nil {
-		l.Log.Error("celestia: blob submission failed", "err", err)
-		candidate, err = l.fallbackTxCandidate(txdata)
-		if err != nil {
-			l.Log.Error("celestia: fallback failed", "err", err)
-			l.recordFailedTx(txdata.ID(), err)
-			return nil
-		}
-	}
-	// restore asBlob for cancellation in case of blobdata fallback
-	if len(candidate.Blobs) > 0 {
-		txdata.asBlob = true
-	}
-	l.Log.Info("tx candidate", "ID", txdata.ID(), "len(txdata.frames)", len(txdata.frames), "txdata.asBlob", txdata.asBlob)
-
->>>>>>> op-node/v1.13.0
 	l.sendTx(txdata, false, candidate, queue, receiptsCh)
 	return nil
 }
@@ -999,7 +974,6 @@ func (l *BatchSubmitter) celestiaTxCandidate(data []byte) (*txmgr.TxCandidate, e
 		return nil, fmt.Errorf("celestia: expected 1 id, got %d", len(ids))
 	}
 	l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(ids[0]))
-<<<<<<< HEAD
 
 	ctx2, cancel := context.WithTimeout(context.Background(), l.DAClient.GetTimeout)
 	frame := append([]byte{celestia.DerivationVersionCelestia}, ids[0]...)
@@ -1027,12 +1001,6 @@ func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, 
 	return err
 }
 
-=======
-	data = append([]byte{celestia.DerivationVersionCelestia}, ids[0]...)
-	return l.calldataTxCandidate(data), nil
-}
-
->>>>>>> op-node/v1.13.0
 func (l *BatchSubmitter) handleReceipt(r txmgr.TxReceipt[txRef]) {
 	// Record TX Status
 	if r.Err != nil {
