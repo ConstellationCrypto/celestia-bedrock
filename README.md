@@ -149,12 +149,11 @@ npx hardhat deposit --network devnetL1 --l1-provider-url http://localhost:8545 -
 ├── <a href="./op-program">op-program</a>: Fault proof program
 ├── <a href="./op-proposer">op-proposer</a>: L2-Output Submitter, submits proposals to L1
 ├── <a href="./op-service">op-service</a>: Common codebase utilities
-├── <a href="./op-ufm">op-ufm</a>: Simulations for monitoring end-to-end transaction latency
 ├── <a href="./op-wheel">op-wheel</a>: Database utilities
 ├── <a href="./ops">ops</a>: Various operational packages
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/contracts-bedrock">contracts-bedrock</a>: OP Stack smart contracts
-├── <a href="./semgrep">semgrep</a>: Semgrep rules and tests
+├── <a href="./.semgrep">semgrep</a>: Semgrep rules and tests
 </pre>
 
 ## Development and Release Process

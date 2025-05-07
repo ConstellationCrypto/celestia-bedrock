@@ -34,6 +34,7 @@ const defaultFinalityLookback = 4*32*10 + 1
 // finalityDelay is the number of L1 blocks to traverse before trying to finalize L2 blocks again.
 // We do not want to do this too often, since it requires fetching a L1 block by number, so no cache data.
 // Multiply by 6 since base blocks are 6x slower to finalize.
+
 const finalityDelay = 64 * 6
 
 // calcFinalityLookback calculates the default finality lookback based on DA challenge window if altDA
@@ -226,7 +227,6 @@ func (fi *Finalizer) tryFinalize() {
 		// Sanity check the finality signal of L1.
 		// Even though the signal is trusted and we do the below check also,
 		// the signal itself has to be canonical to proceed.
-		// TODO(#10724): This check could be removed if the finality signal is fully trusted, and if tests were more flexible for this case.
 		signalRef, err := fi.l1Fetcher.L1BlockRefByNumber(ctx, fi.finalizedL1.Number)
 		if err != nil {
 			fi.emitter.Emit(rollup.L1TemporaryErrorEvent{Err: fmt.Errorf("failed to check if on finalizing L1 chain, could not fetch block %d: %w", fi.finalizedL1.Number, err)})
