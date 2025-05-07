@@ -28,11 +28,13 @@ import (
 // The beacon chain on mainnet has 32 slots per epoch,
 // and new finalization events happen at most 4 epochs behind the head.
 // And then we add 1 to make pruning easier by leaving room for a new item without pruning the 32*4.
-const defaultFinalityLookback = 4*32 + 1
+// L1 blocks are 6x as fast on base compared to mainnet - muliply by 10 just in case.
+const defaultFinalityLookback = 4*32*10 + 1
 
 // finalityDelay is the number of L1 blocks to traverse before trying to finalize L2 blocks again.
 // We do not want to do this too often, since it requires fetching a L1 block by number, so no cache data.
-const finalityDelay = 64
+// Multiply by 6 since base blocks are 6x slower to finalize.
+const finalityDelay = 64 * 6
 
 // calcFinalityLookback calculates the default finality lookback based on DA challenge window if altDA
 // mode is activated or L1 finality lookback.
