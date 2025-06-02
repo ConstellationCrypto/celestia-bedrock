@@ -8,15 +8,23 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
+
+var (
+	errLogIndexTooLarge        = errors.New("log index too large")
+	errNilSafetyLevel          = errors.New("nil safety level")
+	errUnrecognizedSafetyLevel = errors.New("unrecognized safety level")
+	errInvalidParentBlock      = errors.New("invalid parent block")
+)
+
+var ExecutingMessageEventTopic = crypto.Keccak256Hash([]byte("ExecutingMessage(bytes32,(address,uint256,uint256,uint256,uint256))"))
 
 // ChainIndex represents the lifetime of a chain in a dependency set.
 // Warning: JSON-encoded as string, in base-10.
@@ -127,6 +135,50 @@ func (m *Message) Access() Access {
 	return m.ToCheckSumArgs().Access()
 }
 
+func (m *Message) DecodeEvent(topics []common.Hash, data []byte) error {
+	if len(topics) != 2 { // event hash, indexed payloadHash
+		return fmt.Errorf("unexpected number of event topics: %d", len(topics))
+	}
+	if topics[0] != ExecutingMessageEventTopic {
+		return fmt.Errorf("unexpected event topic %q", topics[0])
+	}
+	if len(data) != 32*5 {
+		return fmt.Errorf("unexpected identifier data length: %d", len(data))
+	}
+	take := func(length uint) []byte {
+		taken := data[:length]
+		data = data[length:]
+		return taken
+	}
+	takeZeroes := func(length uint) error {
+		for _, v := range take(length) {
+			if v != 0 {
+				return errors.New("expected zero")
+			}
+		}
+		return nil
+	}
+	if err := takeZeroes(12); err != nil {
+		return fmt.Errorf("invalid address padding: %w", err)
+	}
+	m.Identifier.Origin = common.Address(take(20))
+	if err := takeZeroes(32 - 8); err != nil {
+		return fmt.Errorf("invalid block number padding: %w", err)
+	}
+	m.Identifier.BlockNumber = binary.BigEndian.Uint64(take(8))
+	if err := takeZeroes(32 - 4); err != nil {
+		return fmt.Errorf("invalid log index padding: %w", err)
+	}
+	m.Identifier.LogIndex = binary.BigEndian.Uint32(take(4))
+	if err := takeZeroes(32 - 8); err != nil {
+		return fmt.Errorf("invalid timestamp padding: %w", err)
+	}
+	m.Identifier.Timestamp = binary.BigEndian.Uint64(take(8))
+	m.Identifier.ChainID = eth.ChainIDFromBytes32([32]byte(take(32)))
+	m.PayloadHash = topics[1]
+	return nil
+}
+
 type ChecksumArgs struct {
 	BlockNumber uint64
 	LogIndex    uint32
@@ -200,7 +252,7 @@ func (id *Identifier) UnmarshalJSON(input []byte) error {
 	id.Origin = dec.Origin
 	id.BlockNumber = uint64(dec.BlockNumber)
 	if dec.LogIndex > math.MaxUint32 {
-		return fmt.Errorf("log index too large: %d", dec.LogIndex)
+		return fmt.Errorf("%w: %d", errLogIndexTooLarge, dec.LogIndex)
 	}
 	id.LogIndex = uint32(dec.LogIndex)
 	id.Timestamp = uint64(dec.Timestamp)
@@ -240,11 +292,11 @@ func (lvl SafetyLevel) MarshalText() ([]byte, error) {
 
 func (lvl *SafetyLevel) UnmarshalText(text []byte) error {
 	if lvl == nil {
-		return errors.New("cannot unmarshal into nil SafetyLevel")
+		return errNilSafetyLevel
 	}
 	x := SafetyLevel(text)
 	if !x.Validate() {
-		return fmt.Errorf("unrecognized safety level: %q", text)
+		return fmt.Errorf("%w: %q", errUnrecognizedSafetyLevel, text)
 	}
 	*lvl = x
 	return nil
@@ -377,7 +429,7 @@ func (s BlockSeal) WithParent(parent eth.BlockID) (eth.BlockRef, error) {
 	// prevent parent attachment if the parent is not the previous block,
 	// and the block is not the genesis block
 	if s.Number != parent.Number+1 && s.Number != 0 {
-		return eth.BlockRef{}, fmt.Errorf("invalid parent block %s to combine with %s", parent, s)
+		return eth.BlockRef{}, fmt.Errorf("%w: parent %s to combine with %s", errInvalidParentBlock, parent, s)
 	}
 	return eth.BlockRef{
 		Hash:       s.Hash,
@@ -611,7 +663,7 @@ func ParseAccess(entries []common.Hash) ([]common.Hash, Access, error) {
 	entries = entries[1:]
 	if typeByte := entry[0]; typeByte == PrefixChainIDExtension {
 		if ([7]byte)(entry[1:8]) != ([7]byte{}) {
-			return nil, Access{}, fmt.Errorf("expected zero bytes")
+			return nil, Access{}, fmt.Errorf("expected zero bytes: %w", errMalformedEntry)
 		}
 		// The lower 8 bytes is set to the uint64 in the first entry.
 		// The upper 24 bytes are set with this extension entry.

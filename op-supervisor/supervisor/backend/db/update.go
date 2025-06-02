@@ -80,6 +80,11 @@ func (db *ChainsDB) Rewind(chain eth.ChainID, headBlock eth.BlockID) error {
 	if err := crossDB.RewindToFirstDerived(headBlock, revision); err != nil {
 		return fmt.Errorf("failed to rewind crossDB to block %s on %s: %w", headBlock, chain, err)
 	}
+
+	if registry, ok := db.readRegistries.Get(chain); ok {
+		registry.InvalidateHandlesAfter(headBlock.Number + 1)
+	}
+
 	return nil
 }
 
@@ -184,6 +189,29 @@ func (db *ChainsDB) initializedUpdateCrossSafe(chain eth.ChainID, l1View eth.Blo
 		},
 	})
 	db.m.RecordCrossSafeRef(chain, lastCrossDerived)
+
+	// compare new cross-safe to recorded cross-unsafe
+	crossUnsafe, err := db.CrossUnsafe(chain)
+	if err != nil {
+		db.logger.Warn("cannot get CrossUnsafe ref from db", "err", err)
+		return nil // log error for cross-unsafe call, but ignore it, as this call is for cross-safe
+	}
+	if crossUnsafe.Number > lastCrossDerived.Number { // nothing to do
+		return nil
+	}
+
+	// if cross-unsafe block number is same or smaller than new cross-safe, make sure to update cross-unsafe to new cross-safe
+	if crossUnsafe.Hash.Cmp(lastCrossDerived.Hash) != 0 {
+		db.logger.Warn("Updated cross-unsafe due to cross-safe update", "chain", chain, "new cross-safe", lastCrossDerived, "current cross-unsafe", crossUnsafe)
+		err := db.UpdateCrossUnsafe(chain, types.BlockSeal{
+			Hash:      lastCrossDerived.Hash,
+			Number:    lastCrossDerived.Number,
+			Timestamp: lastCrossDerived.Time,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update cross-unsafe after processing a new cross-safe block: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -244,6 +272,10 @@ func (db *ChainsDB) InvalidateLocalSafe(chainID eth.ChainID, candidate types.Der
 		return fmt.Errorf("failed to rewind unsafe-chain: %w", err)
 	}
 
+	if registry, ok := db.readRegistries.Get(chainID); ok {
+		registry.InvalidateHandlesAfter(candidate.Derived.Number)
+	}
+
 	// Create an event, that subscribed sync-nodes can listen to,
 	// to start finding the replacement block.
 	db.emitter.Emit(superevents.InvalidateLocalSafeEvent{
@@ -265,6 +297,11 @@ func (db *ChainsDB) RewindLocalSafe(chainID eth.ChainID, scope eth.BlockID) erro
 	if err := localSafeDB.RewindToScope(scope); err != nil {
 		return fmt.Errorf("failed to rewind local-safe: %w", err)
 	}
+
+	if registry, ok := db.readRegistries.Get(chainID); ok {
+		registry.InvalidateHandlesAfter(scope.Number + 1)
+	}
+
 	return nil
 }
 
@@ -279,6 +316,11 @@ func (db *ChainsDB) RewindCrossSafe(chainID eth.ChainID, scope eth.BlockID) erro
 	if err := crossSafeDB.RewindToScope(scope); err != nil {
 		return fmt.Errorf("failed to rewind cross-safe: %w", err)
 	}
+
+	if registry, ok := db.readRegistries.Get(chainID); ok {
+		registry.InvalidateHandlesAfter(scope.Number + 1)
+	}
+
 	return nil
 }
 
@@ -290,6 +332,11 @@ func (db *ChainsDB) RewindLogs(chainID eth.ChainID, newHead types.BlockSeal) err
 	if err := eventsDB.Rewind(newHead.ID()); err != nil {
 		return fmt.Errorf("failed to rewind logs of chain %s: %w", chainID, err)
 	}
+
+	if registry, ok := db.readRegistries.Get(chainID); ok {
+		registry.InvalidateHandlesAfter(newHead.Number + 1)
+	}
+
 	return nil
 }
 
@@ -337,6 +384,10 @@ func (db *ChainsDB) onReplaceBlock(chainID eth.ChainID, replacement eth.BlockRef
 
 	revision := types.Revision(result.Derived.Number)
 	db.logger.Info("Replacing block", "chain", chainID, "replacement", replacement, "revision", revision)
+
+	if registry, ok := db.readRegistries.Get(chainID); ok {
+		registry.InvalidateHandlesAfter(replacement.Number - 1)
+	}
 
 	// Consider the replacement as a new local-unsafe block, so we can try to index the new event-data.
 	db.emitter.Emit(superevents.LocalUnsafeReceivedEvent{

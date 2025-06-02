@@ -8,11 +8,8 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/interop"
-	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/opcm"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -20,8 +17,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis/beacondeposit"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/interopgen/deployers"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/script"
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/interop"
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/opcm"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 var (
@@ -152,7 +151,7 @@ func CreateL2(logger log.Logger, fa *foundry.ArtifactsFS, srcFS *foundry.SourceM
 func PrepareInitialL1(l1Host *script.Host, cfg *L1Config) (*L1Deployment, error) {
 	l1Host.SetTxOrigin(sysGenesisDeployer)
 
-	if err := deployers.InsertPreinstalls(l1Host); err != nil {
+	if err := opcm.InsertPreinstalls(l1Host); err != nil {
 		return nil, fmt.Errorf("failed to install preinstalls in L1: %w", err)
 	}
 	// No global contracts inserted at this point.
@@ -286,13 +285,32 @@ func MigrateInterop(
 }
 
 func GenesisL2(l2Host *script.Host, cfg *L2Config, deployment *L2Deployment) error {
-	if err := opcm.L2Genesis(l2Host, &opcm.L2GenesisInput{
-		L1Deployments: opcm.L1Deployments{
-			L1CrossDomainMessengerProxy: deployment.L1CrossDomainMessengerProxy,
-			L1StandardBridgeProxy:       deployment.L1StandardBridgeProxy,
-			L1ERC721BridgeProxy:         deployment.L1ERC721BridgeProxy,
-		},
-		L2Config: cfg.L2InitializationConfig,
+	genesisScript, err := opcm.NewL2GenesisScript(l2Host)
+	if err != nil {
+		return fmt.Errorf("failed to create L2 genesis script: %w", err)
+	}
+
+	if err := genesisScript.Run(opcm.L2GenesisInput{
+		L1ChainID:                                new(big.Int).SetUint64(cfg.L1ChainID),
+		L2ChainID:                                new(big.Int).SetUint64(cfg.L2ChainID),
+		L1CrossDomainMessengerProxy:              deployment.L1CrossDomainMessengerProxy,
+		L1StandardBridgeProxy:                    deployment.L1StandardBridgeProxy,
+		L1ERC721BridgeProxy:                      deployment.L1ERC721BridgeProxy,
+		OpChainProxyAdminOwner:                   cfg.ProxyAdminOwner,
+		SequencerFeeVaultRecipient:               cfg.SequencerFeeVaultRecipient,
+		SequencerFeeVaultMinimumWithdrawalAmount: cfg.SequencerFeeVaultMinimumWithdrawalAmount.ToInt(),
+		SequencerFeeVaultWithdrawalNetwork:       big.NewInt(int64(cfg.SequencerFeeVaultWithdrawalNetwork.ToUint8())),
+		BaseFeeVaultRecipient:                    cfg.BaseFeeVaultRecipient,
+		BaseFeeVaultMinimumWithdrawalAmount:      cfg.BaseFeeVaultMinimumWithdrawalAmount.ToInt(),
+		BaseFeeVaultWithdrawalNetwork:            big.NewInt(int64(cfg.BaseFeeVaultWithdrawalNetwork.ToUint8())),
+		L1FeeVaultRecipient:                      cfg.L1FeeVaultRecipient,
+		L1FeeVaultMinimumWithdrawalAmount:        cfg.L1FeeVaultMinimumWithdrawalAmount.ToInt(),
+		L1FeeVaultWithdrawalNetwork:              big.NewInt(int64(cfg.L1FeeVaultWithdrawalNetwork.ToUint8())),
+		GovernanceTokenOwner:                     cfg.GovernanceTokenOwner,
+		Fork:                                     big.NewInt(cfg.SolidityForkNumber(1)),
+		UseInterop:                               cfg.UseInterop,
+		EnableGovernance:                         cfg.EnableGovernance,
+		FundDevAccounts:                          cfg.FundDevAccounts,
 	}); err != nil {
 		return fmt.Errorf("failed L2 genesis: %w", err)
 	}
@@ -305,6 +323,9 @@ func CompleteL1(l1Host *script.Host, cfg *L1Config) (*L1Output, error) {
 		L2InitializationConfig: genesis.L2InitializationConfig{
 			L2CoreDeployConfig: genesis.L2CoreDeployConfig{
 				L1ChainID: cfg.ChainID.Uint64(),
+			},
+			UpgradeScheduleDeployConfig: genesis.UpgradeScheduleDeployConfig{
+				L1CancunTimeOffset: new(hexutil.Uint64),
 			},
 		},
 		DevL1DeployConfig: cfg.DevL1DeployConfig,

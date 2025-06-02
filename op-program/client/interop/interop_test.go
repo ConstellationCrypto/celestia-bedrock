@@ -19,21 +19,35 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/cross"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
 	supervisortypes "github.com/ethereum-optimism/optimism/op-supervisor/supervisor/types"
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/types/interoptypes"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTwoChains() (*staticConfigSource, *eth.SuperV1, *stubTasks) {
+type chainSetupOpts struct {
+	expiryWindow uint64
+}
+
+func WithExpiryWindow(window uint64) func(*chainSetupOpts) {
+	return func(opts *chainSetupOpts) {
+		opts.expiryWindow = window
+	}
+}
+
+func setupTwoChains(opts ...func(*chainSetupOpts)) (*staticConfigSource, *eth.SuperV1, *stubTasks) {
+	chainSetupOpts := &chainSetupOpts{}
+	for _, opt := range opts {
+		opt(chainSetupOpts)
+	}
+
 	rollupCfg1 := chaincfg.OPSepolia()
 	chainCfg1 := chainconfig.OPSepoliaChainConfig()
 
@@ -49,14 +63,23 @@ func setupTwoChains() (*staticConfigSource, *eth.SuperV1, *stubTasks) {
 			{ChainID: eth.ChainIDFromBig(rollupCfg2.L2ChainID), Output: eth.OutputRoot(&eth.OutputV0{BlockHash: common.Hash{0x22}})},
 		},
 	}
-	depset, _ := depset.NewStaticConfigDependencySet(map[eth.ChainID]*depset.StaticConfigDependency{
-		eth.ChainIDFromBig(rollupCfg1.L2ChainID): {ChainIndex: chainA, ActivationTime: 0, HistoryMinTime: 0},
-		eth.ChainIDFromBig(rollupCfg2.L2ChainID): {ChainIndex: chainB, ActivationTime: 0, HistoryMinTime: 0},
-	})
+
+	var ds *depset.StaticConfigDependencySet
+	if chainSetupOpts.expiryWindow > 0 {
+		ds, _ = depset.NewStaticConfigDependencySetWithMessageExpiryOverride(map[eth.ChainID]*depset.StaticConfigDependency{
+			eth.ChainIDFromBig(rollupCfg1.L2ChainID): {ChainIndex: chainA, ActivationTime: 0, HistoryMinTime: 0},
+			eth.ChainIDFromBig(rollupCfg2.L2ChainID): {ChainIndex: chainB, ActivationTime: 0, HistoryMinTime: 0},
+		}, chainSetupOpts.expiryWindow)
+	} else {
+		ds, _ = depset.NewStaticConfigDependencySet(map[eth.ChainID]*depset.StaticConfigDependency{
+			eth.ChainIDFromBig(rollupCfg1.L2ChainID): {ChainIndex: chainA, ActivationTime: 0, HistoryMinTime: 0},
+			eth.ChainIDFromBig(rollupCfg2.L2ChainID): {ChainIndex: chainB, ActivationTime: 0, HistoryMinTime: 0},
+		})
+	}
 	configSource := &staticConfigSource{
 		rollupCfgs:   []*rollup.Config{rollupCfg1, &rollupCfg2},
 		chainConfigs: []*params.ChainConfig{chainCfg1, &chainCfg2},
-		depset:       depset,
+		depset:       ds,
 	}
 	tasksStub := &stubTasks{
 		l2SafeHead: eth.L2BlockRef{Number: 918429823450218}, // Past the claimed block
@@ -146,14 +169,14 @@ const (
 )
 
 func TestDeriveBlockForConsolidateStep(t *testing.T) {
-	createExecMessage := func(initIncludedIn uint64, config *staticConfigSource, initChainIndex supervisortypes.ChainIndex) interoptypes.Message {
-		exec := interoptypes.Message{
-			Identifier: interoptypes.Identifier{
+	createExecMessage := func(initIncludedIn uint64, config *staticConfigSource, initChainIndex supervisortypes.ChainIndex) supervisortypes.Message {
+		exec := supervisortypes.Message{
+			Identifier: supervisortypes.Identifier{
 				Origin:      initiatingMessageOrigin,
 				BlockNumber: initIncludedIn,
 				LogIndex:    0,
 				Timestamp:   initIncludedIn * config.rollupCfgs[initChainIndex].BlockTime,
-				ChainID:     uint256.Int(eth.ChainIDFromBig(config.rollupCfgs[initChainIndex].L2ChainID)),
+				ChainID:     eth.ChainIDFromBig(config.rollupCfgs[initChainIndex].L2ChainID),
 			},
 			PayloadHash: initPayloadHash,
 		}
@@ -242,7 +265,7 @@ func TestDeriveBlockForConsolidateStep(t *testing.T) {
 				logBuilderFn: func(includeBlockNumbers map[supervisortypes.ChainIndex]uint64, config *staticConfigSource) map[supervisortypes.ChainIndex][]*gethTypes.Log {
 					init := createInitLog()
 					exec := createExecMessage(includeBlockNumbers[chainA], config, chainA)
-					exec.Identifier.ChainID = uint256.Int(eth.ChainIDFromUInt64(0xdeadbeef))
+					exec.Identifier.ChainID = eth.ChainIDFromUInt64(0xdeadbeef)
 					return map[supervisortypes.ChainIndex][]*gethTypes.Log{chainA: {init}, chainB: {convertExecutingMessageToLog(t, exec)}}
 				},
 				expectBlockReplacements: func(config *staticConfigSource) []supervisortypes.ChainIndex {
@@ -340,13 +363,58 @@ func TestDeriveBlockForConsolidateStep(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ReplaceChainB-BlockNumberTooBig",
+			testCase: consolidationTestCase{
+				logBuilderFn: func(includeBlockNumbers map[supervisortypes.ChainIndex]uint64, config *staticConfigSource) map[supervisortypes.ChainIndex][]*gethTypes.Log {
+					init1 := &gethTypes.Log{
+						Address: initiatingMessageOrigin,
+						Topics:  []common.Hash{initiatingMessageTopic},
+					}
+					init2 := &gethTypes.Log{
+						Address: initiatingMessageOrigin2,
+						Topics:  []common.Hash{initiatingMessageTopic},
+					}
+					exec := createExecMessage(1_000_000, config, chainA)
+					return map[supervisortypes.ChainIndex][]*gethTypes.Log{
+						chainA: {init1, init2},
+						chainB: {convertExecutingMessageToLog(t, exec)},
+					}
+				},
+				expectBlockReplacements: func(config *staticConfigSource) []supervisortypes.ChainIndex {
+					return []supervisortypes.ChainIndex{chainB}
+				},
+			},
+		},
+		{
+			name: "ReplaceChainB-LogIndexTooBig",
+			testCase: consolidationTestCase{
+				logBuilderFn: func(includeBlockNumbers map[supervisortypes.ChainIndex]uint64, config *staticConfigSource) map[supervisortypes.ChainIndex][]*gethTypes.Log {
+					init1 := &gethTypes.Log{
+						Address: initiatingMessageOrigin,
+						Topics:  []common.Hash{initiatingMessageTopic},
+					}
+					init2 := &gethTypes.Log{
+						Address: initiatingMessageOrigin2,
+						Topics:  []common.Hash{initiatingMessageTopic},
+					}
+					exec := createExecMessage(includeBlockNumbers[chainA], config, chainA)
+					exec.Identifier.Origin = init2.Address
+					exec.Identifier.LogIndex = 1_000_000
+					return map[supervisortypes.ChainIndex][]*gethTypes.Log{
+						chainA: {init1, init2},
+						chainB: {convertExecutingMessageToLog(t, exec)},
+					}
+				},
+				expectBlockReplacements: func(config *staticConfigSource) []supervisortypes.ChainIndex {
+					return []supervisortypes.ChainIndex{chainB}
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name != "ReplaceBothChains-CascadingReorg" {
-				t.Skip()
-			}
 			runConsolidationTestCase(t, tt.testCase)
 		})
 	}
@@ -404,10 +472,6 @@ func runConsolidationTestCase(t *testing.T, testCase consolidationTestCase) {
 
 	l2PreimageOracle.Outputs[common.Hash(agreedSuperRoot.Chains[0].Output)] = createOutput(block1A.Hash())
 	l2PreimageOracle.Outputs[common.Hash(agreedSuperRoot.Chains[1].Output)] = createOutput(block1B.Hash())
-	l2PreimageOracle.BlockData = map[common.Hash]*gethTypes.Block{
-		block2A.Hash(): block2A,
-		block2B.Hash(): block2B,
-	}
 	l2PreimageOracle.Blocks[block1A.Hash()] = block1A
 	l2PreimageOracle.Blocks[block2A.Hash()] = block2A
 	l2PreimageOracle.Blocks[block2B.Hash()] = block2B
@@ -433,7 +497,6 @@ func runConsolidationTestCase(t *testing.T, testCase consolidationTestCase) {
 			finalRoots[chainIndexToReplace] = depositsOnlyOutputRoot
 			// stub the preimages in the replacement block
 			l2PreimageOracle.Blocks[depositsOnlyBlock.Hash()] = depositsOnlyBlock
-			l2PreimageOracle.BlockData[depositsOnlyBlock.Hash()] = depositsOnlyBlock
 			l2PreimageOracle.Outputs[common.Hash(depositsOnlyOutputRoot)] = depositsOnlyOutput
 			l2PreimageOracle.Receipts[depositsOnlyBlock.Hash()] = depositsOnlyBlockReceipts
 		}
@@ -468,7 +531,7 @@ func createOutput(blockHash common.Hash) *eth.OutputV0 {
 	return &eth.OutputV0{BlockHash: blockHash}
 }
 
-func convertExecutingMessageToLog(t *testing.T, msg interoptypes.Message) *gethTypes.Log {
+func convertExecutingMessageToLog(t *testing.T, msg supervisortypes.Message) *gethTypes.Log {
 	id := msg.Identifier
 	data := make([]byte, 0, 32*5)
 	data = append(data, make([]byte, 12)...)
@@ -484,7 +547,7 @@ func convertExecutingMessageToLog(t *testing.T, msg interoptypes.Message) *gethT
 	require.Equal(t, len(data), 32*5)
 	return &gethTypes.Log{
 		Address: params.InteropCrossL2InboxAddress,
-		Topics:  []common.Hash{interoptypes.ExecutingMessageEventTopic, msg.PayloadHash},
+		Topics:  []common.Hash{supervisortypes.ExecutingMessageEventTopic, msg.PayloadHash},
 		Data:    data,
 	}
 }
@@ -527,9 +590,100 @@ func TestPanicIfAgreedPrestateIsAfterGameTimestamp(t *testing.T) {
 
 	// We have reached the game's timestamp so should just trace extend the agreed claim
 	expectedClaim := agreedPrestatehash
-	require.PanicsWithError(t, fmt.Sprintf("agreed prestate timestamp %v is after the game timestamp %v", agreedSuperRoot.Timestamp, agreedSuperRoot.Timestamp-1), func() {
+	require.PanicsWithValue(t, fmt.Sprintf("agreed prestate timestamp %v is after the game timestamp %v", agreedSuperRoot.Timestamp, agreedSuperRoot.Timestamp-1), func() {
 		verifyResult(t, logger, tasksStub, configSource, l2PreimageOracle, agreedPrestatehash, agreedSuperRoot.Timestamp-1, expectedClaim)
 	})
+}
+
+func TestHazardSet_ExpiredMessageShortCircuitsInclusionCheck(t *testing.T) {
+	// This test is also covered by safe_update_test.go in op-supervisor.
+	// However, since this short-circuit behavior is critical for fault proofs, we doubly assert the desired behavior here to prevent a regression.
+
+	runTest := func(t *testing.T, expiryWindow uint64, expectInclusionCheck bool) {
+		logger := testlog.Logger(t, log.LevelError)
+		configSource, agreedSuperRoot, tasksStub := setupTwoChains(WithExpiryWindow(expiryWindow))
+		defer tasksStub.AssertExpectations(t)
+		rng := rand.New(rand.NewSource(123))
+
+		configA := configSource.rollupCfgs[0]
+		configB := configSource.rollupCfgs[1]
+
+		initLog := &gethTypes.Log{Address: initiatingMessageOrigin, Topics: []common.Hash{initiatingMessageTopic}}
+		block1A, _ := createBlock(rng, configA, 1, gethTypes.Receipts{{Logs: []*gethTypes.Log{initLog}}})
+
+		exec := supervisortypes.Message{
+			Identifier: supervisortypes.Identifier{
+				Origin:      initiatingMessageOrigin,
+				BlockNumber: 1,
+				Timestamp:   block1A.Time(),
+				ChainID:     eth.ChainIDFromBig(configB.L2ChainID),
+			},
+			PayloadHash: initPayloadHash,
+		}
+		logA := convertExecutingMessageToLog(t, exec)
+		block2A, block2AReceipts := createBlock(rng, configA, 2, gethTypes.Receipts{{Logs: []*gethTypes.Log{logA}}})
+		block2B, block2BReceipts := createBlock(rng, configB, 2, nil)
+
+		pendingOutputs := [2]*eth.OutputV0{0: createOutput(block2A.Hash()), 1: createOutput(block2B.Hash())}
+		transitionState := &types.TransitionState{
+			SuperRoot: agreedSuperRoot.Marshal(),
+			PendingProgress: []types.OptimisticBlock{
+				{BlockHash: block2A.Hash(), OutputRoot: eth.OutputRoot(pendingOutputs[0])},
+				{BlockHash: block2B.Hash(), OutputRoot: eth.OutputRoot(pendingOutputs[1])},
+			},
+			Step: ConsolidateStep,
+		}
+		l2PreimageOracle, _ := test.NewStubOracle(t)
+		l2PreimageOracle.Blocks[block2A.Hash()] = block2A
+		l2PreimageOracle.Blocks[block2B.Hash()] = block2B
+		l2PreimageOracle.Receipts[block2A.Hash()] = block2AReceipts
+		l2PreimageOracle.Receipts[block2B.Hash()] = block2BReceipts
+		for _, chain := range agreedSuperRoot.Chains {
+			l2PreimageOracle.Outputs[common.Hash(chain.Output)] = &eth.OutputV0{}
+		}
+
+		consolidateState := newConsolidateState(transitionState)
+		consolidateDeps, err := newConsolidateCheckDeps(configSource.depset, configSource, transitionState, agreedSuperRoot.Chains, l2PreimageOracle, consolidateState)
+		require.NoError(t, err)
+
+		mockConsolidateDeps := &mockConsolidateDeps{consolidateCheckDeps: consolidateDeps}
+		mockConsolidateDeps.
+			On("Contains", mock.Anything, mock.Anything).Return(supervisortypes.BlockSeal{}, supervisortypes.ErrConflict).
+			Maybe()
+
+		deps := &cross.UnsafeHazardDeps{UnsafeStartDeps: mockConsolidateDeps}
+		candidate := supervisortypes.BlockSeal{
+			Hash:      block2A.Hash(),
+			Number:    block2A.NumberU64(),
+			Timestamp: block2A.Time(),
+		}
+		_, err = cross.NewHazardSet(deps, logger, eth.ChainIDFromBig(configA.L2ChainID), candidate)
+		require.ErrorIs(t, err, supervisortypes.ErrConflict)
+
+		if expectInclusionCheck {
+			mockConsolidateDeps.AssertCalled(t, "Contains", mock.Anything, mock.Anything)
+		} else {
+			mockConsolidateDeps.AssertNotCalled(t, "Contains", mock.Anything, mock.Anything)
+		}
+		mockConsolidateDeps.AssertExpectations(t)
+	}
+
+	t.Run("expired message short-circuits inclusion check", func(t *testing.T) {
+		runTest(t, 1, false)
+	})
+	t.Run("message not expired does not short-circuit inclusion check", func(t *testing.T) {
+		runTest(t, 2, true)
+	})
+}
+
+type mockConsolidateDeps struct {
+	mock.Mock
+	*consolidateCheckDeps
+}
+
+func (m *mockConsolidateDeps) Contains(chainID eth.ChainID, query supervisortypes.ContainsQuery) (supervisortypes.BlockSeal, error) {
+	out := m.Mock.Called(chainID, query)
+	return out.Get(0).(supervisortypes.BlockSeal), out.Error(1)
 }
 
 func verifyResult(t *testing.T, logger log.Logger, tasks *stubTasks, configSource *staticConfigSource, l2PreimageOracle *test.StubBlockOracle, agreedPrestate common.Hash, gameTimestamp uint64, expectedClaim common.Hash) {
@@ -627,7 +781,7 @@ func (s *staticConfigSource) RollupConfig(chainID eth.ChainID) (*rollup.Config, 
 			return cfg, nil
 		}
 	}
-	return nil, fmt.Errorf("no rollup config found for chain %d", chainID)
+	panic(fmt.Sprintf("no rollup config found for chain %d", chainID))
 }
 
 func (s *staticConfigSource) ChainConfig(chainID eth.ChainID) (*params.ChainConfig, error) {
@@ -636,7 +790,7 @@ func (s *staticConfigSource) ChainConfig(chainID eth.ChainID) (*params.ChainConf
 			return cfg, nil
 		}
 	}
-	return nil, fmt.Errorf("no chain config found for chain %d", chainID)
+	panic(fmt.Sprintf("no chain config found for chain %d", chainID))
 }
 
 func (s *staticConfigSource) DependencySet(chainID eth.ChainID) (depset.DependencySet, error) {

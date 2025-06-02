@@ -25,12 +25,12 @@ func TestEventResponse(t *testing.T) {
 	eventSys := event.NewSystem(logger, ex)
 
 	mon := &eventMonitor{}
-	eventSys.Register("monitor", mon, event.DefaultRegisterOpts())
+	eventSys.Register("monitor", mon)
 
 	node := NewManagedNode(logger, chainID, syncCtrl, backend, false)
-	eventSys.Register("node", node, event.DefaultRegisterOpts())
+	eventSys.Register("node", node)
 
-	emitter := eventSys.Register("test", nil, event.DefaultRegisterOpts())
+	emitter := eventSys.Register("test", nil)
 
 	crossUnsafe := 0
 	crossSafe := 0
@@ -92,7 +92,7 @@ func TestEventResponse(t *testing.T) {
 
 func TestPrepareReset(t *testing.T) {
 	chainID := eth.ChainIDFromUInt64(1)
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LvlDebug)
 	syncCtrl := &mockSyncControl{}
 	backend := &mockBackend{}
 
@@ -100,10 +100,10 @@ func TestPrepareReset(t *testing.T) {
 	eventSys := event.NewSystem(logger, ex)
 
 	mon := &eventMonitor{}
-	eventSys.Register("monitor", mon, event.DefaultRegisterOpts())
+	eventSys.Register("monitor", mon)
 
 	node := NewManagedNode(logger, chainID, syncCtrl, backend, false)
-	eventSys.Register("node", node, event.DefaultRegisterOpts())
+	eventSys.Register("node", node)
 
 	// mock: return a block of the same number as requested
 	syncCtrl.blockRefByNumFn = func(ctx context.Context, number uint64) (eth.BlockRef, error) {
@@ -112,7 +112,7 @@ func TestPrepareReset(t *testing.T) {
 
 	// mock: control whether the blocks appear valid or not
 	var pivot uint64
-	backend.isLocalUnsafeFn = func(ctx context.Context, chainID eth.ChainID, id eth.BlockID) error {
+	backend.isLocalSafeFn = func(ctx context.Context, chainID eth.ChainID, id eth.BlockID) error {
 		if id.Number > uint64(pivot) {
 			return types.ErrConflict
 		}

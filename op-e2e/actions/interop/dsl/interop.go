@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/syncnode"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/types"
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -91,12 +92,19 @@ func (actors *InteropActors) PrepareChainState(t helpers.Testing) {
 	actors.ChainA.Sequencer.ActL2PipelineFull(t)
 	actors.ChainB.Sequencer.ActL2PipelineFull(t)
 	t.Log("Processed!")
+}
 
+func (actors *InteropActors) VerifyInitialState(t helpers.Testing) {
 	// Verify initial state
 	statusA := actors.ChainA.Sequencer.SyncStatus()
 	statusB := actors.ChainB.Sequencer.SyncStatus()
 	require.Equal(t, uint64(0), statusA.UnsafeL2.Number)
 	require.Equal(t, uint64(0), statusB.UnsafeL2.Number)
+}
+
+func (actors *InteropActors) PrepareAndVerifyInitialState(t helpers.Testing) {
+	actors.PrepareChainState(t)
+	actors.VerifyInitialState(t)
 }
 
 // messageExpiryTime is the time in seconds that a message will be valid for on the L2 chain.
@@ -117,12 +125,40 @@ func SetBlockTimeForChainB(blockTime uint64) setupOption {
 	}
 }
 
+func SetMessageExpiryTime(expiryTime uint64) setupOption {
+	return func(recipe *interopgen.InteropDevRecipe) {
+		recipe.ExpiryTime = expiryTime
+	}
+}
+
+func SetInteropOffsetForAllL2s(offset uint64) setupOption {
+	return func(recipe *interopgen.InteropDevRecipe) {
+		for i, l2 := range recipe.L2s {
+			l2.InteropOffset = offset
+			recipe.L2s[i] = l2
+		}
+	}
+}
+
+func SetInteropForkScheduledButInactive() setupOption {
+	return func(recipe *interopgen.InteropDevRecipe) {
+		// Update in place to avoid making a copy and losing the change.
+		// Set to a year in the future. Far enough tests won't hit it
+		// but not so far it will overflow when added to current time.
+		val := uint64(365 * 24 * 60 * 60)
+		for key := range recipe.L2s {
+			recipe.L2s[key].InteropOffset = val
+		}
+	}
+}
+
 // SetupInterop creates an InteropSetup to instantiate actors on, with 2 L2 chains.
 func SetupInterop(t helpers.Testing, opts ...setupOption) *InteropSetup {
 	recipe := interopgen.InteropDevRecipe{
 		L1ChainID:        900100,
 		L2s:              []interopgen.InteropDevL2Recipe{{ChainID: 900200}, {ChainID: 900201}},
 		GenesisTimestamp: uint64(time.Now().Unix() + 3),
+		ExpiryTime:       messageExpiryTime,
 	}
 	for _, opt := range opts {
 		opt(&recipe)
@@ -150,7 +186,7 @@ func SetupInterop(t helpers.Testing, opts ...setupOption) *InteropSetup {
 		Log:        logger,
 		Deployment: worldDeployment,
 		Out:        worldOutput,
-		DepSet:     worldToDepSet(t, worldOutput),
+		DepSet:     RecipeToDepSet(t, &recipe),
 		Keys:       hdWallet,
 		T:          t,
 	}
@@ -203,20 +239,20 @@ func (sa *SupervisorActor) SignalFinalizedL1(t helpers.Testing) {
 }
 
 func (sa *SupervisorActor) Rewind(chain eth.ChainID, block eth.BlockID) error {
-	return sa.backend.Rewind(chain, block)
+	return sa.backend.Rewind(context.Background(), chain, block)
 }
 
-// worldToDepSet converts a set of chain configs into a dependency-set for the supervisor.
-func worldToDepSet(t helpers.Testing, worldOutput *interopgen.WorldOutput) *depset.StaticConfigDependencySet {
+// RecipeToDepSet converts a recipe into a dependency-set for the supervisor.
+func RecipeToDepSet(t helpers.Testing, recipe *interopgen.InteropDevRecipe) *depset.StaticConfigDependencySet {
 	depSetCfg := make(map[eth.ChainID]*depset.StaticConfigDependency)
-	for _, out := range worldOutput.L2s {
-		depSetCfg[eth.ChainIDFromBig(out.Genesis.Config.ChainID)] = &depset.StaticConfigDependency{
-			ChainIndex:     types.ChainIndex(out.Genesis.Config.ChainID.Uint64()),
+	for _, out := range recipe.L2s {
+		depSetCfg[eth.ChainIDFromUInt64(out.ChainID)] = &depset.StaticConfigDependency{
+			ChainIndex:     types.ChainIndex(out.ChainID),
 			ActivationTime: 0,
 			HistoryMinTime: 0,
 		}
 	}
-	depSet, err := depset.NewStaticConfigDependencySetWithMessageExpiryOverride(depSetCfg, messageExpiryTime)
+	depSet, err := depset.NewStaticConfigDependencySetWithMessageExpiryOverride(depSetCfg, recipe.ExpiryTime)
 	require.NoError(t, err)
 	return depSet
 }
@@ -240,7 +276,7 @@ func NewSupervisor(t helpers.Testing, logger log.Logger, depSet depset.Dependenc
 	rpcServer := helpers.NewSimpleRPCServer()
 	supervisor.RegisterRPCs(logger, svCfg, rpcServer, b, metrics.NoopMetrics)
 	rpcServer.Start(t)
-	supervisorClient := sources.NewSupervisorClient(rpcServer.Connect(t), nil)
+	supervisorClient := sources.NewSupervisorClient(rpcServer.Connect(t))
 	return &SupervisorActor{
 		exec:             evExec,
 		backend:          b,
@@ -299,4 +335,18 @@ func createL2Services(
 		SequencerEngine: eng,
 		Batcher:         batcher,
 	}
+}
+
+// Creates a new L2 block, submits it to L1, and mines the L1 block.
+func (actors *InteropActors) ActBatchAndMine(t helpers.Testing, chains ...*Chain) {
+	var batches []*gethTypes.Transaction
+	for _, c := range chains {
+		c.Batcher.ActSubmitAll(t)
+		batches = append(batches, c.Batcher.LastSubmitted)
+	}
+	actors.L1Miner.ActL1StartBlock(12)(t)
+	for _, b := range batches {
+		actors.L1Miner.ActL1IncludeTxByHash(b.Hash())(t)
+	}
+	actors.L1Miner.ActL1EndBlock(t)
 }

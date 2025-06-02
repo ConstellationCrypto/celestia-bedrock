@@ -80,6 +80,10 @@ type Config struct {
 	DaConfig celestia.CLIConfig
 
 	IgnoreMissingPectraBlobSchedule bool
+	FetchWithdrawalRootFromState    bool
+
+	// Experimental. Enables new opstack RPC namespace. Used by op-test-sequencer.
+	ExperimentalOPStackAPI bool
 }
 
 // ConductorRPCFunc retrieves the endpoint. The RPC may not immediately be available.
