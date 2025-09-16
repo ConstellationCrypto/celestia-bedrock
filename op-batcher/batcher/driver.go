@@ -99,7 +99,6 @@ type DriverSetup struct {
 	AltDA             *altda.DAClient
 	DAClient          *celestia.DAClient
 	ChannelOutFactory ChannelOutFactory
-	DAClient          *celestia.DAClient
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -997,7 +996,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if nf := len(txdata.frames); nf > l.ChannelConfig.ChannelConfig(isPectra, isThrottling).TargetNumFrames {
 			l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
 		}
-		candidate, err = l.celestiaTxCandidate(l.shutdownCtx, txdata.CallData())
+		candidate, err = l.celestiaTxCandidate(txdata.CallData())
 		if err != nil {
 			l.Log.Error("celestia: blob submission failed", "err", err)
 			candidate, err = l.fallbackTxCandidate(txdata)

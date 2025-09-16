@@ -84,9 +84,10 @@ func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, b
 		// altDA([calldata | blobdata](l1Ref)) -> data
 		src = NewAltDADataSource(ds.log, src, ds.fetcher, ds.altDAFetcher, ref)
 	}
-	if CelestiaDAEnabled() {
-		src = NewCelestiaDataSource(ds.log, src)
-	}
+	// Skip Celestia DA because the caldera Celestia DA is implemented inside the calldata_source.go
+	//if CelestiaDAEnabled() {
+	//	src = NewCelestiaDataSource(ds.log, src)
+	//}
 	return src, nil
 }
 

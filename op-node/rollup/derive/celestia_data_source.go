@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	libshare "github.com/celestiaorg/go-square/v2/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var daClient *celestia.DAClient
+// daClient is declared in calldata_source.go
 
 func CelestiaDAEnabled() bool {
 	return daClient != nil
@@ -57,17 +56,13 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 	}
 
 	height, commitment := celestia.SplitID(s.comm)
-	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	blob, err := daClient.Client.Blob.Get(ctx, height, namespace, commitment)
+	blobs, err := daClient.Client.Get(ctx, [][]byte{commitment}, daClient.Namespace)
 	if err != nil {
 		// return temporary error so we can keep retrying.
 		return nil, NewTemporaryError(fmt.Errorf("celestia: failed to resolve frame: %w", err))
 	}
-	if blob == nil {
-		s.log.Warn("celestia: skipping empty blobs")
+	if len(blobs) != 1 || blobs[0] == nil {
+		s.log.Warn("celestia: skipping empty or invalid blobs", "height", height, "blobs_count", len(blobs))
 		s.comm = nil
 		// skip the input
 		return s.Next(ctx)
@@ -75,5 +70,5 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 
 	// reset the commitment so we can fetch the next one from the source at the next iteration.
 	s.comm = nil
-	return blob.Data(), nil
+	return blobs[0], nil
 }
