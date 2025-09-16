@@ -32,7 +32,7 @@ func prefixEnvVars(name string) []string {
 }
 
 var (
-	faultDisputeVMs = []types.TraceType{types.TraceTypeCannon, types.TraceTypeAsterisc, types.TraceTypeAsteriscKona, types.TraceTypeSuperCannon}
+	faultDisputeVMs = []types.TraceType{types.TraceTypeCannon, types.TraceTypeAsterisc, types.TraceTypeAsteriscKona, types.TraceTypeSuperCannon, types.TraceTypeSuperAsteriscKona}
 	// Required Flags
 	L1EthRpcFlag = &cli.StringFlag{
 		Name:    "l1-eth-rpc",
@@ -138,6 +138,13 @@ var (
 			EnvVars: envVars,
 		}
 	})
+	DepsetConfigFlag = NewVMFlag("depset-config", EnvVarPrefix, faultDisputeVMs, func(name string, envVars []string, traceTypeInfo string) cli.Flag {
+		return &cli.StringFlag{
+			Name:    name,
+			Usage:   "Interop dependency set config file " + traceTypeInfo,
+			EnvVars: envVars,
+		}
+	})
 	CannonL2CustomFlag = &cli.BoolFlag{
 		Name: "cannon-l2-custom",
 		Usage: "Notify the op-program host that the L2 chain uses custom config to be loaded via the preimage oracle. " +
@@ -187,6 +194,14 @@ var (
 		Name:    "asterisc-kona-server",
 		Usage:   "Path to kona executable to use as pre-image oracle server when generating trace data (asterisc-kona trace type only)",
 		EnvVars: prefixEnvVars("ASTERISC_KONA_SERVER"),
+	}
+	AsteriscKonaL2CustomFlag = &cli.BoolFlag{
+		Name: "asterisc-kona-l2-custom",
+		Usage: "Notify the kona-host that the L2 chain uses custom config to be loaded via the preimage oracle. " +
+			"WARNING: This is incompatible with on-chain testing and must only be used for testing purposes.",
+		EnvVars: prefixEnvVars("ASTERISC_KONA_L2_CUSTOM"),
+		Value:   false,
+		Hidden:  true,
 	}
 	AsteriscPreStateFlag = &cli.StringFlag{
 		Name:    "asterisc-prestate",
@@ -259,6 +274,7 @@ var optionalFlags = []cli.Flag{
 	CannonInfoFreqFlag,
 	AsteriscBinFlag,
 	AsteriscServerFlag,
+	AsteriscKonaL2CustomFlag,
 	AsteriscKonaServerFlag,
 	AsteriscPreStateFlag,
 	AsteriscKonaPreStateFlag,
@@ -274,6 +290,7 @@ func init() {
 	optionalFlags = append(optionalFlags, PreStatesURLFlag.Flags()...)
 	optionalFlags = append(optionalFlags, RollupConfigFlag.Flags()...)
 	optionalFlags = append(optionalFlags, L2GenesisFlag.Flags()...)
+	optionalFlags = append(optionalFlags, DepsetConfigFlag.Flags()...)
 	optionalFlags = append(optionalFlags, txmgr.CLIFlagsWithDefaults(EnvVarPrefix, txmgr.DefaultChallengerFlagValues)...)
 	optionalFlags = append(optionalFlags, opmetrics.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
@@ -292,11 +309,6 @@ func checkOutputProviderFlags(ctx *cli.Context) error {
 }
 
 func CheckCannonBaseFlags(ctx *cli.Context) error {
-	if !ctx.IsSet(flags.NetworkFlagName) &&
-		!(RollupConfigFlag.IsSet(ctx, types.TraceTypeCannon) && L2GenesisFlag.IsSet(ctx, types.TraceTypeCannon)) {
-		return fmt.Errorf("flag %v or %v and %v is required",
-			flags.NetworkFlagName, RollupConfigFlag.EitherFlagName(types.TraceTypeCannon), L2GenesisFlag.EitherFlagName(types.TraceTypeCannon))
-	}
 	if ctx.IsSet(flags.NetworkFlagName) &&
 		(RollupConfigFlag.IsSet(ctx, types.TraceTypeCannon) || L2GenesisFlag.IsSet(ctx, types.TraceTypeCannon) || ctx.Bool(CannonL2CustomFlag.Name)) {
 		return fmt.Errorf("flag %v can not be used with %v, %v or %v",
@@ -322,6 +334,14 @@ func CheckSuperCannonFlags(ctx *cli.Context) error {
 	if !ctx.IsSet(SupervisorRpcFlag.Name) {
 		return fmt.Errorf("flag %v is required", SupervisorRpcFlag.Name)
 	}
+	if !ctx.IsSet(flags.NetworkFlagName) &&
+		!(RollupConfigFlag.IsSet(ctx, types.TraceTypeCannon) && L2GenesisFlag.IsSet(ctx, types.TraceTypeCannon) && DepsetConfigFlag.IsSet(ctx, types.TraceTypeCannon)) {
+		return fmt.Errorf("flag %v or %v, %v and %v is required",
+			flags.NetworkFlagName,
+			RollupConfigFlag.EitherFlagName(types.TraceTypeCannon),
+			L2GenesisFlag.EitherFlagName(types.TraceTypeCannon),
+			DepsetConfigFlag.EitherFlagName(types.TraceTypeCannon))
+	}
 	if err := CheckCannonBaseFlags(ctx); err != nil {
 		return err
 	}
@@ -332,6 +352,11 @@ func CheckCannonFlags(ctx *cli.Context) error {
 	if err := checkOutputProviderFlags(ctx); err != nil {
 		return err
 	}
+	if !ctx.IsSet(flags.NetworkFlagName) &&
+		!(RollupConfigFlag.IsSet(ctx, types.TraceTypeCannon) && L2GenesisFlag.IsSet(ctx, types.TraceTypeCannon)) {
+		return fmt.Errorf("flag %v or %v and %v is required",
+			flags.NetworkFlagName, RollupConfigFlag.EitherFlagName(types.TraceTypeCannon), L2GenesisFlag.EitherFlagName(types.TraceTypeCannon))
+	}
 	if err := CheckCannonBaseFlags(ctx); err != nil {
 		return err
 	}
@@ -339,18 +364,15 @@ func CheckCannonFlags(ctx *cli.Context) error {
 }
 
 func CheckAsteriscBaseFlags(ctx *cli.Context, traceType types.TraceType) error {
-	if err := checkOutputProviderFlags(ctx); err != nil {
-		return err
-	}
 	if !ctx.IsSet(flags.NetworkFlagName) &&
 		!(RollupConfigFlag.IsSet(ctx, traceType) && L2GenesisFlag.IsSet(ctx, traceType)) {
 		return fmt.Errorf("flag %v or %v and %v is required",
 			flags.NetworkFlagName, RollupConfigFlag.EitherFlagName(traceType), L2GenesisFlag.EitherFlagName(traceType))
 	}
 	if ctx.IsSet(flags.NetworkFlagName) &&
-		(RollupConfigFlag.IsSet(ctx, traceType) || L2GenesisFlag.IsSet(ctx, traceType)) {
-		return fmt.Errorf("flag %v can not be used with %v and %v",
-			flags.NetworkFlagName, RollupConfigFlag.SourceFlagName(ctx, traceType), L2GenesisFlag.SourceFlagName(ctx, traceType))
+		(RollupConfigFlag.IsSet(ctx, types.TraceTypeAsteriscKona) || L2GenesisFlag.IsSet(ctx, types.TraceTypeAsteriscKona) || ctx.Bool(AsteriscKonaL2CustomFlag.Name)) {
+		return fmt.Errorf("flag %v can not be used with %v, %v or %v",
+			flags.NetworkFlagName, RollupConfigFlag.SourceFlagName(ctx, types.TraceTypeAsteriscKona), L2GenesisFlag.SourceFlagName(ctx, types.TraceTypeAsteriscKona), AsteriscKonaL2CustomFlag.Name)
 	}
 	if !ctx.IsSet(AsteriscBinFlag.Name) {
 		return fmt.Errorf("flag %s is required", AsteriscBinFlag.Name)
@@ -359,6 +381,9 @@ func CheckAsteriscBaseFlags(ctx *cli.Context, traceType types.TraceType) error {
 }
 
 func CheckAsteriscFlags(ctx *cli.Context) error {
+	if err := checkOutputProviderFlags(ctx); err != nil {
+		return err
+	}
 	if err := CheckAsteriscBaseFlags(ctx, types.TraceTypeAsterisc); err != nil {
 		return err
 	}
@@ -372,6 +397,33 @@ func CheckAsteriscFlags(ctx *cli.Context) error {
 }
 
 func CheckAsteriscKonaFlags(ctx *cli.Context) error {
+	if err := checkOutputProviderFlags(ctx); err != nil {
+		return err
+	}
+	if err := CheckAsteriscBaseFlags(ctx, types.TraceTypeAsteriscKona); err != nil {
+		return err
+	}
+	if !ctx.IsSet(AsteriscKonaServerFlag.Name) {
+		return fmt.Errorf("flag %s is required", AsteriscKonaServerFlag.Name)
+	}
+	if !PreStatesURLFlag.IsSet(ctx, types.TraceTypeAsteriscKona) && !ctx.IsSet(AsteriscKonaPreStateFlag.Name) {
+		return fmt.Errorf("flag %s or %s is required", PreStatesURLFlag.EitherFlagName(types.TraceTypeAsteriscKona), AsteriscKonaPreStateFlag.Name)
+	}
+	return nil
+}
+
+func CheckSuperAsteriscKonaFlags(ctx *cli.Context) error {
+	if !ctx.IsSet(SupervisorRpcFlag.Name) {
+		return fmt.Errorf("flag %v is required", SupervisorRpcFlag.Name)
+	}
+	if !ctx.IsSet(flags.NetworkFlagName) &&
+		!(RollupConfigFlag.IsSet(ctx, types.TraceTypeAsteriscKona) && L2GenesisFlag.IsSet(ctx, types.TraceTypeAsteriscKona) && DepsetConfigFlag.IsSet(ctx, types.TraceTypeAsteriscKona)) {
+		return fmt.Errorf("flag %v or %v, %v and %v is required",
+			flags.NetworkFlagName,
+			RollupConfigFlag.EitherFlagName(types.TraceTypeAsteriscKona),
+			L2GenesisFlag.EitherFlagName(types.TraceTypeAsteriscKona),
+			DepsetConfigFlag.EitherFlagName(types.TraceTypeAsteriscKona))
+	}
 	if err := CheckAsteriscBaseFlags(ctx, types.TraceTypeAsteriscKona); err != nil {
 		return err
 	}
@@ -411,6 +463,10 @@ func CheckRequired(ctx *cli.Context, traceTypes []types.TraceType) error {
 			if err := CheckSuperCannonFlags(ctx); err != nil {
 				return err
 			}
+		case types.TraceTypeSuperAsteriscKona:
+			if err := CheckSuperAsteriscKonaFlags(ctx); err != nil {
+				return err
+			}
 		case types.TraceTypeAlphabet, types.TraceTypeFast:
 			if err := checkOutputProviderFlags(ctx); err != nil {
 				return err
@@ -436,6 +492,16 @@ func parseTraceTypes(ctx *cli.Context) ([]types.TraceType, error) {
 	return traceTypes, nil
 }
 
+type ChainAddressesSource func(network string) (superchain.AddressesConfig, error)
+
+var superchainAddressSource ChainAddressesSource = func(network string) (superchain.AddressesConfig, error) {
+	chainCfg := chaincfg.ChainByName(network)
+	if chainCfg == nil {
+		return superchain.AddressesConfig{}, fmt.Errorf("unknown chain: %v (Valid options: %v)", network, strings.Join(chaincfg.AvailableNetworks(), ", "))
+	}
+	return chainCfg.Addresses, nil
+}
+
 func FactoryAddress(ctx *cli.Context) (common.Address, error) {
 	// Use FactoryAddressFlag in preference to Network. Allows overriding the default dispute game factory.
 	if ctx.IsSet(FactoryAddressFlag.Name) {
@@ -446,27 +512,30 @@ func FactoryAddress(ctx *cli.Context) (common.Address, error) {
 		return gameFactoryAddress, nil
 	}
 	networks := ctx.StringSlice(flags.NetworkFlagName)
-	if len(networks) > 1 {
-		return common.Address{}, fmt.Errorf("flag %v required when multiple networks specified", FactoryAddressFlag.Name)
-	}
 	if len(networks) == 0 {
 		return common.Address{}, fmt.Errorf("flag %v or %v is required", FactoryAddressFlag.Name, flags.NetworkFlagName)
 	}
+	return FactoryAddressForNetworks(networks, superchainAddressSource)
+}
 
-	network := networks[0]
-	chainCfg := chaincfg.ChainByName(network)
-	if chainCfg == nil {
-		var opts []string
-		for _, cfg := range superchain.Chains {
-			opts = append(opts, cfg.Name+"-"+cfg.Network)
+func FactoryAddressForNetworks(networks []string, addressSource ChainAddressesSource) (common.Address, error) {
+	var factoryAddress common.Address
+	for _, network := range networks {
+		addrs, err := addressSource(network)
+		if err != nil {
+			return common.Address{}, err
 		}
-		return common.Address{}, fmt.Errorf("unknown chain: %v (Valid options: %v)", network, strings.Join(opts, ", "))
+		if addrs.DisputeGameFactoryProxy == nil {
+			return common.Address{}, fmt.Errorf("dispute factory proxy not available for chain %v", network)
+		}
+		addr := *addrs.DisputeGameFactoryProxy
+		if factoryAddress == (common.Address{}) {
+			factoryAddress = addr
+		} else if factoryAddress != addr {
+			return common.Address{}, fmt.Errorf("specified networks use different dispute game factories, flag %v required", FactoryAddressFlag.Name)
+		}
 	}
-	addrs := chainCfg.Addresses
-	if addrs.DisputeGameFactoryProxy == nil {
-		return common.Address{}, fmt.Errorf("dispute factory proxy not available for chain %v", network)
-	}
-	return *addrs.DisputeGameFactoryProxy, nil
+	return factoryAddress, nil
 }
 
 // NewConfigFromCLI parses the Config from the provided flags or environment variables.
@@ -567,6 +636,7 @@ func NewConfigFromCLI(ctx *cli.Context, logger log.Logger) (*config.Config, erro
 			L2Custom:          ctx.Bool(CannonL2CustomFlag.Name),
 			RollupConfigPaths: RollupConfigFlag.StringSlice(ctx, types.TraceTypeCannon),
 			L2GenesisPaths:    L2GenesisFlag.StringSlice(ctx, types.TraceTypeCannon),
+			DepsetConfigPath:  DepsetConfigFlag.String(ctx, types.TraceTypeCannon),
 			SnapshotFreq:      ctx.Uint(CannonSnapshotFreqFlag.Name),
 			InfoFreq:          ctx.Uint(CannonInfoFreqFlag.Name),
 			DebugInfo:         true,
@@ -586,6 +656,7 @@ func NewConfigFromCLI(ctx *cli.Context, logger log.Logger) (*config.Config, erro
 			Networks:          networks,
 			RollupConfigPaths: RollupConfigFlag.StringSlice(ctx, types.TraceTypeAsterisc),
 			L2GenesisPaths:    L2GenesisFlag.StringSlice(ctx, types.TraceTypeAsterisc),
+			DepsetConfigPath:  DepsetConfigFlag.String(ctx, types.TraceTypeAsterisc),
 			SnapshotFreq:      ctx.Uint(AsteriscSnapshotFreqFlag.Name),
 			InfoFreq:          ctx.Uint(AsteriscInfoFreqFlag.Name),
 			BinarySnapshots:   true,
@@ -601,8 +672,10 @@ func NewConfigFromCLI(ctx *cli.Context, logger log.Logger) (*config.Config, erro
 			VmBin:             ctx.String(AsteriscBinFlag.Name),
 			Server:            ctx.String(AsteriscKonaServerFlag.Name),
 			Networks:          networks,
+			L2Custom:          ctx.Bool(AsteriscKonaL2CustomFlag.Name),
 			RollupConfigPaths: RollupConfigFlag.StringSlice(ctx, types.TraceTypeAsteriscKona),
 			L2GenesisPaths:    L2GenesisFlag.StringSlice(ctx, types.TraceTypeAsteriscKona),
+			DepsetConfigPath:  DepsetConfigFlag.String(ctx, types.TraceTypeAsteriscKona),
 			SnapshotFreq:      ctx.Uint(AsteriscSnapshotFreqFlag.Name),
 			InfoFreq:          ctx.Uint(AsteriscInfoFreqFlag.Name),
 			BinarySnapshots:   true,
