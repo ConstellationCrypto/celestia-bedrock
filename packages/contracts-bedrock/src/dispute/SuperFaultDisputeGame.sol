@@ -49,7 +49,9 @@ import {
     GameNotFinalized,
     InvalidBondDistributionMode,
     GameNotResolved,
-    ReservedGameType
+    ReservedGameType,
+    GamePaused,
+    BadExtraData
 } from "src/dispute/lib/Errors.sol";
 
 // Interfaces
@@ -163,9 +165,9 @@ contract SuperFaultDisputeGame is Clone, ISemver {
     Position internal constant ROOT_POSITION = Position.wrap(1);
 
     /// @notice Semantic version.
-    /// @custom:semver 0.3.0
+    /// @custom:semver 0.5.0
     function version() public pure virtual returns (string memory) {
-        return "0.3.0";
+        return "0.5.0";
     }
 
     /// @notice The starting timestamp of the game
@@ -301,20 +303,14 @@ contract SuperFaultDisputeGame is Clone, ISemver {
         // in the factory, but are not used by the game, which would allow for multiple dispute games for the same
         // output proposal to be created.
         //
-        // Expected length: 0x7A
-        // - 0x04 selector
-        // - 0x14 creator address
-        // - 0x20 root claim
-        // - 0x20 l1 head
-        // - 0x20 extraData
-        // - 0x02 CWIA bytes
-        assembly {
-            if iszero(eq(calldatasize(), 0x7A)) {
-                // Store the selector for `BadExtraData()` & revert
-                mstore(0x00, 0x9824bdab)
-                revert(0x1C, 0x04)
-            }
-        }
+        // Expected length: 122 bytes
+        // - 4 bytes selector
+        // - 20 bytes creator address
+        // - 32 bytes root claim
+        // - 32 bytes l1 head
+        // - 32 bytes extraData
+        // - 2 bytes CWIA length
+        if (msg.data.length != 122) revert BadExtraData();
 
         // Do not allow the game to be initialized if the root claim corresponds to a l2 sequence number (timestamp) at
         // or before the configured starting sequence number.
@@ -617,7 +613,7 @@ contract SuperFaultDisputeGame is Clone, ISemver {
 
     /// @notice The l2SequenceNumber (timestamp) of the disputed super root in game root claim.
     function l2SequenceNumber() public pure returns (uint256 l2SequenceNumber_) {
-        l2SequenceNumber_ = _getArgUint256(0x54);
+        l2SequenceNumber_ = _getArgUint256(84);
     }
 
     /// @notice Only the starting sequence number (timestamp) of the game.
@@ -771,21 +767,21 @@ contract SuperFaultDisputeGame is Clone, ISemver {
     /// @dev `clones-with-immutable-args` argument #1
     /// @return creator_ The creator of the dispute game.
     function gameCreator() public pure returns (address creator_) {
-        creator_ = _getArgAddress(0x00);
+        creator_ = _getArgAddress(0);
     }
 
     /// @notice Getter for the root claim.
     /// @dev `clones-with-immutable-args` argument #2
     /// @return rootClaim_ The root claim of the DisputeGame.
     function rootClaim() public pure returns (Claim rootClaim_) {
-        rootClaim_ = Claim.wrap(_getArgBytes32(0x14));
+        rootClaim_ = Claim.wrap(_getArgBytes32(20));
     }
 
     /// @notice Getter for the parent hash of the L1 block when the dispute game was created.
     /// @dev `clones-with-immutable-args` argument #3
     /// @return l1Head_ The parent hash of the L1 block when the dispute game was created.
     function l1Head() public pure returns (Hash l1Head_) {
-        l1Head_ = Hash.wrap(_getArgBytes32(0x34));
+        l1Head_ = Hash.wrap(_getArgBytes32(52));
     }
 
     /// @notice Getter for the extra data.
@@ -794,7 +790,7 @@ contract SuperFaultDisputeGame is Clone, ISemver {
     function extraData() public pure returns (bytes memory extraData_) {
         // The extra data starts at the second word within the cwia calldata and
         // is 32 bytes long.
-        extraData_ = _getArgBytes(0x54, 0x20);
+        extraData_ = _getArgBytes(84, 32);
     }
 
     /// @notice A compliant implementation of this interface should return the components of the
@@ -908,6 +904,15 @@ contract SuperFaultDisputeGame is Clone, ISemver {
     /// @notice Closes out the game, determines the bond distribution mode, attempts to register
     ///         the game as the anchor game, and emits an event.
     function closeGame() public {
+        // We won't close the game if the system is currently paused. Paused games are temporarily
+        // invalid which would cause the game to go into refund mode and potentially cause some
+        // confusion for honest challengers. By blocking the game from being closed while the
+        // system is paused, the game will only go into refund mode if it ends up being explicitly
+        // invalidated in the AnchorStateRegistry.
+        if (ANCHOR_STATE_REGISTRY.paused()) {
+            revert GamePaused();
+        }
+
         // If the bond distribution mode has already been determined, we can return early.
         if (bondDistributionMode == BondDistributionMode.REFUND || bondDistributionMode == BondDistributionMode.NORMAL)
         {

@@ -3,9 +3,8 @@ package state
 import (
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/addresses"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/artifacts"
-	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/standard"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
@@ -14,7 +13,7 @@ import (
 func TestCombineDeployConfig(t *testing.T) {
 	intent := Intent{
 		L1ChainID:          1,
-		L1ContractsLocator: artifacts.MustNewLocatorFromTag(standard.ContractsV170Beta1L2Tag),
+		L1ContractsLocator: artifacts.EmbeddedLocator,
 	}
 	chainState := ChainState{
 		ID: common.HexToHash("0x123"),
@@ -34,18 +33,25 @@ func TestCombineDeployConfig(t *testing.T) {
 		},
 	}
 	state := State{
-		SuperchainDeployment: &SuperchainDeployment{ProtocolVersionsProxyAddress: common.HexToAddress("0x123")},
+		SuperchainDeployment: &addresses.SuperchainContracts{ProtocolVersionsProxy: common.HexToAddress("0x123")},
 	}
 
 	// apply hard fork overrides
 	chainIntent.DeployOverrides = map[string]any{
-		"l2GenesisGraniteTimeOffset":  "0x8",
-		"l2GenesisHoloceneTimeOffset": "0x10",
+		"l2GenesisFjordTimeOffset":    "0x1",
+		"l2GenesisGraniteTimeOffset":  "0x2",
+		"l2GenesisHoloceneTimeOffset": "0x3",
+		"l2GenesisIsthmusTimeOffset":  "0x4",
+		"l2GenesisJovianTimeOffset":   "0x5",
+		"l2GenesisInteropTimeOffset":  "0x6",
 	}
 
 	out, err := CombineDeployConfig(&intent, &chainIntent, &state, &chainState)
 	require.NoError(t, err)
-	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisFjordTimeOffset, hexutil.Uint64(0))
-	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisGraniteTimeOffset, hexutil.Uint64(8))
-	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisHoloceneTimeOffset, hexutil.Uint64(16))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisFjordTimeOffset, hexutil.Uint64(1))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisGraniteTimeOffset, hexutil.Uint64(2))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisHoloceneTimeOffset, hexutil.Uint64(3))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisIsthmusTimeOffset, hexutil.Uint64(4))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisJovianTimeOffset, hexutil.Uint64(5))
+	require.Equal(t, *out.L2InitializationConfig.UpgradeScheduleDeployConfig.L2GenesisInteropTimeOffset, hexutil.Uint64(6))
 }

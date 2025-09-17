@@ -2,6 +2,7 @@ package celestia
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -13,12 +14,13 @@ import (
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/rollkit/go-da"
-	"github.com/rollkit/go-da/proxy"
 	"github.com/tendermint/tendermint/crypto/merkle"
+
+	"github.com/celestiaorg/celestia-node/api/rpc/client"
 )
 
 type DAClient struct {
-	Client       da.DA
+	Client       *client.Client
 	GetTimeout   time.Duration
 	Namespace    da.Namespace
 	FallbackMode string
@@ -27,8 +29,28 @@ type DAClient struct {
 	S3Bucket     string
 }
 
+// heightLen is a length (in bytes) of serialized height.
+//
+// This is 8 as uint64 consist of 8 bytes.
+const heightLen = 8
+
+func MakeID(height uint64, commitment []byte) []byte {
+	id := make([]byte, heightLen+len(commitment))
+	binary.LittleEndian.PutUint64(id, height)
+	copy(id[heightLen:], commitment)
+	return id
+}
+
+func SplitID(id []byte) (uint64, []byte) {
+	if len(id) <= heightLen {
+		return 0, nil
+	}
+	commitment := id[heightLen:]
+	return binary.LittleEndian.Uint64(id[:heightLen]), commitment
+}
+
 func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s3region string, s3bucket string, auth bool) (*DAClient, error) {
-	client, err := proxy.NewClient(rpc, token)
+	client, err := client.NewClient(context.Background(), rpc, token)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +63,6 @@ func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s
 		namespace = "00000000000000000000000000000000000000" + namespace
 		log.Warn("celestia: Namespace has been adjusted.", "namespace", namespace)
 	}
-
 	ns, err := hex.DecodeString(namespace)
 	if err != nil {
 		return nil, err

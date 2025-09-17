@@ -18,7 +18,6 @@ const (
 	MIPSVersionFlagName                     = "mips-version"
 	ProxyOwnerFlagName                      = "proxy-owner"
 	SuperchainProxyAdminOwnerFlagName       = "superchain-proxy-admin-owner"
-	L1ContractsReleaseFlagName              = "l1-contracts-release"
 	ProtocolVersionsOwnerFlagName           = "protocol-versions-owner"
 	GuardianFlagName                        = "guardian"
 	PausedFlagName                          = "paused"
@@ -108,11 +107,6 @@ var (
 		Usage:   "Recommended protocol version (semver)",
 		EnvVars: deployer.PrefixEnvVar("RECOMMENDED_PROTOCOL_VERSION"),
 	}
-	L1ContractsReleaseFlag = &cli.StringFlag{
-		Name:    L1ContractsReleaseFlagName,
-		Usage:   "Release version to set OPCM implementations for, of the format `op-contracts/vX.Y.Z`.",
-		EnvVars: deployer.PrefixEnvVar("L1_CONTRACTS_RELEASE"),
-	}
 	SuperchainConfigProxyFlag = &cli.StringFlag{
 		Name:    "superchain-config-proxy",
 		Usage:   "Superchain config proxy.",
@@ -128,15 +122,20 @@ var (
 		Usage:   "Upgrade controller.",
 		EnvVars: deployer.PrefixEnvVar("UPGRADE_CONTROLLER"),
 	}
-	UseInteropFlag = &cli.BoolFlag{
-		Name:    "use-interop",
-		Usage:   "If true, deploy Interop implementations.",
-		EnvVars: deployer.PrefixEnvVar("USE_INTEROP"),
+	SuperchainProxyAdminFlag = &cli.StringFlag{
+		Name:    "superchain-proxy-admin",
+		Usage:   "Superchain proxy admin.",
+		EnvVars: deployer.PrefixEnvVar("SUPERCHAIN_PROXY_ADMIN"),
 	}
 	ConfigFileFlag = &cli.StringFlag{
 		Name:    "config",
 		Usage:   "Path to a JSON file",
 		EnvVars: deployer.PrefixEnvVar("CONFIG"),
+	}
+	ChallengerFlag = &cli.StringFlag{
+		Name:    "challenger",
+		Usage:   "Challenger.",
+		EnvVars: deployer.PrefixEnvVar("CHALLENGER"),
 	}
 )
 
@@ -145,7 +144,6 @@ var ImplementationsFlags = []cli.Flag{
 	deployer.PrivateKeyFlag,
 	OutfileFlag,
 	deployer.ArtifactsLocatorFlag,
-	L1ContractsReleaseFlag,
 	MIPSVersionFlag,
 	WithdrawalDelaySecondsFlag,
 	MinProposalSizeBytesFlag,
@@ -155,7 +153,8 @@ var ImplementationsFlags = []cli.Flag{
 	SuperchainConfigProxyFlag,
 	ProtocolVersionsProxyFlag,
 	UpgradeControllerFlag,
-	UseInteropFlag,
+	SuperchainProxyAdminFlag,
+	ChallengerFlag,
 }
 
 var ProxyFlags = []cli.Flag{
@@ -205,11 +204,5 @@ var Commands = []*cli.Command{
 		Usage:  "Bootstrap the Superchain configuration",
 		Flags:  cliapp.ProtectFlags(SuperchainFlags),
 		Action: SuperchainCLI,
-	},
-	{
-		Name:   "validator",
-		Usage:  "Bootstrap the StandardValidator contracts",
-		Flags:  cliapp.ProtectFlags(ValidatorFlags),
-		Action: ValidatorCLI,
 	},
 }

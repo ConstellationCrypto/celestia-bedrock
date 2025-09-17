@@ -52,8 +52,10 @@ const (
 	// The default value is 28 days. The worst case duration for a game is 16 days
 	// (due to clock extension), plus 7 days WETH withdrawal delay leaving a 5 day
 	// buffer to monitor games to ensure bonds are claimed.
-	DefaultGameWindow   = 28 * 24 * time.Hour
-	DefaultMaxPendingTx = 10
+	DefaultGameWindow         = 28 * 24 * time.Hour
+	DefaultMaxPendingTx       = 10
+	DefaultResponseDelay      = 0 // No delay by default
+	DefaultResponseDelayAfter = 0 // Apply delay from first response by default
 )
 
 // Config is a well typed config that is parsed from the CLI params.
@@ -69,6 +71,7 @@ type Config struct {
 	MaxConcurrency       uint             // Maximum number of threads to use when progressing games
 	PollInterval         time.Duration    // Polling interval for latest-block subscription when using an HTTP RPC provider
 	AllowInvalidPrestate bool             // Whether to allow responding to games where the prestate does not match
+	MinUpdateInterval    time.Duration    // Minimum duration the L1 head block time must advance before scheduling a new update cycle
 
 	AdditionalBondClaimants []common.Address // List of addresses to claim bonds for in addition to the tx manager sender
 
@@ -98,6 +101,79 @@ type Config struct {
 	TxMgrConfig   txmgr.CLIConfig
 	MetricsConfig opmetrics.CLIConfig
 	PprofConfig   oppprof.CLIConfig
+
+	ResponseDelay time.Duration /* Delay before responding to each game action to slow down game progression.
+	   Note: set with caution, since the challenger can end up using more resources if it has to wait to respond
+	   to an attacker generating many claims. Consider using the additional ResponseDelayAfter config option.
+	   Also note that the delay is only applied when:
+	   	1) delaying will not lead to a timeout of the game,
+	   	2) the challenger is not in a clock extension period and
+	   	3) delaying will not lead to the challenger having to respond inside of a clock extension period
+	       (thus ensuring that the challenger always has enough remaining time to respond to the game action). */
+	ResponseDelayAfter uint64 /* Number of responses after which to start applying the delay.
+	   Set to 0 to apply delay from the first response, 1 to skip the first response, etc.
+	   Note: the delay is only applied from the next round after which this `responseDelayAfter` value
+	   is surpassed (not from the exact response after which its surpassed, but from the next round). */
+}
+
+func NewInteropConfig(
+	gameFactoryAddress common.Address,
+	l1EthRpc string,
+	l1BeaconApi string,
+	supervisorRpc string,
+	l2Rpcs []string,
+	datadir string,
+	supportedTraceTypes ...types.TraceType,
+) Config {
+	return Config{
+		L1EthRpc:           l1EthRpc,
+		L1Beacon:           l1BeaconApi,
+		SupervisorRPC:      supervisorRpc,
+		L2Rpcs:             l2Rpcs,
+		GameFactoryAddress: gameFactoryAddress,
+		MaxConcurrency:     uint(runtime.NumCPU()),
+		PollInterval:       DefaultPollInterval,
+
+		TraceTypes: supportedTraceTypes,
+
+		MaxPendingTx: DefaultMaxPendingTx,
+
+		TxMgrConfig:   txmgr.NewCLIConfig(l1EthRpc, txmgr.DefaultChallengerFlagValues),
+		MetricsConfig: opmetrics.DefaultCLIConfig(),
+		PprofConfig:   oppprof.DefaultCLIConfig(),
+
+		Datadir: datadir,
+
+		Cannon: vm.Config{
+			VmType:          types.TraceTypeCannon,
+			L1:              l1EthRpc,
+			L1Beacon:        l1BeaconApi,
+			L2s:             l2Rpcs,
+			SnapshotFreq:    DefaultCannonSnapshotFreq,
+			InfoFreq:        DefaultCannonInfoFreq,
+			DebugInfo:       true,
+			BinarySnapshots: true,
+		},
+		Asterisc: vm.Config{
+			VmType:          types.TraceTypeAsterisc,
+			L1:              l1EthRpc,
+			L1Beacon:        l1BeaconApi,
+			L2s:             l2Rpcs,
+			SnapshotFreq:    DefaultAsteriscSnapshotFreq,
+			InfoFreq:        DefaultAsteriscInfoFreq,
+			BinarySnapshots: true,
+		},
+		AsteriscKona: vm.Config{
+			VmType:          types.TraceTypeAsteriscKona,
+			L1:              l1EthRpc,
+			L1Beacon:        l1BeaconApi,
+			L2s:             l2Rpcs,
+			SnapshotFreq:    DefaultAsteriscSnapshotFreq,
+			InfoFreq:        DefaultAsteriscInfoFreq,
+			BinarySnapshots: true,
+		},
+		GameWindow: DefaultGameWindow,
+	}
 }
 
 func NewConfig(
@@ -227,17 +303,20 @@ func (c Config) Check() error {
 		if c.RollupRpc == "" {
 			return ErrMissingRollupRpc
 		}
-		if err := c.AsteriscKona.Check(); err != nil {
-			return fmt.Errorf("asterisc kona: %w", err)
+		if err := c.validateBaseAsteriscKonaOptions(); err != nil {
+			return err
 		}
-		if c.AsteriscKonaAbsolutePreState == "" && c.AsteriscKonaAbsolutePreStateBaseURL == nil {
-			return ErrMissingAsteriscKonaAbsolutePreState
+	}
+	if c.TraceTypeEnabled(types.TraceTypeSuperAsteriscKona) {
+		if c.SupervisorRPC == "" {
+			return ErrMissingSupervisorRpc
 		}
-		if c.AsteriscKona.SnapshotFreq == 0 {
-			return ErrMissingAsteriscKonaSnapshotFreq
+
+		if len(c.AsteriscKona.Networks) == 0 && c.AsteriscKona.DepsetConfigPath == "" {
+			return ErrMissingDepsetConfig
 		}
-		if c.AsteriscKona.InfoFreq == 0 {
-			return ErrMissingAsteriscKonaInfoFreq
+		if err := c.validateBaseAsteriscKonaOptions(); err != nil {
+			return err
 		}
 	}
 	if c.TraceTypeEnabled(types.TraceTypeAlphabet) || c.TraceTypeEnabled(types.TraceTypeFast) {
@@ -269,6 +348,22 @@ func (c Config) validateBaseCannonOptions() error {
 	}
 	if c.Cannon.InfoFreq == 0 {
 		return ErrMissingCannonInfoFreq
+	}
+	return nil
+}
+
+func (c Config) validateBaseAsteriscKonaOptions() error {
+	if err := c.AsteriscKona.Check(); err != nil {
+		return fmt.Errorf("asterisc kona: %w", err)
+	}
+	if c.AsteriscKonaAbsolutePreState == "" && c.AsteriscKonaAbsolutePreStateBaseURL == nil {
+		return ErrMissingAsteriscKonaAbsolutePreState
+	}
+	if c.AsteriscKona.SnapshotFreq == 0 {
+		return ErrMissingAsteriscKonaSnapshotFreq
+	}
+	if c.AsteriscKona.InfoFreq == 0 {
+		return ErrMissingAsteriscKonaInfoFreq
 	}
 	return nil
 }
