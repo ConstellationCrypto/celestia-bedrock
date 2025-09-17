@@ -1082,7 +1082,7 @@ func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
 
 func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (*txmgr.TxCandidate, error) {
 	l.Log.Info("Building Celestia transaction candidate", "size", len(data))
-	ctx, cancel := context.WithTimeout(ctx, l.DAClient.SubmitTimeout)
+	ctx, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
 	defer cancel()
 	namespace, err := libshare.NewNamespaceFromBytes(l.DAClient.Namespace)
 	if err != nil {
@@ -1101,7 +1101,7 @@ func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (
 	data = append([]byte{celestia.DerivationVersionCelestia}, id...)
 
 	ctx2, cancel := context.WithTimeout(context.Background(), l.DAClient.GetTimeout)
-	frame := append([]byte{celestia.DerivationVersionCelestia}, b...)
+	frame := append([]byte{celestia.DerivationVersionCelestia}, b.Commitment...)
 	err = l.uploadS3Data(ctx2, frame, data)
 	cancel()
 	if err == nil {
