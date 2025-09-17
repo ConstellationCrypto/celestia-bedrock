@@ -156,6 +156,9 @@ func (is *IndexerService) initClients(ctx context.Context, cfg *CLIConfig) error
 		cfg.CelestiaConfig.Namespace,
 		cfg.CelestiaConfig.FallbackMode,
 		cfg.CelestiaConfig.GasPrice,
+		cfg.CelestiaConfig.S3Region,
+		cfg.CelestiaConfig.S3Bucket,
+		false,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create Celestia client: %w", err)
