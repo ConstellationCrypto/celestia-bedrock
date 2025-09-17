@@ -45,7 +45,7 @@ const (
 	Jovian   ForkName = "jovian"
 	Interop  ForkName = "interop"
 	// ADD NEW FORKS TO AllForks BELOW!
-	None ForkName = "none"
+	None ForkName = ""
 )
 
 var AllForks = []ForkName{
@@ -166,10 +166,6 @@ func (s *ChainSpec) MaxSequencerDrift(t uint64) uint64 {
 }
 
 func (s *ChainSpec) CheckForkActivation(log log.Logger, block eth.L2BlockRef) {
-	if s.currentFork == Interop {
-		return
-	}
-
 	if s.currentFork == "" {
 		// Initialize currentFork if it is not set yet
 		s.currentFork = Bedrock

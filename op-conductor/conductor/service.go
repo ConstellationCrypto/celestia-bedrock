@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,7 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-conductor/health"
 	"github.com/ethereum-optimism/optimism/op-conductor/metrics"
 	conductorrpc "github.com/ethereum-optimism/optimism/op-conductor/rpc"
-	opp2p "github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-conductor/rpc/ws"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	opclient "github.com/ethereum-optimism/optimism/op-service/client"
@@ -116,6 +117,9 @@ func (c *OpConductor) init(ctx context.Context) error {
 	if err := c.initRPCServer(ctx); err != nil {
 		return errors.Wrap(err, "failed to initialize rpc server")
 	}
+	if err := c.initFlashblocksHandler(ctx); err != nil {
+		return errors.Wrap(err, "failed to initialize flashblocks handler")
+	}
 	return nil
 }
 
@@ -209,11 +213,33 @@ func (c *OpConductor) initHealthMonitor(ctx context.Context) error {
 	}
 	node := sources.NewRollupClient(nc)
 
-	pc, err := rpc.DialContext(ctx, c.cfg.NodeRPC)
-	if err != nil {
-		return errors.Wrap(err, "failed to create p2p rpc client")
+	var rb client.RollupBoostClient
+	if c.cfg.RollupBoostEnabled {
+		rb = client.NewRollupBoostClient(c.cfg.ExecutionRPC, &http.Client{
+			Timeout: c.cfg.RollupBoostHealthcheckTimeout,
+		})
 	}
-	p2p := opp2p.NewClient(pc)
+
+	var elP2p client.ElP2PClient
+	if c.cfg.HealthCheck.ExecutionP2pEnabled {
+		execClient, err := dial.DialEthClientWithTimeout(ctx, 1*time.Minute, c.log, c.cfg.HealthCheck.ExecutionP2pRPCUrl)
+		if err != nil {
+			return errors.Wrap(err, "failed to create execution rpc client out of the el p2p rpc url: "+c.cfg.HealthCheck.ExecutionP2pRPCUrl)
+		}
+		elP2p = client.NewElP2PClientAdmin(execClient)
+	} else {
+		elP2p = nil
+	}
+
+	p2p := sources.NewP2PClient(nc)
+
+	var supervisor health.SupervisorHealthAPI
+	if c.cfg.SupervisorRPC != "" {
+		supervisor, err = dial.DialSupervisorClientWithTimeout(ctx, c.log, c.cfg.SupervisorRPC)
+		if err != nil {
+			return errors.Wrap(err, "failed to dial supervisor")
+		}
+	}
 
 	c.hmon = health.NewSequencerHealthMonitor(
 		c.log,
@@ -226,6 +252,10 @@ func (c *OpConductor) initHealthMonitor(ctx context.Context) error {
 		&c.cfg.RollupCfg,
 		node,
 		p2p,
+		supervisor,
+		rb,
+		elP2p,
+		c.cfg.HealthCheck.ExecutionP2pMinPeerCount,
 	)
 	c.healthUpdateCh = c.hmon.Subscribe()
 
@@ -238,6 +268,7 @@ func (oc *OpConductor) initRPCServer(ctx context.Context) error {
 		oc.cfg.RPC.ListenPort,
 		oc.version,
 		oprpc.WithLogger(oc.log),
+		oprpc.WithRPCRecorder(oc.metrics.NewRecorder("main")),
 	)
 	api := conductorrpc.NewAPIBackend(oc.log, oc)
 	server.AddAPI(rpc.API{
@@ -262,7 +293,7 @@ func (oc *OpConductor) initRPCServer(ctx context.Context) error {
 			Service:   execMinerProxy,
 		})
 
-		nodeClient, err := dial.DialRollupClientWithTimeout(ctx, 1*time.Minute, oc.log, oc.cfg.NodeRPC)
+		nodeClient, err := dial.DialRollupClientWithTimeout(ctx, oc.log, oc.cfg.NodeRPC)
 		if err != nil {
 			return errors.Wrap(err, "failed to create node rpc client")
 		}
@@ -280,6 +311,30 @@ func (oc *OpConductor) initRPCServer(ctx context.Context) error {
 	}
 
 	oc.rpcServer = server
+	return nil
+}
+
+// initFlashblocksHandler initializes the flashblocks handler
+func (c *OpConductor) initFlashblocksHandler(ctx context.Context) error {
+	if c.cfg.RollupBoostWsURL == "" || c.cfg.WebsocketServerPort <= 0 {
+		c.log.Info("flashblocks handler disabled, no rollup boost URL or websocket server port configured")
+		return nil
+	}
+
+	// Initialize the flashblocks handler
+	handler, err := ws.NewHandler(ws.Config{
+		RollupBoostWsURL:    c.cfg.RollupBoostWsURL,
+		WebsocketServerPort: c.cfg.WebsocketServerPort,
+	}, c.log, func(ctx context.Context) bool {
+		return c.Leader(ctx)
+	}, c.metrics)
+
+	if err != nil {
+		return errors.Wrap(err, "failed to create flashblocks handler")
+	}
+
+	c.flashblocksHandler = handler
+
 	return nil
 }
 
@@ -328,6 +383,8 @@ type OpConductor struct {
 	metricsServer *httputil.HTTPServer
 
 	retryBackoff func() time.Duration
+
+	flashblocksHandler ws.FlashblockHandler
 }
 
 type state struct {
@@ -364,6 +421,14 @@ func (oc *OpConductor) Start(ctx context.Context) error {
 	oc.log.Info("starting JSON-RPC server")
 	if err := oc.rpcServer.Start(); err != nil {
 		return errors.Wrap(err, "failed to start JSON-RPC server")
+	}
+
+	// Start the flashblocks handler if it was initialized
+	if oc.flashblocksHandler != nil {
+		oc.log.Info("starting flashblocks handler")
+		if err := oc.flashblocksHandler.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start flashblocks handler")
+		}
 	}
 
 	if oc.cfg.MetricsConfig.Enabled {
@@ -406,6 +471,12 @@ func (oc *OpConductor) Stop(ctx context.Context) error {
 	// close control loop
 	oc.shutdownCancel()
 	oc.wg.Wait()
+
+	// Close flashblocks handler
+	if oc.flashblocksHandler != nil {
+		oc.log.Info("stopping flashblocks handler")
+		oc.flashblocksHandler.Stop()
+	}
 
 	if oc.rpcServer != nil {
 		if err := oc.rpcServer.Stop(); err != nil {

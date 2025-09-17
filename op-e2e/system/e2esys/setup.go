@@ -16,9 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -45,25 +42,31 @@ import (
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	batcherCfg "github.com/ethereum-optimism/optimism/op-batcher/config"
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	shared "github.com/ethereum-optimism/optimism/op-devstack/shared/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/batcher"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/blobstore"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/opnode"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/services"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/setuputils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
+	config2 "github.com/ethereum-optimism/optimism/op-node/config"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	l2os "github.com/ethereum-optimism/optimism/op-proposer/proposer"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -73,9 +76,11 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
+	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
 )
 
 const (
@@ -140,7 +145,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 		L1FinalizedDistance:    8, // Short, for faster tests.
 		BlobsPath:              t.TempDir(),
 		AllocType:              sco.AllocType,
-		Nodes: map[string]*rollupNode.Config{
+		Nodes: map[string]*config2.Config{
 			RoleSeq: {
 				Driver: driver.Config{
 					VerifierConfDepth:  0,
@@ -148,14 +153,15 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 					SequencerEnabled:   true,
 				},
 				// Submitter PrivKey is set in system start for rollup nodes where sequencer = true
-				RPC: rollupNode.RPCConfig{
+				RPC: oprpc.CLIConfig{
 					ListenAddr:  "127.0.0.1",
 					ListenPort:  0,
 					EnableAdmin: true,
 				},
+				InteropConfig:               &interop.Config{},
 				L1EpochPollInterval:         time.Second * 2,
 				RuntimeConfigReloadInterval: time.Minute * 10,
-				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+				ConfigPersistence:           &config2.DisabledConfigPersistence{},
 				Sync:                        sync.Config{SyncMode: sync.CLSync},
 				DaConfig:                    celestia.CLIConfig{Rpc: "grpc://localhost:26650"},
 			},
@@ -165,14 +171,15 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 					SequencerConfDepth: 0,
 					SequencerEnabled:   false,
 				},
-				RPC: rollupNode.RPCConfig{
+				RPC: oprpc.CLIConfig{
 					ListenAddr:  "127.0.0.1",
 					ListenPort:  0,
 					EnableAdmin: true,
 				},
+				InteropConfig:               &interop.Config{},
 				L1EpochPollInterval:         time.Second * 4,
 				RuntimeConfigReloadInterval: time.Minute * 10,
-				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+				ConfigPersistence:           &config2.DisabledConfigPersistence{},
 				Sync:                        sync.Config{SyncMode: sync.CLSync},
 				DaConfig:                    celestia.CLIConfig{Rpc: "grpc://localhost:26650"},
 			},
@@ -289,7 +296,7 @@ type SystemConfig struct {
 	L1FinalizedDistance uint64
 
 	Premine        map[common.Address]*big.Int
-	Nodes          map[string]*rollupNode.Config // Per node config. Don't use populate rollup.Config
+	Nodes          map[string]*config2.Config // Per node config. Don't use populate rollup.Config
 	Loggers        map[string]log.Logger
 	GethOptions    map[string][]geth.GethOption
 	ProposerLogger log.Logger
@@ -328,7 +335,7 @@ type SystemConfig struct {
 	// Default is 1 if unset.
 	BatcherTargetNumFrames int
 
-	// whether to actually use BatcherMaxL1TxSizeBytes for blobs, insteaf of max blob size
+	// whether to actually use BatcherMaxL1TxSizeBytes for blobs, instead of max blob size
 	BatcherUseMaxTxSizeForBlobs bool
 
 	// Singular (0) or span batches (1)
@@ -387,12 +394,12 @@ type System struct {
 	clients map[string]*ethclient.Client
 }
 
-func (sys *System) PrestateVariant() challenger.PrestateVariant {
+func (sys *System) PrestateVariant() shared.PrestateVariant {
 	switch sys.AllocType() {
-	case config.AllocTypeMTCannon:
-		return challenger.MTCannonVariant
+	case config.AllocTypeMTCannonNext:
+		return shared.MTCannonNextVariant
 	default:
-		return challenger.STCannonVariant
+		return shared.MTCannonVariant
 	}
 }
 
@@ -401,7 +408,8 @@ func (sys *System) DisputeGameFactoryAddr() common.Address {
 }
 
 func (sys *System) SupervisorClient() *sources.SupervisorClient {
-	panic("supervisor not supported for single chain system")
+	sys.t.Fatal("supervisor client is not available for single chain system")
+	return nil
 }
 
 func (sys *System) Config() SystemConfig { return sys.Cfg }
@@ -429,6 +437,24 @@ func (sys *System) NodeEndpoint(name string) endpoint.RPC {
 		sys.t.Fatalf("unknown eth instance: %s", name)
 	}
 	return ethInst.UserRPC()
+}
+
+func (sys *System) L2NodeEndpoints() []endpoint.RPC {
+	return []endpoint.RPC{sys.NodeEndpoint("sequencer")}
+}
+
+func (sys *System) SupervisorEndpoint() endpoint.RPC {
+	sys.t.Fatalf("supervisor endpoint is not supported for pre-interop System")
+	return nil
+}
+
+func (sys *System) DependencySet() *depset.StaticConfigDependencySet {
+	sys.t.Fatalf("dependency set source is not supported for pre-interop System")
+	return nil
+}
+
+func (sys *System) IsSupersystem() bool {
+	return false
 }
 
 func (sys *System) RollupEndpoint(name string) endpoint.RPC {
@@ -550,12 +576,22 @@ func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 	}
 }
 
+func WithBatcherCelestiaDisabled() StartOption {
+	return StartOption{
+		BatcherMod: func(cfg *bss.CLIConfig) {
+			cfg.DaConfig = celestia.CLIConfig{}
+		},
+	}
+}
+
 func WithBatcherThrottling(interval time.Duration, threshold, txSize, blockSize uint64) StartOption {
 	return StartOption{
 		BatcherMod: func(cfg *bss.CLIConfig) {
-			cfg.ThrottleThreshold = threshold
-			cfg.ThrottleTxSize = txSize
-			cfg.ThrottleBlockSize = blockSize
+			cfg.ThrottleConfig.LowerThreshold = threshold
+			cfg.ThrottleConfig.ControllerType = batcherCfg.StepControllerType
+			cfg.ThrottleConfig.TxSizeLowerLimit = txSize
+			cfg.ThrottleConfig.BlockSizeLowerLimit = blockSize
+			cfg.ThrottleConfig.BlockSizeUpperLimit = blockSize * 100
 		},
 	}
 }
@@ -707,7 +743,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 
 	// Create a fake Beacon node to hold on to blobs created by the L1 miner, and to serve them to L2
 	bcn := fakebeacon.NewBeacon(testlog.Logger(t, log.LevelInfo).New("role", "l1_cl"),
-		e2eutils.NewBlobStore(), l1Genesis.Timestamp, cfg.DeployConfig.L1BlockTime)
+		blobstore.New(), l1Genesis.Timestamp, cfg.DeployConfig.L1BlockTime)
 	t.Cleanup(func() {
 		_ = bcn.Close()
 	})
@@ -717,7 +753,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	sys.L1BeaconAPIAddr = endpoint.RestHTTPURL(beaconApiAddr)
 
 	// Initialize nodes
-	l1Geth, err := geth.InitL1(
+	l1Geth, _, err := geth.InitL1(
 		cfg.DeployConfig.L1BlockTime, cfg.L1FinalizedDistance, l1Genesis, c,
 		path.Join(cfg.BlobsPath, "l1_el"), bcn, cfg.GethOptions[RoleL1]...)
 	if err != nil {
@@ -965,8 +1001,8 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	}
 	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:                 sys.EthInstances[RoleL1].UserRPC().RPC(),
-		L2EthRpc:                 sys.EthInstances[RoleSeq].UserRPC().RPC(),
-		RollupRpc:                sys.RollupNodes[RoleSeq].UserRPC().RPC(),
+		L2EthRpc:                 []string{sys.EthInstances[RoleSeq].UserRPC().RPC()},
+		RollupRpc:                []string{sys.RollupNodes[RoleSeq].UserRPC().RPC()},
 		MaxPendingTransactions:   cfg.BatcherMaxPendingTransactions,
 		MaxChannelDuration:       1,
 		MaxL1TxSize:              batcherMaxL1TxSizeBytes,
@@ -1073,8 +1109,8 @@ func (sys *System) TestAccount(idx int) *ecdsa.PrivateKey {
 	}
 }
 
-func ConfigureL1(rollupNodeCfg *rollupNode.Config, l1Node services.EthInstance, beaconEndpoint endpoint.RestHTTP) {
-	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
+func ConfigureL1(rollupNodeCfg *config2.Config, l1Node services.EthInstance, beaconEndpoint endpoint.RestHTTP) {
+	rollupNodeCfg.L1 = &config2.L1EndpointConfig{
 		L1NodeAddr:       endpoint.SelectRPC(EnvRPCPreference(), l1Node.UserRPC()),
 		L1TrustRPC:       false,
 		L1RPCKind:        sources.RPCKindStandard,
@@ -1083,13 +1119,13 @@ func ConfigureL1(rollupNodeCfg *rollupNode.Config, l1Node services.EthInstance, 
 		HttpPollInterval: time.Millisecond * 100,
 		MaxConcurrency:   10,
 	}
-	rollupNodeCfg.Beacon = &rollupNode.L1BeaconEndpointConfig{
+	rollupNodeCfg.Beacon = &config2.L1BeaconEndpointConfig{
 		BeaconAddr: beaconEndpoint.RestHTTP(),
 	}
 }
 
-func ConfigureL2(rollupNodeCfg *rollupNode.Config, l2Node services.EthInstance, jwtSecret [32]byte) {
-	rollupNodeCfg.L2 = &rollupNode.L2EndpointConfig{
+func ConfigureL2(rollupNodeCfg *config2.Config, l2Node services.EthInstance, jwtSecret [32]byte) {
+	rollupNodeCfg.L2 = &config2.L2EndpointConfig{
 		L2EngineAddr:      endpoint.SelectRPC(EnvRPCPreference(), l2Node.AuthRPC()),
 		L2EngineJWTSecret: jwtSecret,
 	}
@@ -1110,7 +1146,7 @@ func (sys *System) RollupClient(name string) *sources.RollupClient {
 	}
 	rpcClient := endpoint.DialRPC(endpoint.PreferAnyRPC, sys.RollupEndpoint(name), func(v string) *rpc.Client {
 		logger := testlog.Logger(sys.t, log.LevelInfo).New("rollupClient", name)
-		cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
+		cl, err := dial.DialRPCClientWithTimeout(context.Background(), logger, v)
 		require.NoError(sys.t, err, "failed to dial rollup instance %s", name)
 		return cl
 	})
@@ -1129,7 +1165,7 @@ func (sys *System) NodeClient(name string) *ethclient.Client {
 	}
 	rpcCl := endpoint.DialRPC(endpoint.PreferAnyRPC, sys.NodeEndpoint(name), func(v string) *rpc.Client {
 		logger := testlog.Logger(sys.t, log.LevelInfo).New("node", name)
-		cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
+		cl, err := dial.DialRPCClientWithTimeout(context.Background(), logger, v)
 		require.NoError(sys.t, err, "failed to dial eth node instance %s", name)
 		return cl
 	})
