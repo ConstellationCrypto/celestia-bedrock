@@ -18,13 +18,14 @@ import (
 )
 
 type DAClient struct {
-	Client       da.DA
-	GetTimeout   time.Duration
-	Namespace    da.Namespace
-	FallbackMode string
-	GasPrice     float64
-	S3Client     *s3.Client
-	S3Bucket     string
+	Client        da.DA
+	GetTimeout    time.Duration
+	Namespace     da.Namespace
+	SubmitTimeout time.Duration
+	FallbackMode  string
+	GasPrice      float64
+	S3Client      *s3.Client
+	S3Bucket      string
 }
 
 func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s3region string, s3bucket string, auth bool) (*DAClient, error) {
@@ -62,13 +63,14 @@ func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s
 		s3Client = s3.New(s3.Options{Region: s3region})
 	}
 	return &DAClient{
-		Client:       client,
-		GetTimeout:   time.Minute,
-		Namespace:    ns,
-		FallbackMode: fallbackMode,
-		GasPrice:     gasPrice,
-		S3Client:     s3Client,
-		S3Bucket:     s3bucket,
+		Client:        client,
+		GetTimeout:    time.Minute,
+		SubmitTimeout: time.Minute,
+		Namespace:     ns,
+		FallbackMode:  fallbackMode,
+		GasPrice:      gasPrice,
+		S3Client:      s3Client,
+		S3Bucket:      s3bucket,
 	}, nil
 }
 

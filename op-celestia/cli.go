@@ -1,9 +1,14 @@
 package celestia
 
 import (
+	"encoding/hex"
 	"fmt"
+	"net/url"
+	"os"
+	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
@@ -36,7 +41,7 @@ const (
 	NamespaceSize = 58
 
 	// defaultRPC is the default rpc dial address
-	defaultRPC = "grpc://localhost:26650"
+	defaultRPC = "http://localhost:26658"
 
 	// defaultGasPrice is the default gas price
 	defaultGasPrice = -1
@@ -122,7 +127,20 @@ type CLIConfig struct {
 	Timeout      time.Duration
 }
 
+func (c CLIConfig) IsEnabled() bool {
+	return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
+}
+
 func (c CLIConfig) Check() error {
+	if !c.IsEnabled() {
+		return nil
+	}
+	if _, err := url.Parse(c.Rpc); err != nil {
+		return fmt.Errorf("rpc url is invalid: %w", err)
+	}
+	if _, err := hex.DecodeString(c.Namespace); err != nil {
+		return fmt.Errorf("namespace is invalid hex: %w", err)
+	}
 	return nil
 }
 
@@ -143,4 +161,43 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		S3Region:     ctx.String("s3-region"),
 		Timeout:      ctx.Duration("celestia-timeout"),
 	}
+}
+
+func ReadCLIConfigFromEnv(envPrefix string) CLIConfig {
+	result := CLIConfig{
+		Rpc:          defaultRPC,
+		FallbackMode: FallbackModeCallData,
+		GasPrice:     defaultGasPrice,
+	}
+
+	if value := os.Getenv(envPrefix + "_" + "DA_RPC"); value != "" {
+		result.Rpc = value
+	}
+
+	if value := os.Getenv(envPrefix + "_" + "DA_AUTH_TOKEN"); value != "" {
+		result.AuthToken = value
+	}
+
+	if value := os.Getenv(envPrefix + "_" + "DA_NAMESPACE"); value != "" {
+		result.Namespace = value
+	}
+
+	if value := os.Getenv(envPrefix + "_" + "DA_FALLBACK_MODE"); value != "" {
+		switch value {
+		case FallbackModeDisabled, FallbackModeBlobData, FallbackModeCallData:
+			result.FallbackMode = value
+		default:
+			log.Crit("invalid fallback mode", "value", value)
+		}
+	}
+
+	if value := os.Getenv(envPrefix + "_" + "DA_GAS_PRICE"); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+			result.GasPrice = parsed
+		} else {
+			log.Crit("invalid gas price", "value", value)
+		}
+	}
+
+	return result
 }

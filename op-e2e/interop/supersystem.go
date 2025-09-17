@@ -29,14 +29,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/interopgen"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/blobstore"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/contracts/bindings/emit"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/contracts/bindings/inbox"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/interop/contracts/bindings/emit"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/interop/contracts/bindings/inbox"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	l2os "github.com/ethereum-optimism/optimism/op-proposer/proposer"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
@@ -74,6 +73,7 @@ type SuperSystem interface {
 	Proposer(network string) *l2os.ProposerService
 	AddUser(username string)
 	SupervisorClient() *sources.SupervisorClient
+	DependencySet() *depset.StaticConfigDependencySet
 
 	// L2 client specific
 	L2GethEndpoint(id string, name string) endpoint.RPC
@@ -88,7 +88,7 @@ type SuperSystem interface {
 	ChainID(network string) *big.Int
 	RollupConfig(network string) *rollup.Config
 	L2Genesis(network string) *core.Genesis
-	UserKey(nework, username string) ecdsa.PrivateKey
+	UserKey(network, username string) ecdsa.PrivateKey
 	L2OperatorKey(network string, role devkeys.ChainOperatorRole) ecdsa.PrivateKey
 	Address(network string, username string) common.Address
 	Contract(network string, contractName string) interface{}
@@ -106,6 +106,7 @@ type SuperSystem interface {
 type SuperSystemConfig struct {
 	mempoolFiltering  bool
 	SupportTimeTravel bool
+	BatcherUsesBlobs  bool
 }
 
 // NewSuperSystem creates a new SuperSystem from a recipe. It creates an interopE2ESystem.
@@ -174,6 +175,7 @@ func (s *interopE2ESystem) prepareWorld(w WorldResourcePaths) (*interopgen.World
 
 	for _, l2Cfg := range worldCfg.L2s {
 		require.NotNil(s.t, l2Cfg.L2GenesisIsthmusTimeOffset, "expecting isthmus fork to be enabled for interop deployments")
+		require.NotNil(s.t, l2Cfg.L2GenesisIsthmusTimeOffset, "expecting jovian fork to be enabled for interop deployments")
 	}
 
 	// create a logger for the world configuration
@@ -198,7 +200,7 @@ func (s *interopE2ESystem) prepareL1() (*fakebeacon.FakeBeacon, *geth.GethInstan
 	blockTimeL1 := uint64(6)
 	blobPath := s.t.TempDir()
 	bcn := fakebeacon.NewBeacon(s.logger.New("role", "l1_cl"),
-		e2eutils.NewBlobStore(), genesisTimestampL1, blockTimeL1)
+		blobstore.New(), genesisTimestampL1, blockTimeL1)
 	s.t.Cleanup(func() {
 		_ = bcn.Close()
 	})
@@ -213,7 +215,7 @@ func (s *interopE2ESystem) prepareL1() (*fakebeacon.FakeBeacon, *geth.GethInstan
 		l1Clock = s.timeTravelClock
 	}
 	// Start the L1 chain
-	l1Geth, err := geth.InitL1(
+	l1Geth, _, err := geth.InitL1(
 		blockTimeL1,
 		l1FinalizedDistance,
 		s.worldOutput.L1.Genesis,
@@ -292,26 +294,15 @@ func (s *interopE2ESystem) prepareSupervisor() *supervisor.SupervisorService {
 			ListenPort:  0,
 			EnableAdmin: true,
 		},
-		SyncSources: &syncnode.CLISyncNodes{}, // no sync-sources
-		L1RPC:       s.l1.UserRPC().RPC(),
-		Datadir:     path.Join(s.t.TempDir(), "supervisor"),
+		SyncSources:             &syncnode.CLISyncNodes{}, // no sync-sources
+		L1RPC:                   s.l1.UserRPC().RPC(),
+		Datadir:                 path.Join(s.t.TempDir(), "supervisor"),
+		RPCVerificationWarnings: true,
 	}
-	depSet := make(map[eth.ChainID]*depset.StaticConfigDependency)
 
-	// Iterate over the L2 chain configs. The L2 nodes don't exist yet.
-	for _, l2Out := range s.worldOutput.L2s {
-		chainID := eth.ChainIDFromBig(l2Out.Genesis.Config.ChainID)
-		index, err := chainID.ToUInt32()
-		require.NoError(s.t, err)
-		depSet[chainID] = &depset.StaticConfigDependency{
-			ChainIndex:     supervisortypes.ChainIndex(index),
-			ActivationTime: 0,
-			HistoryMinTime: 0,
-		}
-	}
-	stDepSet, err := depset.NewStaticConfigDependencySet(depSet)
+	fullCfgSet, err := worldToFullCfgSet(s.worldOutput)
 	require.NoError(s.t, err)
-	cfg.DependencySetSource = stDepSet
+	cfg.FullConfigSetSource = fullCfgSet
 
 	// Create the supervisor with the configuration
 	super, err := supervisor.SupervisorFromConfig(context.Background(), cfg, logger)
@@ -334,9 +325,8 @@ func (s *interopE2ESystem) SupervisorClient() *sources.SupervisorClient {
 	if s.superClient != nil {
 		return s.superClient
 	}
-	cl, err := client.NewRPC(context.Background(), s.logger, s.supervisor.RPC())
+	superClient, err := dial.DialSupervisorClientWithTimeout(context.Background(), s.logger, s.supervisor.RPC())
 	require.NoError(s.t, err, "failed to dial supervisor RPC")
-	superClient := sources.NewSupervisorClient(cl, nil)
 	s.superClient = superClient
 	return superClient
 }
@@ -414,7 +404,7 @@ func (s *interopE2ESystem) Address(id, username string) common.Address {
 func (s *interopE2ESystem) prepareL2s() map[string]l2Net {
 	l2s := make(map[string]l2Net)
 	for id, l2Out := range s.worldOutput.L2s {
-		l2s[id] = s.newL2(id, l2Out)
+		l2s[id] = s.newL2(id, l2Out, s.DependencySet())
 	}
 	return l2s
 }
@@ -441,7 +431,7 @@ func (s *interopE2ESystem) L1GethClient() *ethclient.Client {
 		rpcEndpoint,
 		func(v string) *rpc.Client {
 			logger := testlog.Logger(s.t, log.LevelInfo)
-			cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
+			cl, err := dial.DialRPCClientWithTimeout(context.Background(), logger, v)
 			require.NoError(s.t, err, "failed to dial L1 eth node instance")
 			return cl
 		})
@@ -590,9 +580,15 @@ func (s *interopE2ESystem) Contract(id string, name string) interface{} {
 	return s.l2s[id].contracts[name]
 }
 
+func (s *interopE2ESystem) DependencySet() *depset.StaticConfigDependencySet {
+	stDepSet, err := worldToDepSet(s.worldOutput)
+	require.NoError(s.t, err)
+	return stDepSet
+}
+
 func mustDial(t *testing.T, logger log.Logger) func(v string) *rpc.Client {
 	return func(v string) *rpc.Client {
-		cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
+		cl, err := dial.DialRPCClientWithTimeout(context.Background(), logger, v)
 		require.NoError(t, err, "failed to dial")
 		return cl
 	}
@@ -607,4 +603,29 @@ func writeDefaultJWT(t testing.TB) string {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
+}
+
+func worldToDepSet(world *interopgen.WorldOutput) (*depset.StaticConfigDependencySet, error) {
+	var ids []eth.ChainID
+	for _, l2Out := range world.L2s {
+		chainID := eth.ChainIDFromBig(l2Out.Genesis.Config.ChainID)
+		ids = append(ids, chainID)
+	}
+	eth.SortChainID(ids)
+	depSet := make(map[eth.ChainID]*depset.StaticConfigDependency)
+
+	// Iterate over the L2 chain configs. The L2 nodes don't exist yet.
+	for _, l2Out := range world.L2s {
+		chainID := eth.ChainIDFromBig(l2Out.Genesis.Config.ChainID)
+		depSet[chainID] = &depset.StaticConfigDependency{}
+	}
+	return depset.NewStaticConfigDependencySet(depSet)
+}
+
+func worldToFullCfgSet(world *interopgen.WorldOutput) (depset.FullConfigSetMerged, error) {
+	depSet, err := worldToDepSet(world)
+	if err != nil {
+		return depset.FullConfigSetMerged{}, err
+	}
+	return depset.NewFullConfigSetMerged(world.RollupConfigSet(), depSet)
 }

@@ -31,12 +31,12 @@ jobs:
           - op-program
           - op-proposer
           - op-challenger
-          - proofs-tools
           - op-dispute-mon
           - op-conductor
           - da-server
           - op-supervisor
           - cannon
+          - op-celestia-indexer
     steps:
       - uses: actions/checkout@v4
 

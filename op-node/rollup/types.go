@@ -422,7 +422,7 @@ func checkFork(a, b *uint64, aName, bName ForkName) error {
 }
 
 func (c *Config) L1Signer() types.Signer {
-	return types.NewCancunSigner(c.L1ChainID)
+	return types.LatestSignerForChainID(c.L1ChainID)
 }
 
 // IsRegolith returns true if the Regolith hardfork is active at or past the given timestamp.
@@ -552,20 +552,45 @@ func (c *Config) IsInteropActivationBlock(l2BlockTime uint64) bool {
 // those timestamps. It can be used for both, L1 and L2 blocks.
 // TODO(12490): Currently only supports Holocene. Will be modularized in a follow-up.
 func (c *Config) IsActivationBlock(oldTime, newTime uint64) ForkName {
+	if c.IsInterop(newTime) && !c.IsInterop(oldTime) {
+		return Interop
+	}
+	if c.IsIsthmus(newTime) && !c.IsIsthmus(oldTime) {
+		return Isthmus
+	}
 	if c.IsHolocene(newTime) && !c.IsHolocene(oldTime) {
 		return Holocene
 	}
-	return ""
+	if c.IsGranite(newTime) && !c.IsGranite(oldTime) {
+		return Granite
+	}
+	if c.IsFjord(newTime) && !c.IsFjord(oldTime) {
+		return Fjord
+	}
+	if c.IsEcotone(newTime) && !c.IsEcotone(oldTime) {
+		return Ecotone
+	}
+	if c.IsDelta(newTime) && !c.IsDelta(oldTime) {
+		return Delta
+	}
+	if c.IsCanyon(newTime) && !c.IsCanyon(oldTime) {
+		return Canyon
+	}
+	return None
+}
+
+func (c *Config) IsActivationBlockForFork(l2BlockTime uint64, forkName ForkName) bool {
+	return c.IsActivationBlock(l2BlockTime-c.BlockTime, l2BlockTime) == forkName
 }
 
 func (c *Config) ActivateAtGenesis(hardfork ForkName) {
 	// IMPORTANT! ordered from newest to oldest
 	switch hardfork {
-	case Interop:
-		c.InteropTime = new(uint64)
-		fallthrough
 	case Jovian:
 		c.JovianTime = new(uint64)
+		fallthrough
+	case Interop:
+		c.InteropTime = new(uint64)
 		fallthrough
 	case Isthmus:
 		c.IsthmusTime = new(uint64)
@@ -750,10 +775,6 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 	})
 	if c.AltDAConfig != nil {
 		ctx = append(ctx, "alt_da", *c.AltDAConfig)
-	}
-	if c.PectraBlobScheduleTime != nil {
-		// only print in config if set at all
-		ctx = append(ctx, "pectra_blob_schedule_time", fmtForkTimeOrUnset(c.PectraBlobScheduleTime))
 	}
 	log.Info("Rollup Config", ctx...)
 }
