@@ -3,6 +3,7 @@ package state
 import (
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/addresses"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -61,6 +62,22 @@ func TestValidateStandardValues(t *testing.T) {
 			},
 			ErrNonStandardValue,
 		},
+		{
+			"SuperchainConfigProxy",
+			func(intent *Intent) {
+				addr := common.HexToAddress("0x9999")
+				intent.SuperchainConfigProxy = &addr
+			},
+			ErrNonStandardValue,
+		},
+		{
+			"OPCMAddress",
+			func(intent *Intent) {
+				addr := common.HexToAddress("0x9999")
+				intent.OPCMAddress = &addr
+			},
+			ErrNonStandardValue,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,7 +101,7 @@ func TestValidateCustomValues(t *testing.T) {
 
 	err = intent.Check()
 	require.Error(t, err)
-	require.ErrorIs(t, err, ErrSuperchainRoleZeroAddress)
+	require.ErrorIs(t, err, addresses.ErrSuperchainRoleZeroAddress)
 
 	setSuperchainRoles(&intent)
 	err = intent.Check()
@@ -107,10 +124,10 @@ func TestValidateCustomValues(t *testing.T) {
 }
 
 func setSuperchainRoles(intent *Intent) {
-	intent.SuperchainRoles = &SuperchainRoles{
-		ProxyAdminOwner:       common.HexToAddress("0xa"),
-		ProtocolVersionsOwner: common.HexToAddress("0xb"),
-		Guardian:              common.HexToAddress("0xc"),
+	intent.SuperchainRoles = &addresses.SuperchainRoles{
+		SuperchainProxyAdminOwner: common.HexToAddress("0xa"),
+		ProtocolVersionsOwner:     common.HexToAddress("0xb"),
+		SuperchainGuardian:        common.HexToAddress("0xc"),
 	}
 }
 

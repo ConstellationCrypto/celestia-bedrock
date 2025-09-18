@@ -142,6 +142,13 @@ var (
 		EnvVars:  prefixEnvVars("RPC_ADMIN_STATE"),
 		Category: OperationsCategory,
 	}
+	FetchWithdrawalRootFromState = &cli.BoolFlag{
+		Name:     "fetch-withdrawal-root-from-state",
+		Usage:    "Read withdrawal_storage_root (aka message passer storage root) from state trie (via execution layer) instead of the block header. Restores pre-Isthmus behavior, requires an archive EL client.",
+		Required: false,
+		EnvVars:  prefixEnvVars("FETCH_WITHDRAWAL_ROOT_FROM_STATE"),
+		Category: OperationsCategory,
+	}
 	L1TrustRPC = &cli.BoolFlag{
 		Name:     "l1.trustrpc",
 		Usage:    "Trust the L1 RPC, sync faster at risk of malicious/buggy RPC providing bad or inconsistent L1 data",
@@ -437,6 +444,14 @@ var (
 		Category: RollupCategory,
 		Hidden:   true,
 	}
+
+	ExperimentalOPStackAPI = &cli.BoolFlag{
+		Name:     "experimental.sequencer-api",
+		Usage:    "Enables experimental test sequencer RPC functionality",
+		Required: false,
+		EnvVars:  prefixEnvVars("EXPERIMENTAL_SEQUENCER_API"),
+		Category: MiscCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -452,6 +467,7 @@ var optionalFlags = []cli.Flag{
 	BeaconCheckIgnore,
 	BeaconFetchAllSidecars,
 	SyncModeFlag,
+	FetchWithdrawalRootFromState,
 	RPCListenAddr,
 	RPCListenPort,
 	L1TrustRPC,
@@ -491,6 +507,7 @@ var optionalFlags = []cli.Flag{
 	InteropRPCPort,
 	InteropJWTSecret,
 	IgnoreMissingPectraBlobSchedule,
+	ExperimentalOPStackAPI,
 }
 
 var DeprecatedFlags = []cli.Flag{

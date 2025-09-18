@@ -69,9 +69,10 @@ type WalletList []*Wallet
 type WalletMap map[string]*Wallet
 
 type DeployerData struct {
-	L1ValidatorWallets WalletList     `json:"wallets"`
-	State              *DeployerState `json:"state"`
-	L1ChainID          string         `json:"l1_chain_id"`
+	L1ValidatorWallets WalletList          `json:"wallets"`
+	State              *DeployerState      `json:"state"`
+	L1ChainID          string              `json:"l1_chain_id"`
+	L1ChainConfig      *params.ChainConfig `json:"l1_chain_config"`
 }
 
 type Deployer struct {
@@ -235,11 +236,10 @@ func parseStateFile(r io.Reader) (*DeployerState, error) {
 	}
 
 	mapDeployment := func(deployment map[string]interface{}) DeploymentAddresses {
-		addrSuffix := "Address"
 		addresses := make(DeploymentAddresses)
 		for key, value := range deployment {
-			if strings.HasSuffix(key, addrSuffix) {
-				addresses[strings.TrimSuffix(key, addrSuffix)] = common.HexToAddress(value.(string))
+			if strings.HasSuffix(key, "Proxy") || strings.HasSuffix(key, "Impl") {
+				addresses[key] = common.HexToAddress(value.(string))
 			}
 		}
 		return addresses
@@ -268,7 +268,7 @@ func parseStateFile(r io.Reader) (*DeployerState, error) {
 		// so we need to map them manually.
 		// TODO: Update op-deployer to sort rollup contracts by category
 		l2Addresses := make(DeploymentAddresses)
-		for _, addressName := range []string{"optimismMintableERC20FactoryProxy"} {
+		for _, addressName := range []string{"OptimismMintableErc20FactoryProxy"} {
 			if addr, ok := l1Addresses[addressName]; ok {
 				l2Addresses[addressName] = addr
 				delete(l1Addresses, addressName)
@@ -367,15 +367,16 @@ func (d *Deployer) ExtractData(ctx context.Context) (*DeployerData, error) {
 		return nil, err
 	}
 
-	l1ChainID, err := d.getL1ChainID(l1GenesisArtifact)
+	l1ChainConfig, err := d.getConfig(l1GenesisArtifact)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DeployerData{
-		L1ChainID:          l1ChainID,
+		L1ChainID:          l1ChainConfig.ChainID.String(),
 		State:              state,
 		L1ValidatorWallets: l1ValidatorWallets,
+		L1ChainConfig:      l1ChainConfig,
 	}, nil
 }
 

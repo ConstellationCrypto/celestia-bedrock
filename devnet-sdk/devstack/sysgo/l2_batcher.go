@@ -20,6 +20,7 @@ import (
 )
 
 type L2Batcher struct {
+	id      stack.L2BatcherID
 	service *bss.BatcherService
 	rpc     string
 	l1RPC   string
@@ -27,38 +28,56 @@ type L2Batcher struct {
 	l2ELRPC string
 }
 
+func (b *L2Batcher) hydrate(system stack.ExtensibleSystem) {
+	require := system.T().Require()
+	rpcCl, err := client.NewRPC(system.T().Ctx(), system.Logger(), b.rpc, client.WithLazyDial())
+	require.NoError(err)
+	system.T().Cleanup(rpcCl.Close)
+
+	bFrontend := shim.NewL2Batcher(shim.L2BatcherConfig{
+		CommonConfig: shim.NewCommonConfig(system.T()),
+		ID:           b.id,
+		Client:       rpcCl,
+	})
+	l2Net := system.L2Network(stack.L2NetworkID(b.id.ChainID))
+	l2Net.(stack.ExtensibleL2Network).AddL2Batcher(bFrontend)
+}
+
 func WithBatcher(batcherID stack.L2BatcherID, l1ELID stack.L1ELNodeID, l2CLID stack.L2CLNodeID, l2ELID stack.L2ELNodeID) stack.Option {
-	return func(setup *stack.Setup) {
-		orch := setup.Orchestrator.(*Orchestrator)
-		setup.Require.False(orch.batchers.Has(batcherID), "batcher must not already exist")
+	return func(o stack.Orchestrator) {
+		orch := o.(*Orchestrator)
+		require := o.P().Require()
+		require.False(orch.batchers.Has(batcherID), "batcher must not already exist")
 
-		l2ID := setup.System.L2NetworkID(l2CLID.ChainID)
-		l2Chain := setup.System.L2Network(l2ID).(stack.ExtensibleL2Network)
+		l2Net, ok := orch.l2Nets.Get(l2CLID.ChainID)
+		require.True(ok)
 
-		l1ID := setup.System.L1NetworkID(l1ELID.ChainID)
-		setup.Require.Equal(l2Chain.L1().ID(), l1ID, "expecting L1EL on L1 of L2CL")
+		l1Net, ok := orch.l1Nets.Get(l1ELID.ChainID)
+		require.True(ok)
 
-		setup.Require.Equal(l2CLID.ChainID, l2ELID.ChainID, "L2 CL and EL must be on same L2 chain")
+		require.Equal(l2Net.l1ChainID, l1Net.id.ChainID(), "expecting L1EL on L1 of L2CL")
+
+		require.Equal(l2CLID.ChainID, l2ELID.ChainID, "L2 CL and EL must be on same L2 chain")
 
 		l1EL, ok := orch.l1ELs.Get(l1ELID)
-		setup.Require.True(ok)
+		require.True(ok)
 
 		l2CL, ok := orch.l2CLs.Get(l2CLID)
-		setup.Require.True(ok)
+		require.True(ok)
 
 		l2EL, ok := orch.l2ELs.Get(l2ELID)
-		setup.Require.True(ok)
+		require.True(ok)
 
 		batcherSecret, err := orch.keys.Secret(devkeys.BatcherRole.Key(l2ELID.ChainID.ToBig()))
-		setup.Require.NoError(err)
+		require.NoError(err)
 
-		logger := setup.Log.New("id", batcherID)
+		logger := o.P().Logger().New("id", batcherID)
 		logger.Info("Batcher key acquired", "addr", crypto.PubkeyToAddress(batcherSecret.PublicKey))
 
 		batcherCLIConfig := &bss.CLIConfig{
 			L1EthRpc:                 l1EL.userRPC,
-			L2EthRpc:                 l2EL.userRPC,
-			RollupRpc:                l2CL.rpc,
+			L2EthRpc:                 []string{l2EL.userRPC},
+			RollupRpc:                []string{l2CL.userRPC},
 			MaxPendingTransactions:   1,
 			MaxChannelDuration:       1,
 			MaxL1TxSize:              120_000,
@@ -80,12 +99,12 @@ func WithBatcher(batcherID stack.L2BatcherID, l1ELID stack.L1ELNodeID, l2CLID st
 		}
 
 		batcher, err := bss.BatcherServiceFromCLIConfig(
-			setup.Ctx, "0.0.1", batcherCLIConfig,
+			o.P().Ctx(), "0.0.1", batcherCLIConfig,
 			logger.New("service", "batcher"))
-		setup.Require.NoError(err)
-		setup.Require.NoError(batcher.Start(setup.Ctx))
-		orch.t.Cleanup(func() {
-			ctx, cancel := context.WithCancel(setup.Ctx)
+		require.NoError(err)
+		require.NoError(batcher.Start(o.P().Ctx()))
+		orch.p.Cleanup(func() {
+			ctx, cancel := context.WithCancel(context.Background())
 			cancel() // force-quit
 			logger.Info("Closing batcher")
 			_ = batcher.Stop(ctx)
@@ -93,22 +112,13 @@ func WithBatcher(batcherID stack.L2BatcherID, l1ELID stack.L1ELNodeID, l2CLID st
 		})
 
 		b := &L2Batcher{
+			id:      batcherID,
 			service: batcher,
 			rpc:     batcher.HTTPEndpoint(),
 			l1RPC:   l1EL.userRPC,
-			l2CLRPC: l2CL.rpc,
+			l2CLRPC: l2CL.userRPC,
 			l2ELRPC: l2EL.userRPC,
 		}
 		orch.batchers.Set(batcherID, b)
-
-		rpcCl, err := client.NewRPC(setup.Ctx, setup.Log, b.rpc, client.WithLazyDial())
-		setup.Require.NoError(err)
-
-		bFrontend := shim.NewL2Batcher(shim.L2BatcherConfig{
-			CommonConfig: shim.CommonConfigFromSetup(setup),
-			ID:           batcherID,
-			Client:       rpcCl,
-		})
-		l2Chain.AddL2Batcher(bFrontend)
 	}
 }

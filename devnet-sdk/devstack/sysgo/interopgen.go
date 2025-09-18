@@ -2,6 +2,7 @@ package sysgo
 
 import (
 	"os"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +17,7 @@ import (
 )
 
 type ContractPaths struct {
+	// must be absolute paths, without file:// prefix
 	FoundryArtifacts string
 	SourceMap        string
 }
@@ -50,34 +52,66 @@ func (d *SuperchainDeployment) ProtocolVersionsAddr() common.Address {
 	return d.protocolVersionsAddr
 }
 
+type Superchain struct {
+	id         stack.SuperchainID
+	deployment *SuperchainDeployment
+}
+
+func (s *Superchain) hydrate(system stack.ExtensibleSystem) {
+	sysSuperchain := shim.NewSuperchain(shim.SuperchainConfig{
+		CommonConfig: shim.NewCommonConfig(system.T()),
+		ID:           s.id,
+		Deployment:   s.deployment,
+	})
+	system.AddSuperchain(sysSuperchain)
+}
+
+type Cluster struct {
+	id     stack.ClusterID
+	depset *depset.StaticConfigDependencySet
+}
+
+func (c *Cluster) hydrate(system stack.ExtensibleSystem) {
+	sysCluster := shim.NewCluster(shim.ClusterConfig{
+		CommonConfig:  shim.NewCommonConfig(system.T()),
+		ID:            c.id,
+		DependencySet: c.depset,
+	})
+	system.AddCluster(sysCluster)
+}
+
 // WithInteropGen is a system option that will create a L1 chain, superchain, cluster and L2 chains.
 func WithInteropGen(l1ID stack.L1NetworkID, superchainID stack.SuperchainID,
 	clusterID stack.ClusterID, l2IDs []stack.L2NetworkID, res ContractPaths) stack.Option {
 
-	return func(setup *stack.Setup) {
-		orch := setup.Orchestrator.(*Orchestrator)
+	return func(o stack.Orchestrator) {
+		orch := o.(*Orchestrator)
+		require := o.P().Require()
 
-		setup.Require.True(l1ID.ChainID.ToBig().IsInt64(), "interop gen uses small chain IDs")
+		require.True(l1ID.ChainID().ToBig().IsInt64(), "interop gen uses small chain IDs")
 		genesisTime := uint64(time.Now().Add(time.Second * 2).Unix())
 		recipe := &interopgen.InteropDevRecipe{
-			L1ChainID:        l1ID.ChainID.ToBig().Uint64(),
+			L1ChainID:        l1ID.ChainID().ToBig().Uint64(),
 			L2s:              []interopgen.InteropDevL2Recipe{},
 			GenesisTimestamp: genesisTime,
 		}
+		var ids []eth.ChainID
 		for _, l2 := range l2IDs {
-			setup.Require.True(l2.ChainID.ToBig().IsInt64(), "interop gen uses small chain IDs")
+			require.True(l2.ChainID().ToBig().IsInt64(), "interop gen uses small chain IDs")
 			recipe.L2s = append(recipe.L2s, interopgen.InteropDevL2Recipe{
-				ChainID:   l2.ChainID.ToBig().Uint64(),
+				ChainID:   l2.ChainID().ToBig().Uint64(),
 				BlockTime: 2,
 			})
+			ids = append(ids, l2.ChainID())
 		}
+		eth.SortChainID(ids)
 
 		worldCfg, err := recipe.Build(orch.keys)
-		setup.Require.NoError(err)
+		require.NoError(err)
 
 		// create a logger for the world configuration
-		logger := setup.Log.New("role", "world")
-		setup.Require.NoError(worldCfg.Check(logger))
+		logger := o.P().Logger().New("role", "world")
+		require.NoError(worldCfg.Check(logger))
 
 		// create the foundry artifacts and source map
 		foundryArtifacts := foundry.OpenArtifactsDir(res.FoundryArtifacts)
@@ -89,84 +123,57 @@ func WithInteropGen(l1ID stack.L1NetworkID, superchainID stack.SuperchainID,
 
 		// deploy the world, using the logger, foundry artifacts, source map, and world configuration
 		worldDeployment, worldOutput, err := interopgen.Deploy(logger, foundryArtifacts, sourceMap, worldCfg)
-		setup.Require.NoError(err)
+		require.NoError(err)
 
-		l1Net := &L1Network{
+		orch.l1Nets.Set(l1ID.ChainID(), &L1Network{
+			id:        l1ID,
 			genesis:   worldOutput.L1.Genesis,
 			blockTime: 6,
-		}
-		orch.l1Nets.Set(l1ID, l1Net)
-
-		sysL1Net := shim.NewL1Network(shim.L1NetworkConfig{
-			NetworkConfig: shim.NetworkConfig{
-				CommonConfig: shim.CommonConfigFromSetup(setup),
-				ChainConfig:  worldOutput.L1.Genesis.Config,
-			},
-			ID: l1ID,
 		})
-		setup.System.AddL1Network(sysL1Net)
 
-		sysSuperchain := shim.NewSuperchain(shim.SuperchainConfig{
-			CommonConfig: shim.CommonConfigFromSetup(setup),
-			ID:           superchainID,
-			Deployment: &SuperchainDeployment{
+		orch.superchains.Set(superchainID, &Superchain{
+			id: superchainID,
+			deployment: &SuperchainDeployment{
 				protocolVersionsAddr: worldDeployment.Superchain.ProtocolVersions,
 				superchainConfigAddr: worldDeployment.Superchain.SuperchainConfig,
 			},
 		})
-		setup.System.AddSuperchain(sysSuperchain)
 
 		depSetContents := make(map[eth.ChainID]*depset.StaticConfigDependency)
 		for _, l2Out := range worldOutput.L2s {
 			chainID := eth.ChainIDFromBig(l2Out.Genesis.Config.ChainID)
-			index, err := chainID.ToUInt32()
-			setup.Require.NoError(err)
+			chainIndex := supervisortypes.ChainIndex(100 + slices.Index(ids, chainID))
 			depSetContents[chainID] = &depset.StaticConfigDependency{
-				ChainIndex:     supervisortypes.ChainIndex(index),
+				ChainIndex:     chainIndex,
 				ActivationTime: 0,
 				HistoryMinTime: 0,
 			}
 		}
 		staticDepSet, err := depset.NewStaticConfigDependencySet(depSetContents)
-		setup.Require.NoError(err)
-
-		sysCluster := shim.NewCluster(shim.ClusterConfig{
-			CommonConfig:  shim.CommonConfigFromSetup(setup),
-			ID:            clusterID,
-			DependencySet: staticDepSet,
+		require.NoError(err)
+		orch.clusters.Set(clusterID, &Cluster{
+			id:     clusterID,
+			depset: staticDepSet,
 		})
-		setup.System.AddCluster(sysCluster)
 
 		for _, l2ID := range l2IDs {
-			l2Out, ok := worldOutput.L2s[l2ID.ChainID.String()]
-			setup.Require.True(ok, "L2 output must exist")
-			l2Dep, ok := worldDeployment.L2s[l2ID.ChainID.String()]
-			setup.Require.True(ok, "L2 deployment must exist")
+			l2Out, ok := worldOutput.L2s[l2ID.ChainID().String()]
+			require.True(ok, "L2 output must exist")
+			l2Dep, ok := worldDeployment.L2s[l2ID.ChainID().String()]
+			require.True(ok, "L2 deployment must exist")
 
 			l2Net := &L2Network{
+				id:        l2ID,
+				l1ChainID: l1ID.ChainID(),
 				genesis:   l2Out.Genesis,
 				rollupCfg: l2Out.RollupCfg,
-			}
-			orch.l2Nets.Set(l2ID, l2Net)
-
-			dep := &L2Deployment{
-				systemConfigProxyAddr:   l2Dep.SystemConfigProxy,
-				disputeGameFactoryProxy: l2Dep.DisputeGameFactoryProxy,
-			}
-			sysL2Net := shim.NewL2Network(shim.L2NetworkConfig{
-				NetworkConfig: shim.NetworkConfig{
-					CommonConfig: shim.CommonConfigFromSetup(setup),
-					ChainConfig:  l2Out.Genesis.Config,
+				deployment: &L2Deployment{
+					systemConfigProxyAddr:   l2Dep.SystemConfigProxy,
+					disputeGameFactoryProxy: l2Dep.DisputeGameFactoryProxy,
 				},
-				ID:           l2ID,
-				RollupConfig: l2Out.RollupCfg,
-				Deployment:   dep,
-				Keys:         &keyring{keys: orch.keys, require: setup.Require},
-				Superchain:   nil,
-				L1:           sysL1Net,
-				Cluster:      nil,
-			})
-			setup.System.AddL2Network(sysL2Net)
+				keys: orch.keys,
+			}
+			orch.l2Nets.Set(l2ID.ChainID(), l2Net)
 		}
 	}
 }
