@@ -45,7 +45,7 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 	///var awsBlob []byte
 	if s.comm == nil {
 		// The L1 source provides the input commitment corresponding to the batch.
-		log.Info("celestia: CelestiaDataSource Next")
+
 		data, err := s.src.Next(ctx)
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		// if data[0] != celestia.DerivationVersionCelestia {
 		// 	return data, nil
 		// }
-
+		log.Info("celestia: CelestiaDataSource", "version", version)
 		switch version {
 		case celestia.DerivationVersionCelestia:
 			s.comm = data[1:]
@@ -108,7 +108,15 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		default:
 			return data, nil
 		}
+
 	}
+	log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
+	ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
+	data := append([]byte{celestia.DerivationVersionCelestia}, s.comm...)
+	awsBlob, err := downloadS3Data(ctx2, data)
+	log.Info("celestia: awsBlob", "data", awsBlob)
+	cancel()
+
 	height, commitment := celestia.SplitID(s.comm)
 	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
 	if err != nil {
