@@ -315,7 +315,7 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 		return err
 	}
 
-	d.Log.Debug("Found Celestia reference", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
+	d.Log.Info("Found Celestia reference", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
 
 	blob, err := d.CelestiaClient.Client.Blob.Get(ctx, height, namespace, commitment)
 	if err != nil {
