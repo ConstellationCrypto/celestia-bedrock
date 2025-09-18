@@ -25,6 +25,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/frontend"
 )
 
+var errInvalidMetricer = errors.New("invalid metricer")
+
 type Backend interface {
 	frontend.Backend
 }
@@ -134,7 +136,7 @@ func (su *SupervisorService) initMetricsServer(cfg *config.Config) error {
 	}
 	m, ok := su.metrics.(opmetrics.RegistryMetricer)
 	if !ok {
-		return fmt.Errorf("metrics were enabled, but metricer %T does not expose registry for metrics-server", su.metrics)
+		return fmt.Errorf("metrics were enabled, but metricer %T does not expose registry for metrics-server: %w", su.metrics, errInvalidMetricer)
 	}
 	su.log.Debug("Starting metrics server", "addr", cfg.MetricsConfig.ListenAddr, "port", cfg.MetricsConfig.ListenPort)
 	metricsSrv, err := opmetrics.StartServer(m.Registry(), cfg.MetricsConfig.ListenAddr, cfg.MetricsConfig.ListenPort)
@@ -152,6 +154,7 @@ func (su *SupervisorService) initRPCServer(cfg *config.Config) error {
 		cfg.RPC.ListenPort,
 		cfg.Version,
 		oprpc.WithLogger(su.log),
+		oprpc.WithRPCRecorder(su.metrics.NewRecorder("main")),
 	)
 	RegisterRPCs(su.log, cfg, server, su.backend, su.metrics)
 	su.rpcServer = server
@@ -167,13 +170,13 @@ func RegisterRPCs(logger log.Logger, cfg *config.Config, server RpcServer, backe
 		logger.Info("Admin RPC enabled")
 		server.AddAPI(rpc.API{
 			Namespace:     "admin",
-			Service:       &frontend.AdminFrontend{Supervisor: backend, Metrics: m},
+			Service:       &frontend.AdminFrontend{Supervisor: backend},
 			Authenticated: true, // TODO(protocol-quest#286): enforce auth on this or not?
 		})
 	}
 	server.AddAPI(rpc.API{
 		Namespace:     "supervisor",
-		Service:       &frontend.QueryFrontend{Supervisor: backend, Metrics: m},
+		Service:       &frontend.QueryFrontend{Supervisor: backend},
 		Authenticated: false,
 	})
 }
@@ -257,4 +260,8 @@ func (su *SupervisorService) Stopped() bool {
 func (su *SupervisorService) RPC() string {
 	// the RPC endpoint is assumed to be HTTP
 	return "http://" + su.rpcServer.Endpoint()
+}
+
+func (su *SupervisorService) Port() (int, error) {
+	return su.rpcServer.Port()
 }
