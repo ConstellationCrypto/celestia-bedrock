@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	libshare "github.com/celestiaorg/go-square/v2/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -42,7 +39,6 @@ func NewCelestiaDataSource(log log.Logger, src DataIter) *CelestiaDataSource {
 }
 
 func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
-	///var awsBlob []byte
 	if s.comm == nil {
 		// The L1 source provides the input commitment corresponding to the batch.
 
@@ -77,7 +73,7 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 			s.comm = data[1:]
 			log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
 			ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-			awsBlob, err := downloadS3Data(ctx2, data)
+			awsBlob, err := celestia.DownloadS3Data(ctx2, daClient, data)
 			cancel()
 			if err != nil {
 				log.Error("aws request failed", "err", err)
@@ -111,12 +107,6 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 
 	}
 	log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
-	ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-	data := append([]byte{celestia.DerivationVersionCelestia}, s.comm...)
-	awsBlob, err := downloadS3Data(ctx2, data)
-	log.Info("celestia: awsBlob", "data", awsBlob)
-	cancel()
-
 	height, commitment := celestia.SplitID(s.comm)
 	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
 	if err != nil {
@@ -137,23 +127,4 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 	// reset the commitment so we can fetch the next one from the source at the next iteration.
 	s.comm = nil
 	return blob.Data(), nil
-}
-
-// 00000000000000000000000000000000000000ca1de12a6d29fe535f2d
-// namespace input ^^ and have to strip down to 10
-func downloadS3Data(ctx context.Context, frameRefData []byte) ([]byte, error) {
-	if len(daClient.Namespace) != 29 {
-		return nil, fmt.Errorf("Error: Expected 29 bytes, got %x", len(daClient.Namespace))
-	}
-
-	resp, err := daClient.S3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: &daClient.S3Bucket,
-		Key:    aws.String(fmt.Sprintf("%x/%x", daClient.Namespace, frameRefData)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	log.Warn("celestia: downloaded data from S3 cache")
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
 }

@@ -128,7 +128,9 @@ type CLIConfig struct {
 }
 
 func (c CLIConfig) IsEnabled() bool {
-	return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
+
+	//return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
+	return c.Namespace != "" && c.S3Bucket != "" && c.S3Region != ""
 }
 
 func (c CLIConfig) Check() error {
