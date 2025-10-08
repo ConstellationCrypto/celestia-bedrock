@@ -65,6 +65,7 @@ func (n *OpNode) hydrate(system stack.ExtensibleSystem) {
 		CommonConfig:     shim.NewCommonConfig(system.T()),
 		ID:               n.id,
 		Client:           rpcCl,
+		UserRPC:          n.userRPC,
 		InteropEndpoint:  n.interopEndpoint,
 		InteropJwtSecret: n.interopJwtSecret,
 	})
@@ -145,6 +146,9 @@ func WithOpNode(l2CLID stack.L2CLNodeID, l1CLID stack.L1CLNodeID, l1ELID stack.L
 		p := orch.P().WithCtx(stack.ContextWithID(orch.P().Ctx(), l2CLID))
 
 		require := p.Require()
+
+		l1Net, ok := orch.l1Nets.Get(l1CLID.ChainID())
+		require.True(ok, "l1 network required")
 
 		l2Net, ok := orch.l2Nets.Get(l2CLID.ChainID())
 		require.True(ok, "l2 network required")
@@ -237,12 +241,15 @@ func WithOpNode(l2CLID stack.L2CLNodeID, l1CLID stack.L1CLNodeID, l1ELID stack.L
 			}
 		}
 
+		// Set the req-resp sync flag as per config
+		p2pConfig.EnableReqRespSync = cfg.EnableReqRespSync
+
 		// Get the L2 engine address from the EL node (which can be a regular EL node or a SyncTesterEL)
 		l2EngineAddr := l2EL.EngineRPC()
 
 		nodeCfg := &config.Config{
 			L1: &config.L1EndpointConfig{
-				L1NodeAddr:       l1EL.userRPC,
+				L1NodeAddr:       l1EL.UserRPC(),
 				L1TrustRPC:       false,
 				L1RPCKind:        sources.RPCKindDebugGeth,
 				RateLimit:        0,
@@ -251,12 +258,13 @@ func WithOpNode(l2CLID stack.L2CLNodeID, l1CLID stack.L1CLNodeID, l1ELID stack.L
 				MaxConcurrency:   10,
 				CacheSize:        0, // auto-adjust to sequence window
 			},
+			L1ChainConfig: l1Net.genesis.Config,
 			L2: &config.L2EndpointConfig{
 				L2EngineAddr:      l2EngineAddr,
 				L2EngineJWTSecret: jwtSecret,
 			},
 			Beacon: &config.L1BeaconEndpointConfig{
-				BeaconAddr: l1CL.beacon.BeaconAddr(),
+				BeaconAddr: l1CL.beaconHTTPAddr,
 			},
 			Driver: driver.Config{
 				SequencerEnabled:   cfg.IsSequencer,
