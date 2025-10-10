@@ -14,6 +14,11 @@ type DeployImplementationsInput struct {
 	ProofMaturityDelaySeconds       *big.Int
 	DisputeGameFinalityDelaySeconds *big.Int
 	MipsVersion                     *big.Int
+	DevFeatureBitmap                common.Hash
+	FaultGameV2MaxGameDepth         *big.Int
+	FaultGameV2SplitDepth           *big.Int
+	FaultGameV2ClockExtension       *big.Int
+	FaultGameV2MaxClockDuration     *big.Int
 	SuperchainConfigProxy           common.Address
 	ProtocolVersionsProxy           common.Address
 	SuperchainProxyAdmin            common.Address
@@ -31,6 +36,7 @@ type DeployImplementationsOutput struct {
 	OpcmStandardValidator            common.Address `json:"opcmStandardValidatorAddress"`
 	DelayedWETHImpl                  common.Address `json:"delayedWETHImplAddress"`
 	OptimismPortalImpl               common.Address `json:"optimismPortalImplAddress"`
+	OptimismPortalInteropImpl        common.Address `json:"optimismPortalInteropImplAddress"`
 	ETHLockboxImpl                   common.Address `json:"ethLockboxImplAddress" abi:"ethLockboxImpl"`
 	PreimageOracleSingleton          common.Address `json:"preimageOracleSingletonAddress"`
 	MipsSingleton                    common.Address `json:"mipsSingletonAddress"`
@@ -43,6 +49,8 @@ type DeployImplementationsOutput struct {
 	AnchorStateRegistryImpl          common.Address `json:"anchorStateRegistryImplAddress"`
 	SuperchainConfigImpl             common.Address `json:"superchainConfigImplAddress"`
 	ProtocolVersionsImpl             common.Address `json:"protocolVersionsImplAddress"`
+	FaultDisputeGameV2Impl           common.Address `json:"faultDisputeGameV2ImplAddress"`
+	PermissionedDisputeGameV2Impl    common.Address `json:"permissionedDisputeGameV2ImplAddress"`
 }
 
 type DeployImplementationsScript script.DeployScriptWithOutput[DeployImplementationsInput, DeployImplementationsOutput]

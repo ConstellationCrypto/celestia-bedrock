@@ -18,6 +18,7 @@ type Implementations struct {
 	OpcmStandardValidator            common.Address `json:"OPCMStandardValidator"`
 	DelayedWETHImpl                  common.Address `json:"DelayedWETHImpl"`
 	OptimismPortalImpl               common.Address `json:"OptimismPortalImpl"`
+	OptimismPortalInteropImpl        common.Address `json:"OptimismPortalInteropImpl"`
 	ETHLockboxImpl                   common.Address `json:"ETHLockboxImpl"`
 	PreimageOracleSingleton          common.Address `json:"PreimageOracleSingleton"`
 	MipsSingleton                    common.Address `json:"MipsSingleton"`
@@ -30,6 +31,8 @@ type Implementations struct {
 	AnchorStateRegistryImpl          common.Address `json:"AnchorStateRegistryImpl"`
 	SuperchainConfigImpl             common.Address `json:"SuperchainConfigImpl"`
 	ProtocolVersionsImpl             common.Address `json:"ProtocolVersionsImpl"`
+	FaultDisputeGameV2Impl           common.Address `json:"FaultDisputeGameV2Impl"`
+	PermissionedDisputeGameV2Impl    common.Address `json:"PermissionedDisputeGameV2Impl"`
 }
 
 type SuperchainDeployment struct {
