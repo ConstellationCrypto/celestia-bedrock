@@ -54,7 +54,6 @@ just acceptance-test "" base
 
 # Run against Kurtosis devnets (requires Docker + Kurtosis)
 just acceptance-test simple base
-just acceptance-test isthmus isthmus
 just acceptance-test interop interop
 ```
 
@@ -96,7 +95,8 @@ For rapid test development, use in-process testing:
 
 ```bash
 cd op-acceptance-tests
-just acceptance-test "" base  # Uses sysgo orchestrator - faster!
+# Not providing a network uses the sysgo orchestrator (in-memory network) which is faster and easier to iterate with.
+just acceptance-test "" base
 ```
 
 ### Testing Against External Devnets
@@ -105,7 +105,7 @@ For integration testing against realistic networks:
 
 1. **Automated approach** (rebuilds devnet each time):
    ```bash
-   just acceptance-test isthmus isthmus
+   just acceptance-test interop interop
    ```
 
 2. **Manual approach** (once-off)
@@ -155,13 +155,30 @@ LOG_LEVEL=info go test -v ./op-acceptance-tests/tests/interop/sync/multisupervis
 
 To add new acceptance tests:
 
-1. Create your test in the appropriate Go package (as a regular Go test)
+1. Create your test in the appropriate Go package under `tests` (as a regular Go test)
 2. Register the test in `acceptance-tests.yaml` under the appropriate gate
 3. Follow the existing pattern for test registration:
    ```yaml
    - name: YourTestName
-     package: github.com/ethereum-optimism/optimism/your/package/path
+     package: github.com/ethereum-optimism/optimism/op-acceptance-tests/tests/your/package/path
    ```
+
+### Quick Development
+
+For rapid development and testing:
+
+```bash
+cd op-acceptance-tests
+
+# Run all tests (sysgo gateless mode) - most comprehensive coverage
+just acceptance-test "" ""
+
+# Run specific gate-based tests (traditional mode)
+just acceptance-test "" base        # In-process (sysgo) with gate
+just acceptance-test simple base    # External devnet (sysext) with gate
+```
+
+Using an empty gate (`""`) triggers gateless mode with the sysgo orchestrator, auto-discovering all tests.
 
 ## Further Information
 

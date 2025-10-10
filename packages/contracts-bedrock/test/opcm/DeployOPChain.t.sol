@@ -368,11 +368,16 @@ contract DeployOPChain_TestBase is Test {
                 proofMaturityDelaySeconds: proofMaturityDelaySeconds,
                 disputeGameFinalityDelaySeconds: disputeGameFinalityDelaySeconds,
                 mipsVersion: StandardConstants.MIPS_VERSION,
+                faultGameV2MaxGameDepth: 73,
+                faultGameV2SplitDepth: 30,
+                faultGameV2ClockExtension: 10800,
+                faultGameV2MaxClockDuration: 302400,
                 superchainConfigProxy: superchainConfigProxy,
                 protocolVersionsProxy: protocolVersionsProxy,
                 superchainProxyAdmin: superchainProxyAdmin,
                 upgradeController: upgradeController,
-                challenger: challenger
+                challenger: challenger,
+                devFeatureBitmap: bytes32(0)
             })
         );
 
