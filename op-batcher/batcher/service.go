@@ -467,8 +467,9 @@ func (bs *BatcherService) initDA(cfg *CLIConfig) error {
 		bs.DAClient = nil
 		return nil
 	}
-
-	client, err := celestia.NewDAClient(cfg.DaConfig.Rpc, cfg.DaConfig.AuthToken, cfg.DaConfig.Namespace, cfg.DaConfig.FallbackMode, cfg.DaConfig.GasPrice, cfg.DaConfig.S3Region, cfg.DaConfig.S3Bucket, true)
+	bs.Log.Info("Using celestia DA", "config", cfg.DaConfig.CelestiaConfig())
+	//client, err := celestia.NewDAClient(cfg.DaConfig.Rpc, cfg.DaConfig.AuthToken, cfg.DaConfig.Namespace, cfg.DaConfig.FallbackMode, cfg.DaConfig.GasPrice, cfg.DaConfig.S3Region, cfg.DaConfig.S3Bucket, true)
+	client, err := celestia.NewDAClient(cfg.DaConfig.CelestiaConfig(), true)
 	if err != nil {
 		return err
 	}

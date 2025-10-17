@@ -2,6 +2,7 @@ package celestia
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -26,6 +27,8 @@ const (
 const (
 	// RPCFlagName defines the flag for the rpc url
 	RPCFlagName = "da.rpc"
+	// TLSEnabledFlagName defines the flag for whether rpc TLS is enabled
+	TLSEnabledFlagName = "da.tls-enabled"
 	// AuthTokenFlagName defines the flag for the auth token
 	AuthTokenFlagName = "da.auth_token"
 	// NamespaceFlagName defines the flag for the namespace
@@ -36,6 +39,14 @@ const (
 	FallbackModeFlagName = "da.fallback_mode"
 	// GasPriceFlagName defines the flag for gas price
 	GasPriceFlagName = "da.gas_price"
+
+	// tx client config flags
+	DefaultKeyNameFlagName     = "da.tx-client.key-name"
+	KeyringPathFlagName        = "da.tx-client.keyring-path"
+	CoreGRPCAddrFlagName       = "da.tx-client.core-grpc.addr"
+	CoreGRPCTLSEnabledFlagName = "da.tx-client.core-grpc.tls-enabled"
+	CoreGRPCAuthTokenFlagName  = "da.tx-client.core-grpc.auth-token"
+	P2PNetworkFlagName         = "da.tx-client.p2p-network"
 
 	// NamespaceSize is the size of the hex encoded namespace string
 	NamespaceSize = 58
@@ -67,6 +78,22 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			//EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),//CALDERA DOES NOT TOLERATE DA PREFIX
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "NAMESPACE_ID"),
 		},
+		&cli.BoolFlag{
+			Name:    TLSEnabledFlagName,
+			Usage:   "enable TLS for the data availability rpc client",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TLS_ENABLED"),
+			Value:   true,
+		},
+		// &cli.StringFlag{
+		// 	Name:    AuthTokenFlagName,
+		// 	Usage:   "authentication token of the data availability client",
+		// 	EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_AUTH_TOKEN"),
+		// },
+		// &cli.StringFlag{
+		// 	Name:    NamespaceFlagName,
+		// 	Usage:   "namespace of the data availability client",
+		// 	EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),
+		// },
 		&cli.BoolFlag{
 			Name:    EthFallbackDisabledFlagName,
 			Usage:   "disable eth fallback (deprecated, use FallbackModeFlag instead)",
@@ -113,29 +140,104 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:   time.Minute,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "CELESTIA_TIMEOUT"),
 		},
+		&cli.StringFlag{
+			Name:    DefaultKeyNameFlagName,
+			Usage:   "celestia tx client key name",
+			Value:   "my_celes_key",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_KEY_NAME"),
+		},
+		&cli.StringFlag{
+			Name:    KeyringPathFlagName,
+			Usage:   "celestia tx client keyring path e.g. ~/.celestia-light-mocha-4/keys",
+			Value:   "",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_KEYRING_PATH"),
+		},
+		&cli.StringFlag{
+			Name:    CoreGRPCAddrFlagName,
+			Usage:   "celestia tx client core grpc addr",
+			Value:   "http://localhost:9090",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_CORE_GRPC_ADDR"),
+		},
+		&cli.BoolFlag{
+			Name:    CoreGRPCTLSEnabledFlagName,
+			Usage:   "celestia tx client core grpc TLS",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_CORE_GRPC_TLS_ENABLED"),
+			Value:   true,
+		},
+		&cli.StringFlag{
+			Name:    CoreGRPCAuthTokenFlagName,
+			Usage:   "celestia tx client core grpc auth token",
+			Value:   "",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_CORE_GRPC_AUTH_TOKEN"),
+		},
+		&cli.StringFlag{
+			Name:    P2PNetworkFlagName,
+			Usage:   "celestia tx client p2p network",
+			Value:   "mocha-4",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_P2P_NETWORK"),
+		},
 	}
 }
 
 type CLIConfig struct {
-	Rpc          string
-	AuthToken    string
-	Namespace    string
-	FallbackMode string
-	GasPrice     float64
-	S3Bucket     string
-	S3Region     string
-	Timeout      time.Duration
+	Rpc            string
+	AuthToken      string
+	Namespace      string
+	FallbackMode   string
+	GasPrice       float64
+	S3Bucket       string
+	S3Region       string
+	Timeout        time.Duration
+	TLSEnabled     bool
+	TxClientConfig TxClientConfig
 }
 
 func (c CLIConfig) IsEnabled() bool {
-
 	//return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
 	return c.Namespace != "" && c.S3Bucket != "" && c.S3Region != ""
+}
+
+func (c CLIConfig) TxClientEnabled() bool {
+	return (c.TxClientConfig.KeyringPath != "" || c.TxClientConfig.CoreGRPCAuthToken != "")
+}
+
+func (c CLIConfig) CelestiaConfig() RPCClientConfig {
+	ns, _ := hex.DecodeString(c.Namespace)
+	var cfg *TxClientConfig
+	if c.TxClientEnabled() {
+		cfg = &c.TxClientConfig
+	}
+	return RPCClientConfig{
+		URL:            c.Rpc,
+		TLSEnabled:     c.TLSEnabled,
+		AuthToken:      c.AuthToken,
+		Namespace:      ns,
+		FallbackMode:   c.FallbackMode,
+		GasPrice:       c.GasPrice,
+		TxClientConfig: cfg,
+		S3Bucket:       c.S3Bucket,
+		S3Region:       c.S3Region,
+	}
 }
 
 func (c CLIConfig) Check() error {
 	if !c.IsEnabled() {
 		return nil
+	}
+	if c.TxClientEnabled() {
+		// If tx client is enabled, ensure tx client flags are set
+		if c.TxClientConfig.DefaultKeyName == "" {
+			return errors.New("--da.tx-client.key-name must be set")
+		}
+		if c.TxClientConfig.KeyringPath == "" {
+			return errors.New("--da.tx-client.keyring-path must be set")
+		}
+		if c.TxClientConfig.CoreGRPCAddr == "" {
+			return errors.New("--da.tx-client.core-grpc.addr must be set")
+		}
+		if c.TxClientConfig.P2PNetwork == "" {
+			return errors.New("--da.tx-client.p2p-network must be set")
+		}
 	}
 	if _, err := url.Parse(c.Rpc); err != nil {
 		return fmt.Errorf("rpc url is invalid: %w", err)
@@ -155,6 +257,7 @@ func NewCLIConfig() CLIConfig {
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		Rpc:          ctx.String(RPCFlagName),
+		TLSEnabled:   ctx.Bool(TLSEnabledFlagName),
 		AuthToken:    ctx.String(AuthTokenFlagName),
 		Namespace:    ctx.String(NamespaceFlagName),
 		FallbackMode: ctx.String(FallbackModeFlagName),
@@ -162,6 +265,14 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		S3Bucket:     ctx.String("s3-bucket"),
 		S3Region:     ctx.String("s3-region"),
 		Timeout:      ctx.Duration("celestia-timeout"),
+		TxClientConfig: TxClientConfig{
+			DefaultKeyName:     ctx.String(DefaultKeyNameFlagName),
+			KeyringPath:        ctx.String(KeyringPathFlagName),
+			CoreGRPCAddr:       ctx.String(CoreGRPCAddrFlagName),
+			CoreGRPCTLSEnabled: ctx.Bool(CoreGRPCTLSEnabledFlagName),
+			CoreGRPCAuthToken:  ctx.String(CoreGRPCAuthTokenFlagName),
+			P2PNetwork:         ctx.String(P2PNetworkFlagName),
+		},
 	}
 }
 
@@ -223,6 +334,24 @@ func ReadCLIConfigFromEnv(envPrefix string) CLIConfig {
 		} else {
 			log.Crit("invalid celestia timeout", "value", value)
 		}
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_KEY_NAME"); value != "" {
+		result.TxClientConfig.DefaultKeyName = value
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_KEYRING_PATH"); value != "" {
+		result.TxClientConfig.KeyringPath = value
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_CORE_GRPC_ADDR"); value != "" {
+		result.TxClientConfig.CoreGRPCAddr = value
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_CORE_GRPC_TLS_ENABLED"); value != "" {
+		result.TxClientConfig.CoreGRPCTLSEnabled = value == "true"
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_CORE_GRPC_AUTH_TOKEN"); value != "" {
+		result.TxClientConfig.CoreGRPCAuthToken = value
+	}
+	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_P2P_NETWORK"); value != "" {
+		result.TxClientConfig.P2PNetwork = value
 	}
 
 	return result

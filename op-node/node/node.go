@@ -411,6 +411,7 @@ func (n *OpNode) initL1BeaconAPI(ctx context.Context, cfg *config.Config) error 
 }
 
 func (n *OpNode) initDA(ctx context.Context, cfg *config.Config) error {
+	n.log.Info("Using celestia DA", "config", cfg.DaConfig.CelestiaConfig())
 	return driver.SetDAClient(cfg.DaConfig)
 }
 
