@@ -325,16 +325,16 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 	// if this is the case, we can use the default splitID function to get the correct height and commitment,
 	// and then fetch the data from _celestia_ using that id information.
 
-	if len(id) == 33 {
+	if len(id) == 32 {
 		d.Log.Info("Found Celestia reference with missing height; attempting to download correct reference from s3", "id", hex.EncodeToString(id))
 		ctx2, cancel := context.WithTimeout(context.Background(), d.CelestiaClient.GetTimeout)
 		defer cancel()
-			blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, id...))
+		blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, id...))
 		if err != nil {
 			return fmt.Errorf("failed to download data from S3: %w", err)
 		}
 		if len(blob) == 41 {
-			id = blob
+			id = blob[1:]
 		} else {
 			return fmt.Errorf("invalid data length from s3 backup: %d", len(blob))
 		}
