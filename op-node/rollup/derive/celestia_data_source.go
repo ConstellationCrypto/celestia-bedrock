@@ -58,8 +58,35 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 
 		s.comm = data[1:]
 	}
-	s.log.Info("celestia: s.comm", "comm", fmt.Sprintf("%x", s.comm))
+
+	s.log.Info("celestia data source: s.comm", "comm", fmt.Sprintf("%x", s.comm))
 	height, commitment := celestia.SplitID(s.comm)
+
+	// hotfix (10-17-2025): Some previous batches were submitted omitting the height on celestia.
+	// to resolve, we need to lookup the full id on s3, and download the data there to get the proper id.
+	// this works because the proper id was incorrectly uploaded to s3 for these batches.
+	// we can detect this issue by checking if the id is 33 bytes wide instead of the correct 41 bytes.
+	// as an additional validation, we should ensure that the data retrieved from s3 is 41 bytes long.
+	// if this is the case, we can use the default splitID function to get the correct height and commitment,
+	// and then fetch the data from _celestia_ using that id information.
+
+	if s.comm == 32 {
+		s.log.Info("Found Celestia reference with missing height; attempting to download correct reference from s3", "id", hex.EncodeToString(s.comm))
+		ctx2, cancel := context.WithTimeout(context.Background(), d.CelestiaClient.GetTimeout)
+		defer cancel()
+		blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, s.comm...))
+		if err != nil {
+			return fmt.Errorf("failed to download data from S3: %w", err)
+		}
+		if len(blob) == 41 {
+			id = blob[1:]
+		} else {
+			return fmt.Errorf("invalid data length from s3 backup: %d", len(blob))
+		}
+		height, commitment = celestia.SplitID(id)
+		s.log.Info("Found updated Celestia reference from S3", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
+	}
+
 	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
 	if err != nil {
 		return nil, err
