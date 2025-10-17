@@ -329,6 +329,16 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 		frameData = blob
 	}
 	// Parse frames from blob data
+
+	d.Log.Debug("Found Celestia reference", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
+
+	blob, err := d.CelestiaClient.Client.Get(ctx, height, namespace, commitment)
+	if err != nil {
+		return fmt.Errorf("failed to fetch blobs from Celestia: %w", err)
+	}
+
+	// Parse frames from blob data
+	frameData := blob.Blob.Data()
 	frames, err := derive.ParseFrames(frameData)
 	if err != nil {
 		return fmt.Errorf("failed to parse frames: %w", err)

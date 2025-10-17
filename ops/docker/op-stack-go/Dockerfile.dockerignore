@@ -5,7 +5,6 @@
 !/cannon
 !/devnet-sdk
 !/op-batcher
-!/op-bootnode
 !/op-celestia
 !/op-chain-ops
 !/op-deployer
