@@ -305,6 +305,7 @@ func (d *IndexerDriver) processBatchTransaction(tx *types.Transaction, blockNum 
 }
 
 // processCelestiaFrames fetches frames from Celestia and extracts L2 block ranges
+// processCelestiaFrames fetches frames from Celestia and extracts L2 block ranges
 func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error {
 	ctx, cancel := context.WithTimeout(d.ctx, d.Cfg.NetworkTimeout)
 	defer cancel()
@@ -314,21 +315,16 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 	if err != nil {
 		return err
 	}
-	d.Log.Info("Found Celestia reference", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
-	ctx2, cancel := context.WithTimeout(context.Background(), d.CelestiaClient.GetTimeout)
-	blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, commitment)
-	var frameData []byte
-	cancel()
+
+	d.Log.Debug("Found Celestia reference", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
+
+	blob, err := d.CelestiaClient.Client.Get(ctx, height, namespace, commitment)
 	if err != nil {
-		blob, err := d.CelestiaClient.Client.Blob.Get(ctx, height, namespace, commitment)
-		if err != nil {
-			return fmt.Errorf("failed to fetch blobs from Celestia: %w", err)
-		}
-		frameData = blob.Blob.Data()
-	} else {
-		frameData = blob
+		return fmt.Errorf("failed to fetch blobs from Celestia: %w", err)
 	}
+
 	// Parse frames from blob data
+	frameData := blob.Blob.Data()
 	frames, err := derive.ParseFrames(frameData)
 	if err != nil {
 		return fmt.Errorf("failed to parse frames: %w", err)
