@@ -1082,7 +1082,7 @@ func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
 
 func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (*txmgr.TxCandidate, error) {
 	l.Log.Info("Building Celestia transaction candidate", "size", len(data))
-	ctx, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+	ctx, cancel := context.WithTimeout(ctx, l.DAClient.SubmitTimeout)
 	defer cancel()
 	namespace, err := libshare.NewNamespaceFromBytes(l.DAClient.Namespace)
 	if err != nil {
@@ -1092,7 +1092,7 @@ func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (
 	if err != nil {
 		return nil, err
 	}
-	height, err := l.DAClient.Client.Blob.Submit(ctx, []*blob.Blob{b}, state.NewTxConfig(state.WithGasPrice(l.DAClient.GasPrice)))
+	height, err := l.DAClient.Client.Submit(ctx, []*blob.Blob{b}, state.NewTxConfig(state.WithGasPrice(l.DAClient.GasPrice)))
 	if err != nil {
 		return nil, err
 	}

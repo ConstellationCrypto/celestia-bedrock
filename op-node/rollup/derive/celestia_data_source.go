@@ -41,7 +41,6 @@ func NewCelestiaDataSource(log log.Logger, src DataIter) *CelestiaDataSource {
 func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 	if s.comm == nil {
 		// The L1 source provides the input commitment corresponding to the batch.
-
 		data, err := s.src.Next(ctx)
 		if err != nil {
 			return nil, err
@@ -50,69 +49,23 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		if len(data) == 0 {
 			return nil, NotEnoughData
 		}
-		//caldera
-		version := data[0]
-		if celestiaLegacyMode {
-			if data[0] == 1 && len(data) > 1 { // legacy eth data
-				data = data[1:]
-				version = data[0]
-			}
-			if data[0] == 2 { // legacy celestia data
-				version = celestia.DerivationVersionCelestia
-			}
-		}
 		// If the transaction data type isn't Celestia,
 		// pass it downstream for further validation
 		// and potential parsing as L1 DA inputs.
-		// if data[0] != celestia.DerivationVersionCelestia {
-		// 	return data, nil
-		// }
-		log.Info("celestia: CelestiaDataSource", "version", version)
-		switch version {
-		case celestia.DerivationVersionCelestia:
-			s.comm = data[1:]
-			log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
-			ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-			awsBlob, err := celestia.DownloadS3Data(ctx2, daClient, data)
-			cancel()
-			if err != nil {
-				log.Error("aws request failed", "err", err)
-				height, commitment := celestia.SplitID(s.comm)
-				namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
-				if err != nil {
-					return nil, err
-				}
-
-				blob, err := daClient.Client.Blob.Get(ctx, height, namespace, commitment)
-				if err != nil {
-					// return temporary error so we can keep retrying.
-					return nil, NewTemporaryError(fmt.Errorf("celestia: failed to resolve frame: %w", err))
-				}
-				if blob == nil {
-					s.log.Warn("celestia: skipping empty blobs")
-					s.comm = nil
-					// skip the input
-					return s.Next(ctx)
-				}
-
-				// reset the commitment so we can fetch the next one from the source at the next iteration.
-				s.comm = nil
-				return blob.Data(), nil
-			}
-			s.comm = nil
-			return awsBlob, nil
-		default:
+		if data[0] != celestia.DerivationVersionCelestia {
 			return data, nil
 		}
 
+		s.comm = data[1:]
 	}
-	log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
+	s.log.Info("celestia: s.comm", "comm", fmt.Sprintf("%x", s.comm))
 	height, commitment := celestia.SplitID(s.comm)
 	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	blob, err := daClient.Client.Blob.Get(ctx, height, namespace, commitment)
+	s.log.Info("celestia: fetching blob", "height", height, "commitment", hex.EncodeToString(commitment))
+	blob, err := daClient.Client.Get(ctx, height, namespace, commitment)
 	if err != nil {
 		// return temporary error so we can keep retrying.
 		return nil, NewTemporaryError(fmt.Errorf("celestia: failed to resolve frame: %w", err))
