@@ -329,7 +329,7 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 		d.Log.Info("Found Celestia reference with missing height; attempting to download correct reference from s3", "id", hex.EncodeToString(id))
 		ctx2, cancel := context.WithTimeout(context.Background(), d.CelestiaClient.GetTimeout)
 		defer cancel()
-		blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, id))
+			blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, id...))
 		if err != nil {
 			return fmt.Errorf("failed to download data from S3: %w", err)
 		}
