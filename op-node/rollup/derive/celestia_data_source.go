@@ -71,11 +71,11 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 	// if this is the case, we can use the default splitID function to get the correct height and commitment,
 	// and then fetch the data from _celestia_ using that id information.
 
-	if s.comm == 32 {
+	if len(s.comm) == 32 {
 		s.log.Info("Found Celestia reference with missing height; attempting to download correct reference from s3", "id", hex.EncodeToString(s.comm))
-		ctx, cancel := context.WithTimeout(context.Background(), daClient.Client.GetTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
 		defer cancel()
-		blob, err := celestia.DownloadS3Data(ctx, daClient.Client, append([]byte{celestia.DerivationVersionCelestia}, s.comm...))
+		blob, err := celestia.DownloadS3Data(ctx, daClient, append([]byte{celestia.DerivationVersionCelestia}, s.comm...))
 		if err != nil {
 			return nil, NewTemporaryError(fmt.Errorf("failed to download data from S3: %w", err))
 		}
