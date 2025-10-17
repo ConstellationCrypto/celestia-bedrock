@@ -58,7 +58,7 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 
 		s.comm = data[1:]
 	}
-
+	s.log.Info("celestia: s.comm", "comm", fmt.Sprintf("%x", s.comm))
 	height, commitment := celestia.SplitID(s.comm)
 	namespace, err := libshare.NewNamespaceFromBytes(daClient.Namespace)
 	if err != nil {
