@@ -2,6 +2,7 @@ package derive
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -72,18 +73,18 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 
 	if s.comm == 32 {
 		s.log.Info("Found Celestia reference with missing height; attempting to download correct reference from s3", "id", hex.EncodeToString(s.comm))
-		ctx2, cancel := context.WithTimeout(context.Background(), d.CelestiaClient.GetTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), daClient.Client.GetTimeout)
 		defer cancel()
-		blob, err := celestia.DownloadS3Data(ctx2, d.CelestiaClient, append([]byte{celestia.DerivationVersionCelestia}, s.comm...))
+		blob, err := celestia.DownloadS3Data(ctx, daClient.Client, append([]byte{celestia.DerivationVersionCelestia}, s.comm...))
 		if err != nil {
-			return fmt.Errorf("failed to download data from S3: %w", err)
+			return nil, NewTemporaryError(fmt.Errorf("failed to download data from S3: %w", err))
 		}
 		if len(blob) == 41 {
-			id = blob[1:]
+			height, commitment = celestia.SplitID(blob[1:])
 		} else {
-			return fmt.Errorf("invalid data length from s3 backup: %d", len(blob))
+			return nil, NewTemporaryError(fmt.Errorf("invalid data length from s3 backup: %d", len(blob)))
 		}
-		height, commitment = celestia.SplitID(id)
+
 		s.log.Info("Found updated Celestia reference from S3", "height", height, "commitment", base64.StdEncoding.EncodeToString(commitment))
 	}
 
