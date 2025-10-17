@@ -3,7 +3,6 @@ package celestia
 import (
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -158,18 +157,22 @@ func NewDAClient(cfg RPCClientConfig, auth bool) (*DAClient, error) {
 	//caldera
 	namespace := cfg.Namespace
 	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(namespace))
-	if len(namespace) != 58 {
-		namespaceStr := "00000000000000000000000000000000000000" + string(namespace)
-		log.Warn("celestia: Namespace has been adjusted.", "namespace", namespaceStr)
-		namespaceBytes, err := hex.DecodeString(namespaceStr)
-		if err != nil {
-			log.Crit("failed to decode namespace", "err", err)
-		}
-		_, err = libshare.NewNamespaceFromBytes(namespaceBytes)
-		if err != nil {
-			log.Crit("failed to parse namespace", "err", err)
-		}
+	_, err = libshare.NewNamespaceFromBytes(namespace)
+	if err != nil {
+		log.Crit("failed to parse namespace", "err", err)
 	}
+	// if len(namespace) > 58 {
+	// 	namespaceStr := "00000000000000000000000000000000000000" + string(namespace)
+	// 	log.Warn("celestia: Namespace has been adjusted.", "namespace", namespaceStr)
+	// 	namespaceBytes, err := hex.DecodeString(namespaceStr)
+	// 	if err != nil {
+	// 		log.Crit("failed to decode namespace", "err", err)
+	// 	}
+	// 	_, err = libshare.NewNamespaceFromBytes(namespaceBytes)
+	// 	if err != nil {
+	// 		log.Crit("failed to parse namespace", "err", err)
+	// 	}
+	// }
 	var s3Client *s3.Client
 	if auth {
 		awscfg, err := config.LoadDefaultConfig(context.Background(),
