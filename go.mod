@@ -6,7 +6,7 @@ toolchain go1.22.7
 
 require (
 	github.com/BurntSushi/toml v1.4.0
-	github.com/andybalholm/brotli v1.1.0
+	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2 v1.36.0
 	github.com/aws/aws-sdk-go-v2/config v1.29.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.37.16
