@@ -1,8 +1,6 @@
 module github.com/ethereum-optimism/optimism
 
-go 1.22.0
-
-toolchain go1.22.7
+go 1.24.0
 
 require (
 	github.com/BurntSushi/toml v1.4.0
@@ -16,17 +14,17 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/celestiaorg/go-square v1.1.1
 	github.com/cockroachdb/pebble v1.1.4
-	github.com/consensys/gnark-crypto v0.16.0
+	github.com/consensys/gnark-crypto v0.18.0
 	github.com/crate-crypto/go-kzg-4844 v1.1.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
 	github.com/ethereum-optimism/superchain-registry/validation v0.0.0-20250205201532-8ff62ada16e1
-	github.com/ethereum/go-ethereum v1.15.1
+	github.com/ethereum/go-ethereum v1.16.5
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-task/slim-sprig/v3 v3.0.0
-	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
-	github.com/google/go-cmp v0.6.0
+	github.com/golang/snappy v1.0.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -41,7 +39,7 @@ require (
 	github.com/libp2p/go-libp2p-mplex v0.9.0
 	github.com/libp2p/go-libp2p-pubsub v0.12.0
 	github.com/libp2p/go-libp2p-testing v0.12.0
-	github.com/lmittmann/w3 v0.17.8
+	github.com/lmittmann/w3 v0.20.5
 	github.com/mattn/go-isatty v0.0.20
 	github.com/minio/minio-go/v7 v7.0.85
 	github.com/minio/sha256-simd v1.0.1
@@ -55,14 +53,14 @@ require (
 	github.com/protolambda/ctxlock v0.1.0
 	github.com/rollkit/go-da v0.9.0
 	github.com/schollz/progressbar/v3 v3.18.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/tendermint/tendermint v0.35.9
 	github.com/urfave/cli/v2 v2.27.5
-	golang.org/x/crypto v0.32.0
+	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
-	golang.org/x/sync v0.10.0
-	golang.org/x/term v0.28.0
-	golang.org/x/time v0.10.0
+	golang.org/x/sync v0.12.0
+	golang.org/x/term v0.30.0
+	golang.org/x/time v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -70,7 +68,7 @@ require (
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
 	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
@@ -103,7 +101,6 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
-	github.com/consensys/bavard v0.1.27 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
@@ -120,10 +117,11 @@ require (
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elastic/gosigar v0.14.3 // indirect
+	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
-	github.com/ferranbt/fastssz v0.1.2 // indirect
+	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/filecoin-project/go-jsonrpc v0.6.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
@@ -136,7 +134,7 @@ require (
 	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/gofrs/flock v0.8.1 // indirect
+	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -194,7 +192,6 @@ require (
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/pointerstructure v1.2.1 // indirect
-	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
@@ -248,7 +245,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/supranational/blst v0.3.14 // indirect
+	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
@@ -267,8 +264,8 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
@@ -278,7 +275,6 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
-	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101500.1-rc.1
