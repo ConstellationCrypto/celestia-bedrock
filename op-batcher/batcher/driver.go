@@ -1098,7 +1098,7 @@ func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (
 	}
 	id := celestia.MakeID(height, b.Commitment)
 	l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(id))
-	frame = append([]byte{celestia.DerivationVersionCelestia}, id...)
+	frame := append([]byte{celestia.DerivationVersionCelestia}, id...)
 
 	ctx2, cancel := context.WithTimeout(context.Background(), l.DAClient.GetTimeout)
 	err = l.uploadS3Data(ctx2, frame, data)
