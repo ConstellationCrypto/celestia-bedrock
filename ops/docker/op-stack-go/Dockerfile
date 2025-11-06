@@ -21,7 +21,7 @@ ARG KONA_VERSION=none
 ARG ASTERISC_VERSION=none
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.24.4-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24.6-alpine3.22 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 

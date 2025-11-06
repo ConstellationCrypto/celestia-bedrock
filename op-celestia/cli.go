@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
-
-	opservice "github.com/ethereum-optimism/optimism/op-service"
 )
 
 const (
@@ -152,7 +152,7 @@ func NewCLIConfig() CLIConfig {
 	}
 }
 
-func ReadCLIConfig(ctx *cli.Context) CLIConfig {
+func ReadCLIConfig(ctx cliiface.Context) CLIConfig {
 	return CLIConfig{
 		Rpc:          ctx.String(RPCFlagName),
 		AuthToken:    ctx.String(AuthTokenFlagName),
