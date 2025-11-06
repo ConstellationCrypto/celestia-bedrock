@@ -196,9 +196,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	if err := bs.initAltDA(cfg); err != nil {
 		return fmt.Errorf("failed to init AltDA: %w", err)
 	}
-	if err := bs.initDA(cfg); err != nil {
-		return fmt.Errorf("failed to start da server: %w", err)
-	}
 	bs.initDriver(opts...)
 	if err := bs.initRPCServer(cfg); err != nil {
 		return fmt.Errorf("failed to start RPC server: %w", err)

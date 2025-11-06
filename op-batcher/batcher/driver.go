@@ -1098,15 +1098,18 @@ func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (
 	}
 	id := celestia.MakeID(height, b.Commitment)
 	l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(id))
-	data = append([]byte{celestia.DerivationVersionCelestia}, id...)
+	frame := append([]byte{celestia.DerivationVersionCelestia}, id...)
 
 	ctx2, cancel := context.WithTimeout(context.Background(), l.DAClient.GetTimeout)
-	frame := append([]byte{celestia.DerivationVersionCelestia}, b.Commitment...)
 	err = l.uploadS3Data(ctx2, frame, data)
 	cancel()
 	if err == nil {
+		// if the data was successfully uploaded to s3, we should submit the `frame` onchain
+		// the op-node will then read the header on the frame (0xCE) to process via celestia
+		// and then decode the remaining 41 bytes to get the height and commitment from celestia.
 		data = frame
 	} else {
+		// if the data was not successfully uploaded to s3, we should submit the full data onchain
 		l.Log.Error("celestia: failed to upload data to s3", "err", err)
 	}
 

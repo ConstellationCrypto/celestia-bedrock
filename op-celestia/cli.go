@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -202,7 +203,16 @@ func (c CLIConfig) TxClientEnabled() bool {
 }
 
 func (c CLIConfig) CelestiaConfig() RPCClientConfig {
-	ns, _ := hex.DecodeString(c.Namespace)
+	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(c.Namespace))
+	// Generate namespace with exactly 58 characters
+	// we used to trim down the celestia namespace we're now migrating it to the celestia standard
+	requiredZeros := 58 - len(c.Namespace)
+	if requiredZeros < 0 {
+		requiredZeros = 0
+	}
+	namespacePrefix := strings.Repeat("0", requiredZeros)
+	celestiaNamespace := namespacePrefix + c.Namespace
+	ns, _ := hex.DecodeString(celestiaNamespace)
 	var cfg *TxClientConfig
 	if c.TxClientEnabled() {
 		cfg = &c.TxClientConfig
