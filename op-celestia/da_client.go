@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -13,7 +12,6 @@ import (
 	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/inclusion"
 	"github.com/celestiaorg/go-square/namespace"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/rollkit/go-da"
 	"github.com/tendermint/tendermint/crypto/merkle"
 
@@ -55,18 +53,7 @@ func NewDAClient(rpc, token, namespace, fallbackMode string, gasPrice float64, s
 	if err != nil {
 		return nil, err
 	}
-
-	//CALDERA does not tolarate 58 size strings for namespace
-	//we have to fix this here
-	//and then again adjust in calldata_source downloadS3Data and driver.go uploadS3Data to trim
-	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(namespace))
-	// Generate namespace with exactly 58 characters
-	// we used to trim down the celestia namespace we're now migrating it to the celestia standard
-	requiredZeros := 58 - len(namespace)
-	if requiredZeros < 0 {
-		requiredZeros = 0
-	}
-	ns, err := hex.DecodeString(strings.Repeat("0", requiredZeros))
+	ns, err := hex.DecodeString(namespace)
 	if err != nil {
 		return nil, err
 	}
