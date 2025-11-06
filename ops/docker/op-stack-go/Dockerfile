@@ -21,22 +21,38 @@ ARG KONA_VERSION=none
 ARG ASTERISC_VERSION=none
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.24.4-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24.6-alpine3.22 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
 # Install mise (the apk version is outdated)
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+COPY ./ops/scripts/install_mise.sh /tmp/install_mise.sh
+RUN MISE_INSTALL_PATH=/usr/local/bin/mise sh /tmp/install_mise.sh
 
 ARG TARGETARCH
 
-# Install yq
-RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$TARGETARCH -O /usr/local/bin/yq && \
-  chmod +x /usr/local/bin/yq
-
 # Install versioned toolchain
 COPY ./mise.toml .
-RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+RUN mise trust
+RUN mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+RUN mise install -v -y yq && cp $(mise which yq) /usr/local/bin/yq && yq --version
+# mise does not install the alpine binary for forge, so we download it manually
+COPY ./op-deployer/pkg/deployer/forge/version.json /tmp/op-deployer-versions.json
+RUN set -e && \
+    FORGE_VERSION=$(jq -r '.forge' /tmp/op-deployer-versions.json) && \
+    mkdir -p /usr/local/bin && \
+    FORGE_URL="https://github.com/foundry-rs/foundry/releases/download/${FORGE_VERSION}/foundry_${FORGE_VERSION}_alpine_${TARGETARCH}.tar.gz" && \
+    echo "Downloading forge from: ${FORGE_URL}" && \
+    if ! curl -SL "${FORGE_URL}" -o /tmp/foundry.tar.gz; then \
+        echo "Failed to download forge from ${FORGE_URL}" >&2; \
+        exit 1; \
+    fi && \
+    ls -la /tmp/foundry.tar.gz && \
+    tar -tzf /tmp/foundry.tar.gz && \
+    tar -xzf /tmp/foundry.tar.gz -C /usr/local/bin forge && \
+    rm /tmp/foundry.tar.gz && \
+    chmod +x /usr/local/bin/forge
+# Note: can't check the forge version because in CI we're building arm64 images using a non-emulated x86_64 host, therefore the version check would fail
 
 # We copy the go.mod/sum first, so the `go mod download` does not have to re-run if dependencies do not change.
 COPY ./go.mod /app/go.mod
@@ -139,6 +155,11 @@ ARG OP_SUPERVISOR_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-supervisor && make op-supervisor  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_SUPERVISOR_VERSION"
 
+FROM --platform=$BUILDPLATFORM builder AS op-supernode-builder
+ARG OP_SUPERNODE_VERSION=v0.0.0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-supernode && make op-supernode  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_SUPERNODE_VERSION"
+
 FROM --platform=$BUILDPLATFORM builder AS op-test-sequencer-builder
 ARG OP_TEST_SEQUENCER_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-test-sequencer && make op-test-sequencer  \
@@ -146,8 +167,9 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM --platform=$BUILDPLATFORM builder AS op-deployer-builder
 ARG OP_DEPLOYER_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-chain-ops && make op-deployer  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION" \
+  op-deployer/build-go
 
 FROM --platform=$BUILDPLATFORM builder AS op-dripper-builder
 ARG OP_DRIPPER_VERSION=v0.0.0
@@ -199,12 +221,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends musl openssl ca
 COPY --from=op-challenger-builder /app/op-challenger/bin/op-challenger /usr/local/bin/
 # Copy in op-program and cannon
 COPY --from=op-program-builder /app/op-program/bin/op-program /usr/local/bin/
+ENV OP_CHALLENGER_ASTERISC_SERVER=/usr/local/bin/op-program
 ENV OP_CHALLENGER_CANNON_SERVER=/usr/local/bin/op-program
 COPY --from=cannon-builder /app/cannon/bin/cannon /usr/local/bin/
 ENV OP_CHALLENGER_CANNON_BIN=/usr/local/bin/cannon
 # Copy in kona and asterisc
 COPY --from=kona /usr/local/bin/kona-host /usr/local/bin/
 ENV OP_CHALLENGER_ASTERISC_KONA_SERVER=/usr/local/bin/kona-host
+ENV OP_CHALLENGER_CANNON_KONA_SERVER=/usr/local/bin/kona-host
 COPY --from=asterisc /usr/local/bin/asterisc /usr/local/bin/
 ENV OP_CHALLENGER_ASTERISC_BIN=/usr/local/bin/asterisc
 CMD ["op-challenger"]
@@ -233,12 +257,18 @@ FROM $TARGET_BASE_IMAGE AS op-supervisor-target
 COPY --from=op-supervisor-builder /app/op-supervisor/bin/op-supervisor /usr/local/bin/
 CMD ["op-supervisor"]
 
+FROM $TARGET_BASE_IMAGE AS op-supernode-target
+COPY --from=op-supernode-builder /app/op-supernode/bin/op-supernode /usr/local/bin/
+CMD ["op-supernode"]
+
 FROM $TARGET_BASE_IMAGE AS op-test-sequencer-target
 COPY --from=op-test-sequencer-builder /app/op-test-sequencer/bin/op-test-sequencer /usr/local/bin/
 CMD ["op-test-sequencer"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
-COPY --from=op-deployer-builder /app/op-chain-ops/bin/op-deployer /usr/local/bin/
+RUN apk add --no-cache ca-certificates
+COPY --from=op-deployer-builder /usr/local/bin/forge /app/op-deployer/bin/op-deployer /usr/local/bin/
+ENV FORGE_ENV=alpine
 CMD ["op-deployer"]
 
 FROM $TARGET_BASE_IMAGE AS op-dripper-target

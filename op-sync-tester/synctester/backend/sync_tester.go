@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-sync-tester/metrics"
@@ -24,13 +24,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-sync-tester/synctester/backend/config"
+	"github.com/ethereum-optimism/optimism/op-sync-tester/synctester/backend/session"
 	sttypes "github.com/ethereum-optimism/optimism/op-sync-tester/synctester/backend/types"
 	"github.com/ethereum-optimism/optimism/op-sync-tester/synctester/frontend"
 )
 
 type SyncTester struct {
-	mu sync.RWMutex
-
 	log log.Logger
 	m   metrics.Metricer
 
@@ -39,9 +38,7 @@ type SyncTester struct {
 
 	elReader ReadOnlyELBackend
 
-	sessions map[string]*eth.SyncTesterSession
-
-	deletedSessionIDs map[string]interface{}
+	sessMgr *session.SessionManager
 }
 
 // HeaderNumberOnly is a lightweight header type that only contains the
@@ -62,131 +59,109 @@ func SyncTesterFromConfig(logger log.Logger, m metrics.Metricer, stID sttypes.Sy
 		return nil, fmt.Errorf("failed to dial EL client: %w", err)
 	}
 	elReader := NewELReader(elClient)
+	logger.Info("Initialized sync tester from config", "syncTester", stID)
 	return NewSyncTester(logger, m, stID, stCfg.ChainID, elReader), nil
 }
 
 func NewSyncTester(logger log.Logger, m metrics.Metricer, stID sttypes.SyncTesterID, chainID eth.ChainID, elReader ReadOnlyELBackend) *SyncTester {
 	return &SyncTester{
-		log:               logger,
-		m:                 m,
-		id:                stID,
-		chainID:           chainID,
-		elReader:          elReader,
-		sessions:          make(map[string]*eth.SyncTesterSession),
-		deletedSessionIDs: make(map[string]interface{}),
+		log:      logger,
+		m:        m,
+		id:       stID,
+		chainID:  chainID,
+		elReader: elReader,
+		sessMgr:  session.NewSessionManager(logger),
 	}
 }
 
-func (s *SyncTester) storeSession(session *eth.SyncTesterSession) {
-	s.sessions[session.SessionID] = session
-}
-
-func (s *SyncTester) fetchSession(ctx context.Context) (*eth.SyncTesterSession, error) {
-	session, ok := SyncTesterSessionFromContext(ctx)
-	if !ok || session == nil {
-		return nil, fmt.Errorf("no session found in context")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.deletedSessionIDs[session.SessionID]; ok {
-		s.log.Warn("Using deleted session", "sessionID", session.SessionID)
-		return nil, fmt.Errorf("session already deleted: %s", session.SessionID)
-	}
-	if existing, ok := s.sessions[session.SessionID]; ok {
-		s.log.Info("Using existing session", "session", existing)
-		return existing, nil
-	} else {
-		s.storeSession(session)
-		s.log.Info("Initialized new session", "session", session)
+func (s *SyncTester) GetSession(ctx context.Context) (*eth.SyncTesterSession, error) {
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.SyncTesterSession, error) {
+		logger.Debug("GetSession")
 		return session, nil
-	}
-}
-
-func (s *SyncTester) GetSession(ctx context.Context) (eth.SyncTesterSession, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return eth.SyncTesterSession{}, err
-	}
-	return *session, nil
+	})
 }
 
 func (s *SyncTester) DeleteSession(ctx context.Context) error {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	// mark as deleted
-	s.deletedSessionIDs[session.SessionID] = struct{}{}
-	delete(s.sessions, session.SessionID)
-	return nil
+	_, err := session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (any, error) {
+		logger.Debug("DeleteSession")
+		return struct{}{}, s.sessMgr.DeleteSession(session.SessionID)
+	})
+	return err
+}
+
+func (s *SyncTester) ResetSession(ctx context.Context) error {
+	_, err := session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (any, error) {
+		logger.Debug("ResetSession")
+		session.ResetSession()
+		return struct{}{}, nil
+	})
+	return err
 }
 
 func (s *SyncTester) ListSessions(ctx context.Context) ([]string, error) {
-	// No need to fetch session
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	keys := make([]string, 0, len(s.sessions))
-	for k := range s.sessions {
-		keys = append(keys, k)
-	}
-	return keys, nil
+	ids := s.sessMgr.SessionIDs()
+	s.log.Debug("ListSessions", "count", len(ids))
+	return ids, nil
 }
 
 func (s *SyncTester) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]*types.Receipt, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	number, isNumber := blockNrOrHash.Number()
-	var receipts []*types.Receipt
-	if !isNumber {
-		// hash
-		receipts, err = s.elReader.GetBlockReceipts(ctx, blockNrOrHash)
-		if err != nil {
-			return nil, err
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) ([]*types.Receipt, error) {
+		logger.Debug("GetBlockReceipts", "blockNrOrHash", blockNrOrHash)
+		number, isNumber := blockNrOrHash.Number()
+		var err error
+		var receipts []*types.Receipt
+		if !isNumber {
+			// hash
+			receipts, err = s.elReader.GetBlockReceipts(ctx, blockNrOrHash)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			var target uint64
+			if target, err = s.checkBlockNumber(number, session, logger); err != nil {
+				return nil, err
+			}
+			receipts, err = s.elReader.GetBlockReceipts(ctx, rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(target)))
+			if err != nil {
+				return nil, err
+			}
 		}
-	} else {
-		var target uint64
-		if target, err = s.checkBlockNumber(number, session); err != nil {
-			return nil, err
+		if len(receipts) == 0 {
+			// Should never happen since every block except genesis has at least one deposit tx
+			logger.Warn("L2 Block has zero receipts", "blockNrHash", blockNrOrHash)
+			return nil, errors.New("no receipts")
 		}
-		receipts, err = s.elReader.GetBlockReceipts(ctx, rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(target)))
-		if err != nil {
-			return nil, err
+		target := receipts[0].BlockNumber.Uint64()
+		if target > session.CurrentState.Latest {
+			logger.Warn("Requested block is ahead of sync tester state", "requested", target)
+			return nil, ethereum.NotFound
 		}
-	}
-	if len(receipts) == 0 {
-		// Should never happen since every block except genesis has at least one deposit tx
-		return nil, errors.New("no receipts")
-	}
-	if receipts[0].BlockNumber.Uint64() > session.CurrentState.Latest {
-		return nil, ethereum.NotFound
-	}
-	return receipts, nil
+		return receipts, nil
+	})
 }
 
 func (s *SyncTester) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (json.RawMessage, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var raw json.RawMessage
-	if raw, err = s.elReader.GetBlockByHashJSON(ctx, hash, fullTx); err != nil {
-		return nil, err
-	}
-	var header HeaderNumberOnly
-	if err := json.Unmarshal(raw, &header); err != nil {
-		return nil, err
-	}
-	if header.Number.ToInt().Uint64() > session.CurrentState.Latest {
-		return nil, ethereum.NotFound
-	}
-	return raw, nil
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (json.RawMessage, error) {
+		logger.Debug("GetBlockByHash", "hash", hash, "fullTx", fullTx)
+		var err error
+		var raw json.RawMessage
+		if raw, err = s.elReader.GetBlockByHashJSON(ctx, hash, fullTx); err != nil {
+			return nil, err
+		}
+		var header HeaderNumberOnly
+		if err := json.Unmarshal(raw, &header); err != nil {
+			return nil, err
+		}
+		target := header.Number.ToInt().Uint64()
+		if target > session.CurrentState.Latest {
+			logger.Warn("Requested block is ahead of sync tester state", "requested", target)
+			return nil, ethereum.NotFound
+		}
+		return raw, nil
+	})
 }
 
-func (s *SyncTester) checkBlockNumber(number rpc.BlockNumber, session *eth.SyncTesterSession) (uint64, error) {
+func (s *SyncTester) checkBlockNumber(number rpc.BlockNumber, session *eth.SyncTesterSession, logger log.Logger) (uint64, error) {
 	var target uint64
 	switch number {
 	case rpc.LatestBlockNumber:
@@ -206,6 +181,7 @@ func (s *SyncTester) checkBlockNumber(number rpc.BlockNumber, session *eth.SyncT
 		target = uint64(number.Int64())
 		// Short circuit for numeric request beyond sync tester canonical head
 		if target > session.CurrentState.Latest {
+			logger.Warn("Requested block is ahead of sync tester state", "requested", target)
 			return 0, ethereum.NotFound
 		}
 	}
@@ -213,123 +189,117 @@ func (s *SyncTester) checkBlockNumber(number rpc.BlockNumber, session *eth.SyncT
 }
 
 func (s *SyncTester) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (json.RawMessage, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var target uint64
-	if target, err = s.checkBlockNumber(number, session); err != nil {
-		return nil, err
-	}
-	var raw json.RawMessage
-	if raw, err = s.elReader.GetBlockByNumberJSON(ctx, rpc.BlockNumber(target), fullTx); err != nil {
-		return nil, err
-	}
-	return raw, nil
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (json.RawMessage, error) {
+		logger.Debug("GetBlockByNumber", "number", number, "fullTx", fullTx)
+		var err error
+		var target uint64
+		if target, err = s.checkBlockNumber(number, session, logger); err != nil {
+			return nil, err
+		}
+		var raw json.RawMessage
+		if raw, err = s.elReader.GetBlockByNumberJSON(ctx, rpc.BlockNumber(target), fullTx); err != nil {
+			return nil, err
+		}
+		return raw, nil
+	})
 }
 
 func (s *SyncTester) ChainId(ctx context.Context) (hexutil.Big, error) {
-	if _, err := s.fetchSession(ctx); err != nil {
-		return hexutil.Big{}, err
-	}
-	chainID, err := s.elReader.ChainId(ctx)
-	if err != nil {
-		return hexutil.Big{}, err
-	}
-	if chainID.ToInt().Cmp(s.chainID.ToBig()) != 0 {
-		return hexutil.Big{}, fmt.Errorf("chainID mismatch: config: %s, backend: %s", s.chainID, chainID.ToInt())
-	}
-	return hexutil.Big(*s.chainID.ToBig()), nil
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (hexutil.Big, error) {
+		logger.Debug("ChainId")
+		chainID, err := s.elReader.ChainId(ctx)
+		if err != nil {
+			return hexutil.Big{}, err
+		}
+		if chainID.ToInt().Cmp(s.chainID.ToBig()) != 0 {
+			logger.Error("ChainId mismatch", "config", s.chainID, "backend", chainID.ToInt())
+			return hexutil.Big{}, fmt.Errorf("chainID mismatch: config: %s, backend: %s", s.chainID, chainID.ToInt())
+		}
+		return hexutil.Big(*s.chainID.ToBig()), nil
+	})
 }
 
 // GetPayloadV1 only supports V1 payloads.
 func (s *SyncTester) GetPayloadV1(ctx context.Context, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
-	if !payloadID.Is(engine.PayloadV1) {
-		return nil, engine.UnsupportedFork
-	}
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.getPayload(session, payloadID)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ExecutionPayloadEnvelope, error) {
+		logger.Debug("GetPayloadV1", "payloadID", payloadID)
+		if !payloadID.Is(engine.PayloadV1) {
+			return nil, engine.UnsupportedFork
+		}
+		return s.getPayload(session, logger, payloadID)
+	})
 }
 
 // GetPayloadV2 supports V1, V2 payloads.
 func (s *SyncTester) GetPayloadV2(ctx context.Context, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
-	if !payloadID.Is(engine.PayloadV1, engine.PayloadV2) {
-		return nil, engine.UnsupportedFork
-	}
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.getPayload(session, payloadID)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ExecutionPayloadEnvelope, error) {
+		logger.Debug("GetPayloadV2", "payloadID", payloadID)
+		if !payloadID.Is(engine.PayloadV1, engine.PayloadV2) {
+			return nil, engine.UnsupportedFork
+		}
+		return s.getPayload(session, logger, payloadID)
+	})
 }
 
 // GetPayloadV3 must be only called when Ecotone activated.
 func (s *SyncTester) GetPayloadV3(ctx context.Context, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
-	if !payloadID.Is(engine.PayloadV3) {
-		return nil, engine.UnsupportedFork
-	}
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.getPayload(session, payloadID)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ExecutionPayloadEnvelope, error) {
+		logger.Debug("GetPayloadV3", "payloadID", payloadID)
+		if !payloadID.Is(engine.PayloadV3) {
+			return nil, engine.UnsupportedFork
+		}
+		return s.getPayload(session, logger, payloadID)
+	})
 }
 
 // GetPayloadV4 must be only called when Isthmus activated.
 func (s *SyncTester) GetPayloadV4(ctx context.Context, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
-	if !payloadID.Is(engine.PayloadV3) {
-		return nil, engine.UnsupportedFork
-	}
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.getPayload(session, payloadID)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ExecutionPayloadEnvelope, error) {
+		logger.Debug("GetPayloadV4", "payloadID", payloadID)
+		if !payloadID.Is(engine.PayloadV3) {
+			return nil, engine.UnsupportedFork
+		}
+		return s.getPayload(session, logger, payloadID)
+	})
 }
 
 // getPayload retrieves an execution payload previously initialized by
 // ForkchoiceUpdated engine APIs when valid payload attributes were provided.
 // Retrieved payloads are deleted from the session after being served to
 // emulate one-time consumption by the consensus layer.
-func (s *SyncTester) getPayload(session *eth.SyncTesterSession, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (s *SyncTester) getPayload(session *eth.SyncTesterSession, logger log.Logger, payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	payloadEnv, ok := session.Payloads[payloadID]
 	if !ok {
 		return nil, engine.UnknownPayload
 	}
 	// Clean up payload
 	delete(session.Payloads, payloadID)
-	s.storeSession(session)
+	logger.Trace("Deleted payload", "payloadID", payloadID)
 	return payloadEnv, nil
 }
 
 // ForkchoiceUpdatedV1 is called for processing V1 attributes
 func (s *SyncTester) ForkchoiceUpdatedV1(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.forkchoiceUpdated(ctx, session, state, attr, engine.PayloadV1, false, false)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ForkchoiceUpdatedResult, error) {
+		logger.Debug("ForkchoiceUpdatedV1", "state", state, "attr", attr)
+		return s.forkchoiceUpdated(ctx, session, logger, state, attr, engine.PayloadV1, false, false)
+	})
 }
 
 // ForkchoiceUpdatedV2 is called for processing V2 attributes
 func (s *SyncTester) ForkchoiceUpdatedV2(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.forkchoiceUpdated(ctx, session, state, attr, engine.PayloadV2, true, false)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ForkchoiceUpdatedResult, error) {
+		logger.Debug("ForkchoiceUpdatedV2", "state", state, "attr", attr)
+		return s.forkchoiceUpdated(ctx, session, logger, state, attr, engine.PayloadV2, true, false)
+	})
 }
 
 // ForkchoiceUpdatedV3 must be only called with Ecotone attributes
 func (s *SyncTester) ForkchoiceUpdatedV3(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.forkchoiceUpdated(ctx, session, state, attr, engine.PayloadV3, true, true)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.ForkchoiceUpdatedResult, error) {
+		logger.Debug("ForkchoiceUpdatedV3", "state", state, "attr", attr)
+		return s.forkchoiceUpdated(ctx, session, logger, state, attr, engine.PayloadV3, true, true)
+	})
 }
 
 // forkchoiceUpdated processes a forkchoice state update from the consensus
@@ -349,7 +319,7 @@ func (s *SyncTester) ForkchoiceUpdatedV3(ctx context.Context, state *eth.Forkcho
 //     attributes are malformed or finalized/safe blocks are not canonical.
 //   - {status: SYNCING} when the head block is unknown or not yet validated, or
 //     when block data cannot be retrieved from the execution layer.
-func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTesterSession, state *eth.ForkchoiceState, attr *eth.PayloadAttributes, payloadVersion engine.PayloadVersion,
+func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTesterSession, logger log.Logger, state *eth.ForkchoiceState, attr *eth.PayloadAttributes, payloadVersion engine.PayloadVersion,
 	isCanyon, isEcotone bool,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	// Validate attributes shape
@@ -387,12 +357,35 @@ func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTes
 		// Consider as sync error if read only EL interaction fails because we cannot validate
 		return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
 	}
-	if candLatest.NumberU64() > session.Validated {
-		// Let CL backfill via newPayload
-		return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
+	candLatestNum := candLatest.NumberU64()
+	if session.Validated < candLatestNum {
+		if !session.IsELSyncActive() {
+			// Let CL backfill via newPayload
+			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
+		}
+		switch session.ELSyncPolicy.ELSyncStatus(candLatestNum) {
+		case eth.ExecutionValid:
+			// EL Sync complete so advance non canonical chain first
+			session.Validated = candLatestNum
+			logger.Info("Non canonical chain advanced because of EL Sync", "validated", session.Validated)
+			// Equivalent to SetCanonical
+			session.UpdateFCULatest(session.Validated)
+			logger.Info("Canonical chain advanced because of EL Sync", "latest", session.CurrentState.Latest)
+			// Still return SYNCING to mimic the asynchronous EL behavior
+			// The EL will eventually return VALID with the identical unsafe target with the next FCU call
+			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
+		case eth.ExecutionSyncing:
+			logger.Trace("EL Sync on progress", "target", candLatestNum)
+			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
+		default:
+			logger.Warn("EL Sync failure", "target", candLatestNum)
+			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, fmt.Errorf("EL Sync failure with target block %d:%s", candLatest.NumberU64(), candLatest.Hash())
+		}
 	}
+	// Equivalent to SetCanonical
+	session.UpdateFCULatest(candLatestNum)
+	logger.Debug("Updated FCU State", "latest", session.CurrentState.Latest)
 	// Simulate db check for finalized head
-	var finalizedNum uint64
 	if state.FinalizedBlockHash != (common.Hash{}) {
 		// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/paris.md#specification-1
 		// Spec: MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not belong to the chain defined by forkchoiceState.headBlockHash.
@@ -400,13 +393,15 @@ func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTes
 		if err != nil {
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, engine.InvalidForkChoiceState.With(errors.New("finalized block not available"))
 		}
-		finalizedNum = candFinalized.NumberU64()
+		finalizedNum := candFinalized.NumberU64()
 		if session.CurrentState.Latest < finalizedNum {
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, engine.InvalidForkChoiceState.With(errors.New("finalized block not canonical"))
 		}
+		// Equivalent to SetFinalized
+		session.UpdateFCUFinalized(finalizedNum)
+		logger.Debug("Updated FCU State", "finalized", session.CurrentState.Finalized)
 	}
 	// Simulate db check for safe head
-	var safeNum uint64
 	if state.SafeBlockHash != (common.Hash{}) {
 		// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/paris.md#specification-1
 		// Spec: MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not belong to the chain defined by forkchoiceState.headBlockHash.
@@ -414,17 +409,19 @@ func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTes
 		if err != nil {
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, engine.InvalidForkChoiceState.With(errors.New("safe block not available"))
 		}
-		safeNum = candSafe.NumberU64()
+		safeNum := candSafe.NumberU64()
 		if session.CurrentState.Latest < safeNum {
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, engine.InvalidForkChoiceState.With(errors.New("safe block not canonical"))
 		}
+		// Equivalent to SetSafe
+		session.UpdateFCUSafe(safeNum)
+		logger.Debug("Updated FCU State", "safe", session.CurrentState.Safe)
 	}
 	var id *engine.PayloadID
 	if attr != nil {
 		// attr is the ingredient for the block built after the head block
-		candNum := int64(candLatest.NumberU64())
 		// Query read only EL to fetch block which is desired to be produced from attr
-		newBlock, err := s.elReader.GetBlockByNumber(ctx, rpc.BlockNumber(candNum+1))
+		newBlock, err := s.elReader.GetBlockByNumber(ctx, rpc.BlockNumber(int64(candLatestNum)+1))
 		if err != nil {
 			// Consider as sync error if read only EL interaction fails because we cannot validate
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}, nil
@@ -473,10 +470,9 @@ func (s *SyncTester) forkchoiceUpdated(ctx context.Context, session *eth.SyncTes
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}, engine.GenericServerError.With(err)
 		}
 		// Store payload and payloadID. This will be processed using GetPayload engine API
+		logger.Debug("Store payload", "payloadID", payloadID)
 		session.Payloads[payloadID] = payloadEnv
 	}
-	session.UpdateFCUState(candLatest.NumberU64(), safeNum, finalizedNum)
-	s.storeSession(session)
 	// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/paris.md#specification-1
 	// Spec: Client software MUST respond to this method call in the following way: {payloadStatus: {status: VALID, latestValidHash: forkchoiceState.headBlockHash, validationError: null}, payloadId: buildProcessId} if the payload is deemed VALID and the build process has begun
 	return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &state.HeadBlockHash}, PayloadID: id}, nil
@@ -516,7 +512,7 @@ func (s *SyncTester) validateAttributesForBlock(attr *eth.PayloadAttributes, blo
 	}
 	// OP Stack additions
 	if len(attr.Transactions) != len(block.Transactions()) {
-		return fmt.Errorf("tx count mismatch: attr=%d, header=%d", len(attr.Transactions), len(block.Transactions()))
+		return fmt.Errorf("tx count mismatch: attr=%d, block=%d", len(attr.Transactions), len(block.Transactions()))
 	}
 	for idx := range len(attr.Transactions) {
 		blockTx := block.Transactions()[idx]
@@ -536,6 +532,11 @@ func (s *SyncTester) validateAttributesForBlock(attr *eth.PayloadAttributes, blo
 		return fmt.Errorf("gaslimit mismatch: attr=%d, header=%d", *attr.GasLimit, h.GasLimit)
 	}
 	if isHolocene {
+		// https://github.com/ethereum-optimism/specs/blob/972dec7c7c967800513c354b2f8e5b79340de1c3/specs/protocol/holocene/exec-engine.md#encoding
+		// Spec: At and after Holocene activation, eip1559Parameters in PayloadAttributeV3 must be exactly 8 bytes with the following format
+		if attr.EIP1559Params == nil {
+			return errors.New("holocene enabled but EIP1559Params nil")
+		}
 		if err := eip1559.ValidateHolocene1559Params((*attr.EIP1559Params)[:]); err != nil {
 			return fmt.Errorf("invalid eip1559Params: %w", err)
 		}
@@ -561,38 +562,72 @@ func (s *SyncTester) validateAttributesForBlock(attr *eth.PayloadAttributes, blo
 
 // NewPayloadV1 must be only called with Bedrock Payload
 func (s *SyncTester) NewPayloadV1(ctx context.Context, payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.newPayload(ctx, session, payload, nil, nil, nil, false, false)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.PayloadStatusV1, error) {
+		logger.Debug("NewPayloadV1", "payload", payload)
+		return s.newPayload(ctx, session, logger, payload, nil, nil, nil, false, false)
+	})
 }
 
 // NewPayloadV2 must be only called with Bedrock, Canyon, Delta Payload
 func (s *SyncTester) NewPayloadV2(ctx context.Context, payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.newPayload(ctx, session, payload, nil, nil, nil, false, false)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.PayloadStatusV1, error) {
+		logger.Debug("NewPayloadV2", "payload", payload)
+		return s.newPayload(ctx, session, logger, payload, nil, nil, nil, false, false)
+	})
 }
 
 // NewPayloadV3 must be only called with Ecotone Payload
 func (s *SyncTester) NewPayloadV3(ctx context.Context, payload *eth.ExecutionPayload, versionedHashes []common.Hash, beaconRoot *common.Hash) (*eth.PayloadStatusV1, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.newPayload(ctx, session, payload, versionedHashes, beaconRoot, nil, true, false)
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.PayloadStatusV1, error) {
+		logger.Debug("NewPayloadV3", "payload", payload, "versionedHashes", versionedHashes, "beaconRoot", beaconRoot)
+		return s.newPayload(ctx, session, logger, payload, versionedHashes, beaconRoot, nil, true, false)
+	})
 }
 
 // NewPayloadV4 must be only called with Isthmus payload
 func (s *SyncTester) NewPayloadV4(ctx context.Context, payload *eth.ExecutionPayload, versionedHashes []common.Hash, beaconRoot *common.Hash, executionRequests []hexutil.Bytes) (*eth.PayloadStatusV1, error) {
-	session, err := s.fetchSession(ctx)
-	if err != nil {
-		return nil, err
+	return session.WithSession(s.sessMgr, ctx, s.log, func(session *eth.SyncTesterSession, logger log.Logger) (*eth.PayloadStatusV1, error) {
+		logger.Debug("NewPayloadV4", "payload", payload, "versionedHashes", versionedHashes, "beaconRoot", beaconRoot, "executionRequests", executionRequests)
+		return s.newPayload(ctx, session, logger, payload, versionedHashes, beaconRoot, executionRequests, true, true)
+	})
+}
+
+func (s *SyncTester) validatePayload(logger log.Logger, isCanyon, isIsthmus bool, block *types.Block, payload *eth.ExecutionPayload, beaconRoot *common.Hash) (*eth.PayloadStatusV1, error) {
+	// Already have the block locally or advance single block without setting the head
+	// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/shanghai.md#specification
+	// Spec: MUST return {status: INVALID, latestValidHash: null, validationError: errorMessage | null} if the blockHash validation has failed.
+	blockHash := block.Hash()
+	config := &params.ChainConfig{}
+	if isCanyon {
+		config.CanyonTime = new(uint64)
 	}
-	return s.newPayload(ctx, session, payload, versionedHashes, beaconRoot, executionRequests, true, true)
+	if isIsthmus {
+		config.IsthmusTime = new(uint64)
+	}
+	correctPayload, err := eth.BlockAsPayload(block, config)
+	if err != nil {
+		// The failure is from the EL processing so consider as a server error and make CL retry
+		return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("failed to convert block to payload", err))
+	}
+	// Sanity check parent beacon block root and block hash by recomputation
+	if !isIsthmus {
+		// Depopulate withdrawal root field for block hash recomputation
+		if payload.WithdrawalsRoot != nil {
+			logger.Warn("Isthmus disabled but withdrawal roots included in payload not nil", "root", payload.WithdrawalsRoot)
+		}
+		payload.WithdrawalsRoot = nil
+	}
+	// Check given payload matches the payload derived using the read only EL block
+	if err := correctPayload.CheckEqual(payload); err != nil {
+		// Consider as block hash validation error when payload mismatch
+		return s.newPayloadInvalid(fmt.Errorf("payload check mismatch: %w", err), nil), nil
+	}
+	execEnvelope := eth.ExecutionPayloadEnvelope{ParentBeaconBlockRoot: beaconRoot, ExecutionPayload: payload}
+	actual, ok := execEnvelope.CheckBlockHash()
+	if blockHash != payload.BlockHash || !ok {
+		return s.newPayloadInvalid(fmt.Errorf("block hash check from execution envelope failed. %s != %s", blockHash, actual), nil), nil
+	}
+	return nil, nil
 }
 
 // newPayload validates and processes a new execution payload according to the
@@ -610,7 +645,7 @@ func (s *SyncTester) NewPayloadV4(ctx context.Context, payload *eth.ExecutionPay
 //   - {status: SYNCING} when the block cannot be executed because its parent is missing.
 //   - Errors surfaced as engine.InvalidParams or engine.GenericServerError to
 //     trigger appropriate consensus-layer retries.
-func (s *SyncTester) newPayload(ctx context.Context, session *eth.SyncTesterSession, payload *eth.ExecutionPayload, versionedHashes []common.Hash, beaconRoot *common.Hash, executionRequests []hexutil.Bytes,
+func (s *SyncTester) newPayload(ctx context.Context, session *eth.SyncTesterSession, logger log.Logger, payload *eth.ExecutionPayload, versionedHashes []common.Hash, beaconRoot *common.Hash, executionRequests []hexutil.Bytes,
 	isEcotone, isIsthmus bool,
 ) (*eth.PayloadStatusV1, error) {
 	// Validate request shape, fork required fields
@@ -644,16 +679,16 @@ func (s *SyncTester) newPayload(ctx context.Context, session *eth.SyncTesterSess
 	}
 	// OP Stack specific request shape validation
 	if isEcotone {
-		if payload.WithdrawalsRoot == nil {
-			// https://github.com/ethereum-optimism/specs/blob/a773587fca6756f8468164613daa79fcee7bbbe4/specs/protocol/exec-engine.md#engine_newpayloadv3
-			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(errors.New("nil withdrawalsRoot post-isthmus"))
-		}
 		if len(versionedHashes) != 0 {
 			// https://github.com/ethereum-optimism/specs/blob/a773587fca6756f8468164613daa79fcee7bbbe4/specs/protocol/exec-engine.md#engine_newpayloadv3
 			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(fmt.Errorf("versionedHashes length non-zero: %d", len(versionedHashes)))
 		}
 	}
 	if isIsthmus {
+		if payload.WithdrawalsRoot == nil {
+			// https://github.com/ethereum-optimism/specs/blob/7b39adb0bea3b0a56d6d3a7d61feef5c33e49b73/specs/protocol/isthmus/exec-engine.md#update-to-executionpayload
+			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(errors.New("nil withdrawalsRoot post-isthmus"))
+		}
 		if len(executionRequests) != 0 {
 			// https://github.com/ethereum-optimism/specs/blob/a773587fca6756f8468164613daa79fcee7bbbe4/specs/protocol/exec-engine.md#engine_newpayloadv4
 			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(fmt.Errorf("executionRequests must be empty array but got %d", len(executionRequests)))
@@ -662,11 +697,27 @@ func (s *SyncTester) newPayload(ctx context.Context, session *eth.SyncTesterSess
 	// Look up canonical block for relay comparison
 	block, err := s.elReader.GetBlockByHash(ctx, payload.BlockHash)
 	if err != nil {
-		// Do not know block hash included in payload is correct or not. Consider as a server error and make CL retry
-		if errors.Is(err, ethereum.NotFound) {
-			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("block not found", err))
+		if !errors.Is(err, ethereum.NotFound) {
+			// Do not retry when error did not occur because of Not found error
+			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("failed to fetch block", err))
 		}
-		return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("failed to fetch block", err))
+		// Not found error may be recovered when given payload is near the sequencer tip.
+		// Read only EL may not be ready yet. In this case, retry once more after waiting block time (2 seconds)
+		logger.Warn("Block not found while validating new payload. Retrying", "number", payload.BlockNumber, "hash", payload.BlockHash)
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
+			// Handle case when context cancelled while waiting.
+			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(fmt.Errorf("context done: %w", ctx.Err()))
+		}
+		block, err = s.elReader.GetBlockByHash(ctx, payload.BlockHash)
+		if err != nil {
+			if errors.Is(err, ethereum.NotFound) {
+				return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("block not found after retry", err))
+			}
+			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("failed to fetch block after retry", err))
+		}
+		// Use block info fetched by retrying
 	}
 	// https://github.com/ethereum-optimism/specs/blob/972dec7c7c967800513c354b2f8e5b79340de1c3/specs/protocol/derivation.md#building-individual-payload-attributes
 	// Implicitly determine whether canyon is enabled by inspecting withdrawals from read only EL data
@@ -680,51 +731,23 @@ func (s *SyncTester) newPayload(ctx context.Context, session *eth.SyncTesterSess
 			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(errors.New("non-nil withdrawals pre-shanghai"))
 		}
 	}
-
 	blockHash := block.Hash()
+	blockNumber := block.NumberU64()
 	// We only attempt to advance non-canonical view of the chain, following the read only EL
-	if block.NumberU64() <= session.Validated+1 {
-		// Already have the block locally or advance single block without setting the head
-		// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/shanghai.md#specification
-		// Spec: MUST return {status: INVALID, latestValidHash: null, validationError: errorMessage | null} if the blockHash validation has failed.
-		config := &params.ChainConfig{}
-		if isCanyon {
-			config.CanyonTime = new(uint64)
+	if blockNumber <= session.Validated+1 {
+		if status, err := s.validatePayload(logger, isCanyon, isIsthmus, block, payload, beaconRoot); status != nil {
+			return status, err
 		}
-		if isIsthmus {
-			config.IsthmusTime = new(uint64)
-		}
-		correctPayload, err := eth.BlockAsPayload(block, config)
-		if err != nil {
-			// The failure is from the EL processing so consider as a server error and make CL retry
-			return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.GenericServerError.With(wrapSyncTesterError("failed convert block to payload: %w", err))
-		}
-		// Sanity check parent beacon block root and block hash by recomputation
-		if !isIsthmus {
-			// Depopulate withdrawal root field for block hash recomputation
-			if payload.WithdrawalsRoot != nil {
-				s.log.Warn("Isthmus disabled but withdrawal roots included in payload not nil", "root", payload.WithdrawalsRoot)
-			}
-			payload.WithdrawalsRoot = nil
-		}
-		// Check given payload matches the payload derived using the read only EL block
-		if err := correctPayload.CheckEqual(payload); err != nil {
-			// Consider as block hash validation error when payload mismatch
-			return s.newPayloadInvalid(fmt.Errorf("payload check mismatch: %w", err), nil), nil
-		}
-		execEnvelope := eth.ExecutionPayloadEnvelope{ParentBeaconBlockRoot: beaconRoot, ExecutionPayload: payload}
-		actual, ok := execEnvelope.CheckBlockHash()
-		if blockHash != payload.BlockHash || !ok {
-			return s.newPayloadInvalid(fmt.Errorf("block hash check from execution envelope failed. %s != %s", blockHash, actual), nil), nil
-		}
-		if block.NumberU64() == session.Validated+1 {
+		if blockNumber == session.Validated+1 {
 			// Advance single block without setting the head, equivalent to geth InsertBlockWithoutSetHead
 			session.Validated += 1
-			s.storeSession(session)
+			logger.Debug("Advanced non canonical chain", "validated", session.Validated)
 		}
 		// https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/paris.md#payload-validation
 		// Spec: If validation succeeds, the response MUST contain {status: VALID, latestValidHash: payload.blockHash}
 		return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &blockHash}, nil
+	} else {
+		logger.Debug("Received payload which cannot be used to extend non canonical chain", "current", blockNumber, "validated", session.Validated)
 	}
 	// Block not available so mark as syncing
 	return &eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, nil

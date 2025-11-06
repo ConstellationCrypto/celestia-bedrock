@@ -6,12 +6,13 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
-
-	opservice "github.com/ethereum-optimism/optimism/op-service"
 )
 
 const (
@@ -152,11 +153,21 @@ func NewCLIConfig() CLIConfig {
 	}
 }
 
-func ReadCLIConfig(ctx *cli.Context) CLIConfig {
+func ReadCLIConfig(ctx cliiface.Context) CLIConfig {
+	namespace := ctx.String(NamespaceFlagName)
+	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(namespace))
+	// Generate namespace with exactly 58 characters
+	// we used to trim down the celestia namespace we're now migrating it to the celestia standard
+	requiredZeros := 58 - len(namespace)
+	if requiredZeros < 0 {
+		requiredZeros = 0
+	}
+	namespacePrefix := strings.Repeat("0", requiredZeros)
+	celestiaNamespace := namespacePrefix + namespace
 	return CLIConfig{
 		Rpc:          ctx.String(RPCFlagName),
 		AuthToken:    ctx.String(AuthTokenFlagName),
-		Namespace:    ctx.String(NamespaceFlagName),
+		Namespace:    celestiaNamespace,
 		FallbackMode: ctx.String(FallbackModeFlagName),
 		GasPrice:     ctx.Float64(GasPriceFlagName),
 		S3Bucket:     ctx.String("s3-bucket"),
