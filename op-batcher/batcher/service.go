@@ -45,6 +45,8 @@ type BatcherConfig struct {
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
 	UseAltDA bool
+	// GenericDA is true if the DA server generates commitments for the input
+	GenericDA bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 
@@ -192,13 +194,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	if err := bs.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
 	}
-	// init before driver
-	if err := bs.initAltDA(cfg); err != nil {
-		return fmt.Errorf("failed to init AltDA: %w", err)
-	}
-	if err := bs.initDA(cfg); err != nil {
-		return fmt.Errorf("failed to start da server: %w", err)
-	}
 	bs.initDriver(opts...)
 	if err := bs.initRPCServer(cfg); err != nil {
 		return fmt.Errorf("failed to start RPC server: %w", err)
@@ -311,7 +306,7 @@ func (bs *BatcherService) initChannelConfig(cfg *CLIConfig) error {
 		return fmt.Errorf("cannot use data availability type blobs or auto with Alt-DA")
 	}
 
-	if bs.UseAltDA && cc.MaxFrameSize > altda.MaxInputSize {
+	if bs.UseAltDA && !bs.GenericDA && cc.MaxFrameSize > altda.MaxInputSize {
 		return fmt.Errorf("max frame size %d exceeds altDA max input size %d", cc.MaxFrameSize, altda.MaxInputSize)
 	}
 
@@ -458,6 +453,7 @@ func (bs *BatcherService) initAltDA(cfg *CLIConfig) error {
 	}
 	bs.AltDA = config.NewDAClient()
 	bs.UseAltDA = config.Enabled
+	bs.GenericDA = config.GenericDA
 	return nil
 }
 
@@ -468,7 +464,8 @@ func (bs *BatcherService) initDA(cfg *CLIConfig) error {
 		return nil
 	}
 
-	client, err := celestia.NewDAClient(cfg.DaConfig.Rpc, cfg.DaConfig.AuthToken, cfg.DaConfig.Namespace, cfg.DaConfig.FallbackMode, cfg.DaConfig.GasPrice, cfg.DaConfig.S3Region, cfg.DaConfig.S3Bucket, true)
+	bs.Log.Info("Using celestia DA", "config", cfg.DaConfig.CelestiaConfig())
+	client, err := celestia.NewDAClient(cfg.DaConfig.CelestiaConfig())
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	libshare "github.com/celestiaorg/go-square/v2/share"
+	libshare "github.com/celestiaorg/go-square/v3/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-celestia/indexer/store"
 	"github.com/ethereum-optimism/optimism/op-celestia/metrics"
@@ -320,7 +320,7 @@ func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error 
 	var frameData []byte
 	cancel()
 	if err != nil {
-		blob, err := d.CelestiaClient.Client.Blob.Get(ctx, height, namespace, commitment)
+		blob, err := d.CelestiaClient.Client.Get(ctx, height, namespace, commitment)
 		if err != nil {
 			return fmt.Errorf("failed to fetch blobs from Celestia: %w", err)
 		}

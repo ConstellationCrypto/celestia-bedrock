@@ -12,21 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/txpool"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
-
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/celestiaorg/celestia-node/blob"
 	"github.com/celestiaorg/celestia-node/state"
-	libshare "github.com/celestiaorg/go-square/v2/share"
+	libshare "github.com/celestiaorg/go-square/v3/share"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
@@ -37,6 +29,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/txpool"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 var (
@@ -1082,7 +1081,7 @@ func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
 
 func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (*txmgr.TxCandidate, error) {
 	l.Log.Info("Building Celestia transaction candidate", "size", len(data))
-	ctx, cancel := context.WithTimeout(ctx, l.DAClient.GetTimeout)
+	ctx, cancel := context.WithTimeout(ctx, l.DAClient.SubmitTimeout)
 	defer cancel()
 	namespace, err := libshare.NewNamespaceFromBytes(l.DAClient.Namespace)
 	if err != nil {
@@ -1092,38 +1091,26 @@ func (l *BatchSubmitter) celestiaTxCandidate(ctx context.Context, data []byte) (
 	if err != nil {
 		return nil, err
 	}
-	height, err := l.DAClient.Client.Blob.Submit(ctx, []*blob.Blob{b}, state.NewTxConfig(state.WithGasPrice(l.DAClient.GasPrice)))
+	height, err := l.DAClient.Client.Submit(ctx, []*blob.Blob{b}, state.NewTxConfig(state.WithGasPrice(l.DAClient.GasPrice)))
 	if err != nil {
 		return nil, err
 	}
 	id := celestia.MakeID(height, b.Commitment)
 	l.Log.Info("celestia: blob successfully submitted", "id", hex.EncodeToString(id))
-	data = append([]byte{celestia.DerivationVersionCelestia}, id...)
-
+	frame := append([]byte{celestia.DerivationVersionCelestia}, id...)
 	ctx2, cancel := context.WithTimeout(context.Background(), l.DAClient.GetTimeout)
-	frame := append([]byte{celestia.DerivationVersionCelestia}, b.Commitment...)
 	err = l.uploadS3Data(ctx2, frame, data)
 	cancel()
 	if err == nil {
+		// if the data was successfully uploaded to s3, we should submit the `frame` onchain
+		// the op-node will then read the header on the frame (0xCE) to process via celestia
+		// and then decode the remaining 41 bytes to get the height and commitment from celestia.
 		data = frame
 	} else {
+		// if the data was not successfully uploaded to s3, we should submit the full data onchain
 		l.Log.Error("celestia: failed to upload data to s3", "err", err)
 	}
-
 	return l.calldataTxCandidate(data), nil
-}
-
-func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, txData []byte) error {
-	if len(l.DAClient.Namespace) != 29 {
-		return fmt.Errorf("Error: Expected 29 bytes, got %x", len(l.DAClient.Namespace))
-	}
-
-	_, err := l.DAClient.S3Client.PutObject(ctx, &s3.PutObjectInput{
-		Body:   bytes.NewReader(txData),
-		Bucket: &l.DAClient.S3Bucket,
-		Key:    aws.String(fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData)),
-	})
-	return err
 }
 
 func (l *BatchSubmitter) handleReceipt(r txmgr.TxReceipt[txRef]) {
@@ -1300,4 +1287,18 @@ func logFields(xs ...any) (fs []any) {
 		}
 	}
 	return fs
+}
+
+func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, txData []byte) error {
+	l.Log.Info("celestia: blob uploading to s3", "id", hex.EncodeToString(frameRefData))
+	if len(l.DAClient.Namespace) != 29 {
+		return fmt.Errorf("Error: Expected 29 bytes, got %x", len(l.DAClient.Namespace))
+	}
+
+	_, err := l.DAClient.S3Client.PutObject(ctx, &s3.PutObjectInput{
+		Body:   bytes.NewReader(txData),
+		Bucket: &l.DAClient.S3Bucket,
+		Key:    aws.String(fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData)),
+	})
+	return err
 }

@@ -4,8 +4,8 @@
 !/go-ethereum-kms-signer
 !/cannon
 !/devnet-sdk
+!/op-core
 !/op-batcher
-!/op-bootnode
 !/op-celestia
 !/op-chain-ops
 !/op-deployer

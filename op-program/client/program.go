@@ -41,7 +41,10 @@ func Main(useInterop bool) {
 	preimageHinter := preimage.ClientHinterChannel()
 
 	daCfg := celestia.ReadCLIConfigFromEnv("OP_E2E")
-	daClient, err := celestia.NewDAClient(daCfg.Rpc, daCfg.AuthToken, daCfg.Namespace, daCfg.FallbackMode, daCfg.GasPrice, daCfg.S3Region, daCfg.S3Bucket, true)
+
+	celestiaConfig := daCfg.CelestiaConfig()
+	celestiaConfig.Auth = false
+	daClient, err := celestia.NewDAClient(celestiaConfig)
 	if err != nil {
 		log.Error("Cannot initialize daClient", "err", err)
 		os.Exit(1)
