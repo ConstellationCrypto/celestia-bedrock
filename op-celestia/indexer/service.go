@@ -150,7 +150,9 @@ func (is *IndexerService) initClients(ctx context.Context, cfg *CLIConfig) error
 	is.L2Client = l2RpcClient
 
 	// Initialize Celestia client
-	celestiaClient, err := celestia.NewDAClient(cfg.CelestiaConfig.CelestiaConfig(), false)
+	celestiaConfig := cfg.CelestiaConfig.CelestiaConfig()
+	celestiaConfig.Auth = false
+	celestiaClient, err := celestia.NewDAClient(celestiaConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create Celestia client: %w", err)
 	}

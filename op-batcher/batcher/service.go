@@ -45,6 +45,8 @@ type BatcherConfig struct {
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
 	UseAltDA bool
+	// GenericDA is true if the DA server generates commitments for the input
+	GenericDA bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 
@@ -308,7 +310,7 @@ func (bs *BatcherService) initChannelConfig(cfg *CLIConfig) error {
 		return fmt.Errorf("cannot use data availability type blobs or auto with Alt-DA")
 	}
 
-	if bs.UseAltDA && cc.MaxFrameSize > altda.MaxInputSize {
+	if bs.UseAltDA && !bs.GenericDA && cc.MaxFrameSize > altda.MaxInputSize {
 		return fmt.Errorf("max frame size %d exceeds altDA max input size %d", cc.MaxFrameSize, altda.MaxInputSize)
 	}
 
@@ -455,6 +457,7 @@ func (bs *BatcherService) initAltDA(cfg *CLIConfig) error {
 	}
 	bs.AltDA = config.NewDAClient()
 	bs.UseAltDA = config.Enabled
+	bs.GenericDA = config.GenericDA
 	return nil
 }
 
@@ -464,9 +467,11 @@ func (bs *BatcherService) initDA(cfg *CLIConfig) error {
 		bs.DAClient = nil
 		return nil
 	}
-	bs.Log.Info("Using celestia DA", "config", cfg.DaConfig.CelestiaConfig())
+	celestiaConfig := cfg.DaConfig.CelestiaConfig()
+	celestiaConfig.Auth = true
+	bs.Log.Info("Using celestia DA", "config", celestiaConfig)
 	//client, err := celestia.NewDAClient(cfg.DaConfig.Rpc, cfg.DaConfig.AuthToken, cfg.DaConfig.Namespace, cfg.DaConfig.FallbackMode, cfg.DaConfig.GasPrice, cfg.DaConfig.S3Region, cfg.DaConfig.S3Bucket, true)
-	client, err := celestia.NewDAClient(cfg.DaConfig.CelestiaConfig(), true)
+	client, err := celestia.NewDAClient(celestiaConfig)
 	if err != nil {
 		return err
 	}

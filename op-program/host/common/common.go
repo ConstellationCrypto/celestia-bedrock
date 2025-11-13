@@ -80,7 +80,9 @@ func FaultProofProgram(ctx context.Context, logger log.Logger, cfg *config.Confi
 		}
 
 		daCfg := celestia.ReadCLIConfigFromEnv("OP_E2E")
-		daClient, err := celestia.NewDAClient(daCfg.CelestiaConfig(), false)
+		celestiaConfig := daCfg.CelestiaConfig()
+		celestiaConfig.Auth = false
+		daClient, err := celestia.NewDAClient(celestiaConfig)
 		if err != nil {
 			return fmt.Errorf("failed to initialize daClient: %w", err)
 		}

@@ -2,14 +2,12 @@ package sysgo
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 type DefaultMinimalExternalELSystemIDs struct {
@@ -57,16 +55,20 @@ func ExternalELSystemWithEndpointAndSuperchainRegistry(dest *DefaultMinimalExter
 
 	opt.Add(WithMnemonicKeys(devkeys.TestMnemonic))
 
+	// We must supply the full L1 Chain Config, so look that up or fail if unknown
+	chainID := ids.L1.ChainID()
+	l1ChainConfig := eth.L1ChainConfigByChainID(chainID)
+	if l1ChainConfig == nil {
+		panic(fmt.Sprintf("unsupported L1 chain ID: %s", chainID))
+	}
+
 	// Skip deployer since we're using external L1 and superchain registry for L2 config
 	// Create L1 network record for external L1
 	opt.Add(stack.BeforeDeploy(func(o *Orchestrator) {
-		chainID, _ := ids.L1.ChainID().Uint64()
 		l1Net := &L1Network{
 			id: ids.L1,
 			genesis: &core.Genesis{
-				Config: &params.ChainConfig{
-					ChainID: big.NewInt(int64(chainID)),
-				},
+				Config: l1ChainConfig,
 			},
 			blockTime: 12,
 		}
@@ -89,6 +91,8 @@ func ExternalELSystemWithEndpointAndSuperchainRegistry(dest *DefaultMinimalExter
 	opt.Add(WithL2CLNode(ids.L2CL, ids.L1CL, ids.L1EL, ids.L2EL))
 
 	opt.Add(WithExtL2Node(ids.L2ELReadOnly, networkPreset.L2ELEndpoint))
+
+	opt.Add(WithL2MetricsDashboard())
 
 	opt.Add(stack.Finally(func(orch *Orchestrator) {
 		*dest = ids

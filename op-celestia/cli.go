@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 )
 
 const (
@@ -67,6 +68,12 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:   defaultRPC,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_RPC"),
 		},
+		&cli.BoolFlag{
+			Name:    TLSEnabledFlagName,
+			Usage:   "enable TLS for the data availability rpc client",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TLS_ENABLED"),
+			Value:   true,
+		},
 		&cli.StringFlag{
 			Name:  AuthTokenFlagName,
 			Usage: "authentication token of the data availability client",
@@ -79,22 +86,6 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			//EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),//CALDERA DOES NOT TOLERATE DA PREFIX
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "NAMESPACE_ID"),
 		},
-		&cli.BoolFlag{
-			Name:    TLSEnabledFlagName,
-			Usage:   "enable TLS for the data availability rpc client",
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TLS_ENABLED"),
-			Value:   true,
-		},
-		// &cli.StringFlag{
-		// 	Name:    AuthTokenFlagName,
-		// 	Usage:   "authentication token of the data availability client",
-		// 	EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_AUTH_TOKEN"),
-		// },
-		// &cli.StringFlag{
-		// 	Name:    NamespaceFlagName,
-		// 	Usage:   "namespace of the data availability client",
-		// 	EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),
-		// },
 		&cli.BoolFlag{
 			Name:    EthFallbackDisabledFlagName,
 			Usage:   "disable eth fallback (deprecated, use FallbackModeFlag instead)",
@@ -123,23 +114,6 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Usage:   "gas price of the data availability client",
 			Value:   defaultGasPrice,
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_GAS_PRICE"),
-		},
-		&cli.StringFlag{
-			Name:    "s3-bucket",
-			Usage:   "S3 Bucket for DA layer",
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "S3_BUCKET"),
-		},
-		&cli.StringFlag{
-			Name:    "s3-region",
-			Usage:   "S3 Region for DA layer",
-			Value:   "us-west-2",
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "S3_REGION"),
-		},
-		&cli.DurationFlag{
-			Name:    "celestia-timeout",
-			Usage:   "timeout for celestia requests",
-			Value:   time.Minute,
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "CELESTIA_TIMEOUT"),
 		},
 		&cli.StringFlag{
 			Name:    DefaultKeyNameFlagName,
@@ -177,42 +151,51 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:   "mocha-4",
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_TX_CLIENT_P2P_NETWORK"),
 		},
+		&cli.StringFlag{
+			Name:    "s3-bucket",
+			Usage:   "S3 Bucket for DA layer",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "S3_BUCKET"),
+		},
+		&cli.StringFlag{
+			Name:    "s3-region",
+			Usage:   "S3 Region for DA layer",
+			Value:   "us-west-2",
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "S3_REGION"),
+		},
+		&cli.DurationFlag{
+			Name:    "celestia-timeout",
+			Usage:   "timeout for celestia requests",
+			Value:   time.Minute,
+			EnvVars: opservice.PrefixEnvVar(envPrefix, "CELESTIA_TIMEOUT"),
+		},
 	}
 }
 
 type CLIConfig struct {
 	Rpc            string
+	TLSEnabled     bool
 	AuthToken      string
 	Namespace      string
 	FallbackMode   string
 	GasPrice       float64
+	TxClientConfig TxClientConfig
 	S3Bucket       string
 	S3Region       string
 	Timeout        time.Duration
-	TLSEnabled     bool
-	TxClientConfig TxClientConfig
-}
-
-func (c CLIConfig) IsEnabled() bool {
-	//return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
-	return c.Namespace != "" && c.S3Bucket != "" && c.S3Region != ""
 }
 
 func (c CLIConfig) TxClientEnabled() bool {
 	return (c.TxClientConfig.KeyringPath != "" || c.TxClientConfig.CoreGRPCAuthToken != "")
 }
 
+func (c CLIConfig) IsEnabled() bool {
+
+	//return c.Rpc != "" && c.AuthToken != "" && c.Namespace != ""
+	return c.Namespace != "" && c.S3Bucket != "" && c.S3Region != ""
+}
+
 func (c CLIConfig) CelestiaConfig() RPCClientConfig {
-	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(c.Namespace))
-	// Generate namespace with exactly 58 characters
-	// we used to trim down the celestia namespace we're now migrating it to the celestia standard
-	requiredZeros := 58 - len(c.Namespace)
-	if requiredZeros < 0 {
-		requiredZeros = 0
-	}
-	namespacePrefix := strings.Repeat("0", requiredZeros)
-	celestiaNamespace := namespacePrefix + c.Namespace
-	ns, _ := hex.DecodeString(celestiaNamespace)
+	ns, _ := hex.DecodeString(c.Namespace)
 	var cfg *TxClientConfig
 	if c.TxClientEnabled() {
 		cfg = &c.TxClientConfig
@@ -225,8 +208,6 @@ func (c CLIConfig) CelestiaConfig() RPCClientConfig {
 		FallbackMode:   c.FallbackMode,
 		GasPrice:       c.GasPrice,
 		TxClientConfig: cfg,
-		S3Bucket:       c.S3Bucket,
-		S3Region:       c.S3Region,
 	}
 }
 
@@ -264,12 +245,22 @@ func NewCLIConfig() CLIConfig {
 	}
 }
 
-func ReadCLIConfig(ctx *cli.Context) CLIConfig {
+func ReadCLIConfig(ctx cliiface.Context) CLIConfig {
+	namespace := ctx.String(NamespaceFlagName)
+	log.Warn("celestia: Checking namespace for backwards compatibility.", "len", len(namespace))
+	// Generate namespace with exactly 58 characters
+	// we used to trim down the celestia namespace we're now migrating it to the celestia standard
+	requiredZeros := 58 - len(namespace)
+	if requiredZeros < 0 {
+		requiredZeros = 0
+	}
+	namespacePrefix := strings.Repeat("0", requiredZeros)
+	celestiaNamespace := namespacePrefix + namespace
 	return CLIConfig{
 		Rpc:          ctx.String(RPCFlagName),
 		TLSEnabled:   ctx.Bool(TLSEnabledFlagName),
 		AuthToken:    ctx.String(AuthTokenFlagName),
-		Namespace:    ctx.String(NamespaceFlagName),
+		Namespace:    celestiaNamespace,
 		FallbackMode: ctx.String(FallbackModeFlagName),
 		GasPrice:     ctx.Float64(GasPriceFlagName),
 		S3Bucket:     ctx.String("s3-bucket"),
@@ -345,6 +336,7 @@ func ReadCLIConfigFromEnv(envPrefix string) CLIConfig {
 			log.Crit("invalid celestia timeout", "value", value)
 		}
 	}
+
 	if value := os.Getenv(envPrefix + "_" + "DA_TX_CLIENT_KEY_NAME"); value != "" {
 		result.TxClientConfig.DefaultKeyName = value
 	}

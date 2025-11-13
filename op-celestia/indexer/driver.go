@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	libshare "github.com/celestiaorg/go-square/v2/share"
+	libshare "github.com/celestiaorg/go-square/v3/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-celestia/indexer/store"
 	"github.com/ethereum-optimism/optimism/op-celestia/metrics"
@@ -304,7 +304,6 @@ func (d *IndexerDriver) processBatchTransaction(tx *types.Transaction, blockNum 
 	return nil
 }
 
-// processCelestiaFrames fetches frames from Celestia and extracts L2 block ranges
 // processCelestiaFrames fetches frames from Celestia and extracts L2 block ranges
 func (d *IndexerDriver) processCelestiaFrames(id []byte, blockNum uint64) error {
 	ctx, cancel := context.WithTimeout(d.ctx, d.Cfg.NetworkTimeout)

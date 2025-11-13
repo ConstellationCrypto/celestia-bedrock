@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 	"github.com/urfave/cli/v2"
 )
 
@@ -52,7 +53,7 @@ func (c CLIConfig) Enabled() bool {
 	return false
 }
 
-func ReadCLIConfig(ctx *cli.Context) CLIConfig {
+func ReadCLIConfig(ctx cliiface.Context) CLIConfig {
 	cfg := CLIConfig{
 		Id:     ctx.String(IdFlagName),
 		Region: ctx.String(RegionFlagName),

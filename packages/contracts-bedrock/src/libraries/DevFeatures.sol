@@ -14,6 +14,8 @@ library DevFeatures {
     bytes32 public constant OPTIMISM_PORTAL_INTEROP =
         bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
 
+    /// @notice The feature that enables deployment of the CANNON_KONA fault dispute game.
+    /// This feature depends on the DEPLOY_V2_DISPUTE_GAMES feature
     bytes32 public constant CANNON_KONA = bytes32(0x0000000000000000000000000000000000000000000000000000000000000010);
 
     /// @notice The feature that enables deployment of V2 dispute game contracts.
@@ -28,6 +30,6 @@ library DevFeatures {
     /// @param _feature The feature to check.
     /// @return True if the feature is enabled, false otherwise.
     function isDevFeatureEnabled(bytes32 _bitmap, bytes32 _feature) internal pure returns (bool) {
-        return (_bitmap & _feature) != 0;
+        return _feature != 0 && (_bitmap & _feature) == _feature;
     }
 }
