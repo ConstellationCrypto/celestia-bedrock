@@ -7,11 +7,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 )
+
+type DependencySet interface {
+	// Chains returns the number of chains in the dependency set
+	Chains() []eth.ChainID
+}
 
 // L1ReceiptsFetcher fetches L1 header info and receipts for the payload attributes derivation (the info tx and deposits)
 type L1ReceiptsFetcher interface {
@@ -25,18 +31,25 @@ type SystemConfigL2Fetcher interface {
 
 // FetchingAttributesBuilder fetches inputs for the building of L2 payload attributes on the fly.
 type FetchingAttributesBuilder struct {
-	rollupCfg *rollup.Config
-	l1        L1ReceiptsFetcher
-	l2        SystemConfigL2Fetcher
+	rollupCfg     *rollup.Config
+	l1ChainConfig *params.ChainConfig
+	depSet        DependencySet
+	l1            L1ReceiptsFetcher
+	l2            SystemConfigL2Fetcher
 	// whether to skip the L1 origin timestamp check - only for testing purposes
 	testSkipL1OriginCheck bool
 }
 
-func NewFetchingAttributesBuilder(rollupCfg *rollup.Config, l1 L1ReceiptsFetcher, l2 SystemConfigL2Fetcher) *FetchingAttributesBuilder {
+func NewFetchingAttributesBuilder(rollupCfg *rollup.Config, l1ChainConfig *params.ChainConfig, depSet DependencySet, l1 L1ReceiptsFetcher, l2 SystemConfigL2Fetcher) *FetchingAttributesBuilder {
+	if rollupCfg.InteropTime != nil && depSet == nil {
+		panic("FetchingAttributesBuilder requires a dependency set when interop fork is scheduled")
+	}
 	return &FetchingAttributesBuilder{
-		rollupCfg: rollupCfg,
-		l1:        l1,
-		l2:        l2,
+		rollupCfg:     rollupCfg,
+		l1ChainConfig: l1ChainConfig,
+		depSet:        depSet,
+		l1:            l1,
+		l2:            l2,
 	}
 }
 
@@ -132,19 +145,36 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		upgradeTxs = append(upgradeTxs, isthmus...)
 	}
 
-	l1InfoTx, err := L1InfoDepositBytes(ba.rollupCfg, sysConfig, seqNumber, l1Info, nextL2Time)
+	if ba.rollupCfg.IsJovianActivationBlock(nextL2Time) {
+		jovian, err := JovianNetworkUpgradeTransactions(ba.rollupCfg.IsDAFootprintBlockLimit(nextL2Time), ba.rollupCfg.IsOperatorFeeFix(nextL2Time))
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to build jovian network upgrade txs: %w", err))
+		}
+		upgradeTxs = append(upgradeTxs, jovian...)
+	}
+
+	if ba.rollupCfg.IsInteropActivationBlock(nextL2Time) {
+		interop, err := InteropNetworkUpgradeTransactions()
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to build interop network upgrade txs: %w", err))
+		}
+		upgradeTxs = append(upgradeTxs, interop...)
+
+		if len(ba.depSet.Chains()) > 1 {
+			txs, err := InteropActivateCrossL2InboxTransactions()
+			if err != nil {
+				return nil, NewCriticalError(fmt.Errorf("failed to build interop cross l2 inbox txs: %w", err))
+			}
+			upgradeTxs = append(upgradeTxs, txs...)
+		}
+	}
+
+	l1InfoTx, err := L1InfoDepositBytes(ba.rollupCfg, ba.l1ChainConfig, sysConfig, seqNumber, l1Info, nextL2Time)
 	if err != nil {
 		return nil, NewCriticalError(fmt.Errorf("failed to create l1InfoTx: %w", err))
 	}
 
 	var afterForceIncludeTxs []hexutil.Bytes
-	if ba.rollupCfg.IsInterop(nextL2Time) {
-		depositsCompleteTx, err := DepositsCompleteBytes(seqNumber, l1Info)
-		if err != nil {
-			return nil, NewCriticalError(fmt.Errorf("failed to create depositsCompleteTx: %w", err))
-		}
-		afterForceIncludeTxs = append(afterForceIncludeTxs, depositsCompleteTx)
-	}
 
 	txs := make([]hexutil.Bytes, 0, 1+len(depositTxs)+len(afterForceIncludeTxs)+len(upgradeTxs))
 	txs = append(txs, l1InfoTx)
@@ -179,6 +209,8 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		r.EIP1559Params = new(eth.Bytes8)
 		*r.EIP1559Params = sysConfig.EIP1559Params
 	}
-
+	if ba.rollupCfg.IsMinBaseFee(nextL2Time) {
+		r.MinBaseFee = &sysConfig.MinBaseFee
+	}
 	return r, nil
 }

@@ -1,35 +1,18 @@
 package derive
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	celestia "github.com/ethereum-optimism/optimism/op-celestia"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
-
-var celestiaLegacyMode = os.Getenv("CELESTIA_LEGACY_MODE") == "true"
-var daClient *celestia.DAClient
-
-func SetDAClient(c *celestia.DAClient) error {
-	if daClient != nil {
-		return errors.New("da client already configured")
-	}
-	daClient = c
-	return nil
-}
 
 // CalldataSource is a fault tolerant approach to fetching data.
 // The constructor will never fail & it will instead re-attempt the fetcher
@@ -49,7 +32,7 @@ type CalldataSource struct {
 
 // NewCalldataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
-func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, ref eth.L1BlockRef, batcherAddr common.Address) (DataIter, error) {
+func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, ref.Hash)
 	if err != nil {
 		return &CalldataSource{
@@ -59,23 +42,12 @@ func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 			fetcher:     fetcher,
 			log:         log,
 			batcherAddr: batcherAddr,
-		}, nil
-	}
-	data, err := DataFromEVMTransactions(dsCfg, batcherAddr, txs, log.New("origin", ref))
-	if err != nil {
-		return &CalldataSource{
-			open:        false,
-			ref:         ref,
-			dsCfg:       dsCfg,
-			fetcher:     fetcher,
-			log:         log,
-			batcherAddr: batcherAddr,
-		}, err
+		}
 	}
 	return &CalldataSource{
 		open: true,
-		data: data,
-	}, nil
+		data: DataFromEVMTransactions(dsCfg, batcherAddr, txs, log.New("origin", ref)),
+	}
 }
 
 // Next returns the next piece of data if it has it. If the constructor failed, this
@@ -85,11 +57,7 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 	if !ds.open {
 		if _, txs, err := ds.fetcher.InfoAndTxsByHash(ctx, ds.ref.Hash); err == nil {
 			ds.open = true
-			ds.data, err = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, ds.log)
-			if err != nil {
-				// already wrapped
-				return nil, err
-			}
+			ds.data = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, ds.log)
 		} else if errors.Is(err, ethereum.NotFound) {
 			return nil, NewResetError(fmt.Errorf("failed to open calldata source: %w", err))
 		} else {
@@ -108,78 +76,12 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 // DataFromEVMTransactions filters all of the transactions and returns the calldata from transactions
 // that are sent to the batch inbox address from the batch sender address.
 // This will return an empty array if no valid transactions are found.
-func DataFromEVMTransactions(dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, log log.Logger) ([]eth.Data, error) {
+func DataFromEVMTransactions(dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, log log.Logger) []eth.Data {
 	out := []eth.Data{}
 	for _, tx := range txs {
 		if isValidBatchTx(tx, dsCfg.l1Signer, dsCfg.batchInboxAddress, batcherAddr, log) {
-			data := tx.Data()
-			switch len(data) {
-			case 0:
-				out = append(out, data)
-			default:
-				version := data[0]
-				if celestiaLegacyMode {
-					if data[0] == 1 && len(data) > 1 { // legacy eth data
-						data = data[1:]
-						version = data[0]
-					}
-					if data[0] == 2 { // legacy celestia data
-						version = celestia.DerivationVersionCelestia
-					}
-				}
-				switch version {
-				case celestia.DerivationVersionCelestia:
-					log.Info("celestia: blob request", "id", hex.EncodeToString(data[1:]))
-					ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-					blob, err := downloadS3Data(ctx2, data)
-					cancel()
-					if err != nil {
-						log.Error("aws request failed", "err", err)
-						ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-						blobs, err := daClient.Client.Get(ctx2, [][]byte{data[1:]}, daClient.Namespace)
-						cancel()
-						if err != nil || len(blobs) != 1 {
-							log.Warn("celestia: unexpected length for blobs", "expected", 1, "got", len(blobs))
-							if len(blobs) == 0 {
-								log.Warn("celestia: skipping empty blobs")
-								continue
-							}
-							return nil, NewTemporaryError(fmt.Errorf("celestia: failed to resolve frame: %w, len=%q", err, len(blobs)))
-						}
-						blob = blobs[0]
-					}
-					log.Info("celestia: creating commitment from s3 retrieved data")
-					commit, err := celestia.CreateCommitment(blob, daClient.Namespace)
-					cancel()
-					if err != nil || !bytes.Equal(commit, data[9:]) {
-						return nil, NewTemporaryError(fmt.Errorf("celestia: invalid commitment: calldata=%x commit=%x err=%w", data, commit, err))
-					}
-					out = append(out, blob)
-				default:
-					out = append(out, data)
-					log.Info("celestia: using eth fallback")
-				}
-			}
+			out = append(out, tx.Data())
 		}
 	}
-	return out, nil
-}
-
-// 00000000000000000000000000000000000000ca1de12a6d29fe535f2d
-// namespace input ^^ and have to strip down to 10
-func downloadS3Data(ctx context.Context, frameRefData []byte) ([]byte, error) {
-	if len(daClient.Namespace) != 29 {
-		return nil, fmt.Errorf("Error: Expected 29 bytes, got %x", len(daClient.Namespace))
-	}
-
-	resp, err := daClient.S3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: &daClient.S3Bucket,
-		Key:    aws.String(fmt.Sprintf("%x/%x", daClient.Namespace, frameRefData)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	log.Warn("celestia: downloaded data from S3 cache")
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	return out
 }

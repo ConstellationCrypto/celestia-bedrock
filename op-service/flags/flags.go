@@ -8,17 +8,22 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 )
 
 const (
-	RollupConfigFlagName     = "rollup.config"
-	NetworkFlagName          = "network"
-	CanyonOverrideFlagName   = "override.canyon"
-	DeltaOverrideFlagName    = "override.delta"
-	EcotoneOverrideFlagName  = "override.ecotone"
-	FjordOverrideFlagName    = "override.fjord"
-	GraniteOverrideFlagName  = "override.granite"
-	HoloceneOverrideFlagName = "override.holocene"
+	RollupConfigFlagName               = "rollup.config"
+	NetworkFlagName                    = "network"
+	CanyonOverrideFlagName             = "override.canyon"
+	DeltaOverrideFlagName              = "override.delta"
+	EcotoneOverrideFlagName            = "override.ecotone"
+	FjordOverrideFlagName              = "override.fjord"
+	GraniteOverrideFlagName            = "override.granite"
+	HoloceneOverrideFlagName           = "override.holocene"
+	PectraBlobScheduleOverrideFlagName = "override.pectrablobschedule"
+	IsthmusOverrideFlagName            = "override.isthmus"
+	InteropOverrideFlagName            = "override.interop"
+	JovianOverrideFlagName             = "override.jovian"
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -65,6 +70,34 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Hidden:   false,
 			Category: category,
 		},
+		&cli.Uint64Flag{
+			Name:     PectraBlobScheduleOverrideFlagName,
+			Usage:    "Manually specify the PectraBlobSchedule fork timestamp, overriding the bundled setting",
+			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_PECTRABLOBSCHEDULE"),
+			Hidden:   false,
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name:     IsthmusOverrideFlagName,
+			Usage:    "Manually specify the Isthmus fork timestamp, overriding the bundled setting",
+			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_ISTHMUS"),
+			Hidden:   false,
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name:     JovianOverrideFlagName,
+			Usage:    "Manually specify the Jovian fork timestamp, overriding the bundled setting",
+			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_JOVIAN"),
+			Hidden:   false,
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name:     InteropOverrideFlagName,
+			Usage:    "Manually specify the Interop fork timestamp, overriding the bundled setting",
+			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_INTEROP"),
+			Hidden:   false,
+			Category: category,
+		},
 		CLINetworkFlag(envPrefix, category),
 		CLIRollupConfigFlag(envPrefix, category),
 	}
@@ -98,7 +131,7 @@ var requiredXorFlags = [][]string{
 	// },
 }
 
-func CheckRequiredXor(ctx *cli.Context) error {
+func CheckRequiredXor(ctx cliiface.Context) error {
 	for _, flagSet := range requiredXorFlags {
 		var setCount int
 		for _, flagName := range flagSet {

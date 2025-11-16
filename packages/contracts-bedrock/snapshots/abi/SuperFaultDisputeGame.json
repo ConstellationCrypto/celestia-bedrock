@@ -4,16 +4,6 @@
       {
         "components": [
           {
-            "internalType": "GameType",
-            "name": "gameType",
-            "type": "uint32"
-          },
-          {
-            "internalType": "Claim",
-            "name": "absolutePrestate",
-            "type": "bytes32"
-          },
-          {
             "internalType": "uint256",
             "name": "maxGameDepth",
             "type": "uint256"
@@ -32,26 +22,6 @@
             "internalType": "Duration",
             "name": "maxClockDuration",
             "type": "uint64"
-          },
-          {
-            "internalType": "contract IBigStepper",
-            "name": "vm",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IDelayedWETH",
-            "name": "weth",
-            "type": "address"
-          },
-          {
-            "internalType": "contract IAnchorStateRegistry",
-            "name": "anchorStateRegistry",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "l2ChainId",
-            "type": "uint256"
           }
         ],
         "internalType": "struct SuperFaultDisputeGame.GameConstructorParams",
@@ -72,7 +42,7 @@
         "type": "bytes32"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -108,7 +78,7 @@
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -145,46 +115,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "version",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "stateRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "messagePasserStorageRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "latestBlockhash",
-            "type": "bytes32"
-          }
-        ],
-        "internalType": "struct Types.OutputRootProof",
-        "name": "_outputRootProof",
-        "type": "tuple"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_headerRLP",
-        "type": "bytes"
-      }
-    ],
-    "name": "challengeRootL2Block",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -402,7 +332,7 @@
         "type": "bytes"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -415,7 +345,7 @@
         "type": "uint32"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -516,54 +446,15 @@
   },
   {
     "inputs": [],
-    "name": "l2BlockNumber",
+    "name": "l2SequenceNumber",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "l2BlockNumber_",
+        "name": "l2SequenceNumber_",
         "type": "uint256"
       }
     ],
     "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "l2BlockNumberChallenged",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "l2BlockNumberChallenger",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "l2ChainId",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "l2ChainId_",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -783,20 +674,7 @@
   },
   {
     "inputs": [],
-    "name": "startingBlockNumber",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "startingBlockNumber_",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "startingOutputRoot",
+    "name": "startingProposal",
     "outputs": [
       {
         "internalType": "Hash",
@@ -805,7 +683,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "l2BlockNumber",
+        "name": "l2SequenceNumber",
         "type": "uint256"
       }
     ],
@@ -820,6 +698,19 @@
         "internalType": "Hash",
         "name": "startingRootHash_",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "startingSequenceNumber",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "startingSequenceNumber_",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -913,7 +804,7 @@
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -939,7 +830,7 @@
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1005,7 +896,7 @@
   },
   {
     "inputs": [],
-    "name": "BlockNumberMatches",
+    "name": "BadExtraData",
     "type": "error"
   },
   {
@@ -1045,17 +936,7 @@
   },
   {
     "inputs": [],
-    "name": "ContentLengthMismatch",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "DuplicateStep",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "EmptyItem",
     "type": "error"
   },
   {
@@ -1080,6 +961,11 @@
   },
   {
     "inputs": [],
+    "name": "GamePaused",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "IncorrectBondAmount",
     "type": "error"
   },
@@ -1100,32 +986,12 @@
   },
   {
     "inputs": [],
-    "name": "InvalidDataRemainder",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "InvalidDisputedClaimIndex",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidHeader",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidHeaderRLP",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "InvalidLocalIdent",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidOutputRootProof",
     "type": "error"
   },
   {
@@ -1145,12 +1011,12 @@
   },
   {
     "inputs": [],
-    "name": "L2BlockNumberChallenged",
+    "name": "MaxDepthTooLarge",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "MaxDepthTooLarge",
+    "name": "NoChainIdNeeded",
     "type": "error"
   },
   {
@@ -1165,12 +1031,7 @@
   },
   {
     "inputs": [],
-    "name": "ReservedGameType",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UnexpectedList",
+    "name": "SuperFaultDisputeGameInvalidRootClaim",
     "type": "error"
   },
   {
@@ -1182,11 +1043,6 @@
       }
     ],
     "name": "UnexpectedRootClaim",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UnexpectedString",
     "type": "error"
   },
   {
