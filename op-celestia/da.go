@@ -31,6 +31,7 @@ func DownloadS3Data(ctx context.Context, daClient *DAClient, frameRefData []byte
 		Key:    aws.String(fmt.Sprintf("%x/%x", daClient.Namespace, frameRefData)),
 	})
 	if err != nil {
+		log.Error("celestia: failed to download data from S3 cache", "error", err, "path", fmt.Sprintf("%x/%x/%x", daClient.S3Bucket, daClient.Namespace, frameRefData))
 		return nil, err
 	}
 	log.Warn("celestia: downloaded data from S3 cache")

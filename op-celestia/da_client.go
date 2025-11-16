@@ -66,8 +66,8 @@ type RPCClientConfig struct {
 }
 
 func (c RPCClientConfig) String() string {
-	return fmt.Sprintf("RPCClientConfig{URL: %s, TLSEnabled: %t, AuthToken: %s, Namespace: %s, FallbackMode: %s, GasPrice: %f, TxClientConfig: %v}",
-		c.URL, c.TLSEnabled, c.AuthToken, c.Namespace, c.FallbackMode, c.GasPrice, c.TxClientConfig)
+	return fmt.Sprintf("RPCClientConfig{URL: %s, TLSEnabled: %t, AuthToken: %s, Namespace: %s, FallbackMode: %s, GasPrice: %f, TxClientConfig: %v, Auth: %t, S3Region: %s, S3Bucket: %s}",
+		c.URL, c.TLSEnabled, c.AuthToken, c.Namespace, c.FallbackMode, c.GasPrice, c.TxClientConfig, c.Auth, c.S3Region, c.S3Bucket)
 }
 
 type DAClient struct {

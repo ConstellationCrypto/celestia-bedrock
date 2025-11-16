@@ -1126,6 +1126,7 @@ func (l *BatchSubmitter) uploadS3Data(ctx context.Context, frameRefData []byte, 
 		Bucket: &l.DAClient.S3Bucket,
 		Key:    aws.String(fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData)),
 	})
+	l.Log.Info("celestia: uploaded to s3", "path", fmt.Sprintf("%x/%x", l.DAClient.Namespace, frameRefData))
 	return err
 }
 

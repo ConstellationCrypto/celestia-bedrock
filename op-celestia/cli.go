@@ -208,6 +208,8 @@ func (c CLIConfig) CelestiaConfig() RPCClientConfig {
 		FallbackMode:   c.FallbackMode,
 		GasPrice:       c.GasPrice,
 		TxClientConfig: cfg,
+		S3Region:       c.S3Region,
+		S3Bucket:       c.S3Bucket,
 	}
 }
 
