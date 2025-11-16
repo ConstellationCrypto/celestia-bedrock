@@ -66,13 +66,13 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		if version != celestia.DerivationVersionCelestia {
 			return data, nil
 		}
-
 		s.comm = data[1:]
 	}
 
-	log.Info("celestia: blob request", "id", hex.EncodeToString(s.comm))
+	s3id := append([]byte{celestia.DerivationVersionCelestia}, s.comm...)
+	log.Info("celestia: blob request", "id", hex.EncodeToString(s3id))
 	ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
-	awsBlob, err := celestia.DownloadS3Data(ctx2, daClient, s.comm[1:])
+	awsBlob, err := celestia.DownloadS3Data(ctx2, daClient, s3id)
 	cancel()
 	if err != nil {
 		height, commitment := celestia.SplitID(s.comm)

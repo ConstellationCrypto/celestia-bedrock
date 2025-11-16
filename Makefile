@@ -38,7 +38,7 @@ golang-docker: ## Builds Docker images for Go components using buildx
 			--progress plain \
 			--load \
 			-f docker-bake.hcl \
-			op-node op-batcher op-proposer op-challenger op-dispute-mon op-supervisor
+			op-node
 .PHONY: golang-docker
 
 docker-builder-clean: ## Removes the Docker buildx builder
