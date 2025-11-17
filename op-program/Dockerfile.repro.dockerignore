@@ -4,12 +4,15 @@
 !go.*
 # internal dependencies
 !cannon/
+!op-core/
 !op-alt-da/
+!op-celestia/
 !op-node/
 !op-preimage/
 !op-program/
 !op-service/
 !op-supervisor/
+!op-test-sequencer
 
 **/bin
 **/testdata
