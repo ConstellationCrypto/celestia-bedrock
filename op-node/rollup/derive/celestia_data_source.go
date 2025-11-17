@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
 
 	libshare "github.com/celestiaorg/go-square/v3/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
@@ -13,7 +12,6 @@ import (
 )
 
 var daClient *celestia.DAClient
-var celestiaLegacyMode = os.Getenv("CELESTIA_LEGACY_MODE") == "true"
 
 func CelestiaDAEnabled() bool {
 	return daClient != nil
@@ -49,23 +47,13 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		if len(data) == 0 {
 			return nil, NotEnoughData
 		}
-		//caldera
-		version := data[0]
-		if celestiaLegacyMode {
-			if data[0] == 2 { // legacy celestia data
-				version = celestia.DerivationVersionCelestia
-			}
-			if data[0] == celestia.DerivationVersionCelestia {
-				version = celestia.DerivationVersionCelestia
-			}
-		}
-		// caldera
 		// If the transaction data type isn't Celestia,
 		// pass it downstream for further validation
 		// and potential parsing as L1 DA inputs.
-		if version != celestia.DerivationVersionCelestia {
+		if data[0] != celestia.DerivationVersionCelestia {
 			return data, nil
 		}
+		//here, the identifier is removed, but we need it later to fetch the blob from s3
 		s.comm = data[1:]
 	}
 
