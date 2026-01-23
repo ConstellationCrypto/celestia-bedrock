@@ -22,6 +22,13 @@ ARG ASTERISC_VERSION=none
 
 # builder_foundry does not need to be built on $BUILDPLATFORM, as foundry produces static binaries.
 FROM alpine:3.21 AS builder_foundry
+# We may be cross-building for another platform. Specify which platform we need as builder.
+FROM --platform=$BUILDPLATFORM golang:1.24.6-alpine3.22 AS builder
+
+RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
+
+# Install mise (the apk version is outdated)
+RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
 # Build args are only-available in top-level by default, so we'll need to declare it inside the stage too
 ARG TARGETARCH
@@ -57,10 +64,9 @@ EOF
 RUN forge --version
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.24.6-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.21 AS builder
 
-RUN apk update && \
-  apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq yq-go bash just
+RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq yq-go bash just
 
 ARG TARGETARCH
 

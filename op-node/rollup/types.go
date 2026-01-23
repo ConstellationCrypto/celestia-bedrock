@@ -582,6 +582,44 @@ func (c *Config) ActivationTime(fork ForkName) *uint64 {
 		return c.CanyonTime
 	case forks.Regolith:
 		return c.RegolithTime
+
+	// Optional forks
+	case forks.PectraBlobSchedule:
+		return c.PectraBlobScheduleTime
+
+	default:
+		panic(fmt.Sprintf("unknown fork: %v", fork))
+	}
+}
+
+func (c *Config) SetActivationTime(fork ForkName, timestamp *uint64) {
+	// NEW FORKS MUST BE ADDED HERE
+	switch fork {
+	case forks.Interop:
+		c.InteropTime = timestamp
+	case forks.Jovian:
+		c.JovianTime = timestamp
+	case forks.Isthmus:
+		c.IsthmusTime = timestamp
+	case forks.Holocene:
+		c.HoloceneTime = timestamp
+	case forks.Granite:
+		c.GraniteTime = timestamp
+	case forks.Fjord:
+		c.FjordTime = timestamp
+	case forks.Ecotone:
+		c.EcotoneTime = timestamp
+	case forks.Delta:
+		c.DeltaTime = timestamp
+	case forks.Canyon:
+		c.CanyonTime = timestamp
+	case forks.Regolith:
+		c.RegolithTime = timestamp
+
+	// Optional forks
+	case forks.PectraBlobSchedule:
+		c.PectraBlobScheduleTime = timestamp
+
 	default:
 		panic(fmt.Sprintf("unknown fork: %v", fork))
 	}
