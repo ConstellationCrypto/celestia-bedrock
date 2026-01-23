@@ -625,34 +625,6 @@ func (c *Config) SetActivationTime(fork ForkName, timestamp *uint64) {
 	}
 }
 
-func (c *Config) SetActivationTime(fork ForkName, timestamp *uint64) {
-	// NEW FORKS MUST BE ADDED HERE
-	switch fork {
-	case forks.Interop:
-		c.InteropTime = timestamp
-	case forks.Jovian:
-		c.JovianTime = timestamp
-	case forks.Isthmus:
-		c.IsthmusTime = timestamp
-	case forks.Holocene:
-		c.HoloceneTime = timestamp
-	case forks.Granite:
-		c.GraniteTime = timestamp
-	case forks.Fjord:
-		c.FjordTime = timestamp
-	case forks.Ecotone:
-		c.EcotoneTime = timestamp
-	case forks.Delta:
-		c.DeltaTime = timestamp
-	case forks.Canyon:
-		c.CanyonTime = timestamp
-	case forks.Regolith:
-		c.RegolithTime = timestamp
-	default:
-		panic(fmt.Sprintf("unknown fork: %v", fork))
-	}
-}
-
 // IsActivationBlock returns the fork which activates at the block with time newTime if the previous
 // block's time is oldTime. It returns an empty ForkName if no fork activation takes place between
 // those timestamps. It can be used for both, L1 and L2 blocks.

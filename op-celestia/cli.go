@@ -8,10 +8,10 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+"strings"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
-
+"github.com/ethereum-optimism/optimism/op-service/cliiface"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 )
 
@@ -84,16 +84,16 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			//EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),//CALDERA DOES NOT TOLERATE DA PREFIX
 			EnvVars: opservice.PrefixEnvVar(envPrefix, "NAMESPACE_ID"),
 		},
-		&cli.StringFlag{
-			Name:    AuthTokenFlagName,
-			Usage:   "authentication token of the data availability client",
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_AUTH_TOKEN"),
-		},
-		&cli.StringFlag{
-			Name:    NamespaceFlagName,
-			Usage:   "namespace of the data availability client",
-			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),
-		},
+//		&cli.StringFlag{
+//			Name:    AuthTokenFlagName,
+//			Usage:   "authentication token of the data availability client",
+//			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_AUTH_TOKEN"),
+//		},
+//		&cli.StringFlag{
+//			Name:    NamespaceFlagName,
+//			Usage:   "namespace of the data availability client",
+//			EnvVars: opservice.PrefixEnvVar(envPrefix, "DA_NAMESPACE"),
+//		},
 		&cli.BoolFlag{
 			Name:    EthFallbackDisabledFlagName,
 			Usage:   "disable eth fallback (deprecated, use FallbackModeFlag instead)",
