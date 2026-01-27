@@ -68,6 +68,10 @@ type L1DevGenesisParams struct {
 	// genesis time.
 	BPO1TimeOffset *uint64 `json:"bpo1TimeOffset" toml:"bpo1TimeOffset"`
 
+	// BPO2TimeOffset configures the BPO2 fork to be activated at the given time after L1 dev
+	// genesis time.
+	BPO2TimeOffset *uint64 `json:"bpo2TimeOffset" toml:"bpo2TimeOffset"`
+
 	BlobSchedule *params.BlobScheduleConfig `json:"blobSchedule"`
 
 	// Prefund is a map of addresses to balances (in wei), to prefund in the L1 dev genesis state.
@@ -172,6 +176,11 @@ func (c *Intent) validateStandardValues() error {
 		}
 		if len(chain.AdditionalDisputeGames) > 0 {
 			return fmt.Errorf("%w: chainId=%s additionalDisputeGames must be nil", ErrNonStandardValue, chain.ID)
+		}
+		if chain.UseRevenueShare {
+			if chain.ChainFeesRecipient == emptyAddress {
+				return fmt.Errorf("%w: chainId=%s", ErrRevenueShareZeroAddress, chain.ID)
+			}
 		}
 	}
 
@@ -358,6 +367,7 @@ func NewIntentStandard(l1ChainId uint64, l2ChainIds []common.Hash) (Intent, erro
 				L1ProxyAdminOwner: l1ProxyAdminOwner,
 				L2ProxyAdminOwner: l2ProxyAdminOwner,
 			},
+			UseRevenueShare: standard.UseRevenueShare,
 		})
 	}
 	return intent, nil
