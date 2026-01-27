@@ -29,13 +29,13 @@ import (
 // and new finalization events happen at most 4 epochs behind the head.
 // And then we add 1 to make pruning easier by leaving room for a new item without pruning the 32*4.
 // L1 blocks are 6x as fast on base compared to mainnet - muliply by 10 just in case.
-const defaultFinalityLookback = 4*32*10 + 1
+const defaultFinalityLookback = 4*32 + 1
 
 // finalityDelay is the number of L1 blocks to traverse before trying to finalize L2 blocks again.
 // We do not want to do this too often, since it requires fetching a L1 block by number, so no cache data.
 // Multiply by 6 since base blocks are 6x slower to finalize.
 
-const finalityDelay = 64 * 6
+const finalityDelay = 64
 
 // Config contains runtime configuration for the finalizer.
 type Config struct {
