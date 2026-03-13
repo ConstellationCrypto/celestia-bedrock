@@ -19,6 +19,10 @@ import (
 // see: https://github.com/rollkit/celestia-da/blob/1f2df375fd2fcc59e425a50f7eb950daa5382ef0/celestia.go#L141-L160
 const DerivationVersionCelestia = 0xce
 
+// DerivationVersionCelestiaV2 is an alternative byte marker for celestia references
+// (format byte 2) used by some batchers. Same encoding as DerivationVersionCelestia.
+const DerivationVersionCelestiaV2 = 2
+
 // 00000000000000000000000000000000000000ca1de12a6d29fe535f2d
 // namespace input ^^ and have to strip down to 10
 func DownloadS3Data(ctx context.Context, daClient *DAClient, frameRefData []byte) ([]byte, error) {

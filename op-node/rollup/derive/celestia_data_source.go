@@ -26,7 +26,8 @@ type CelestiaDataSource struct {
 	log log.Logger
 	src DataIter
 	// keep track of a pending commitment so we can keep trying to fetch the input.
-	comm eth.Data
+	comm       eth.Data
+	formatByte byte
 }
 
 func NewCelestiaDataSource(log log.Logger, src DataIter) *CelestiaDataSource {
@@ -50,14 +51,15 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		// If the transaction data type isn't Celestia,
 		// pass it downstream for further validation
 		// and potential parsing as L1 DA inputs.
-		if data[0] != celestia.DerivationVersionCelestia {
+		if data[0] != celestia.DerivationVersionCelestia && data[0] != celestia.DerivationVersionCelestiaV2 {
 			return data, nil
 		}
 		//here, the identifier is removed, but we need it later to fetch the blob from s3
+		s.formatByte = data[0]
 		s.comm = data[1:]
 	}
 
-	s3id := append([]byte{celestia.DerivationVersionCelestia}, s.comm...)
+	s3id := append([]byte{s.formatByte}, s.comm...)
 	log.Info("celestia: blob request", "id", hex.EncodeToString(s3id))
 	ctx2, cancel := context.WithTimeout(context.Background(), daClient.GetTimeout)
 	awsBlob, err := celestia.DownloadS3Data(ctx2, daClient, s3id)
