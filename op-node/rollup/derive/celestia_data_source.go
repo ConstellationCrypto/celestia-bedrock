@@ -7,6 +7,7 @@ import (
 
 	libshare "github.com/celestiaorg/go-square/v3/share"
 	celestia "github.com/ethereum-optimism/optimism/op-celestia"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -48,7 +49,13 @@ func (s *CelestiaDataSource) Next(ctx context.Context) (eth.Data, error) {
 		if len(data) == 0 {
 			return nil, NotEnoughData
 		}
-		// If the transaction data type isn't Celestia,
+
+		// Format byte 1 = legacy/altDA calldata. Pass through.
+		if data[0] == params.DerivationVersion1 {
+			s.log.Info("Found params.DerivationVersion1 old eth legacy data")
+			return data[1:], nil
+		}
+		// If the transaction data type isn't Celestia (0xce or 2),
 		// pass it downstream for further validation
 		// and potential parsing as L1 DA inputs.
 		if data[0] != celestia.DerivationVersionCelestia && data[0] != celestia.DerivationVersionCelestiaV2 {
