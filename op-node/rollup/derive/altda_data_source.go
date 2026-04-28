@@ -57,18 +57,23 @@ func (s *AltDADataSource) Next(ctx context.Context) (eth.Data, error) {
 		}
 		// If the tx data type is not altDA, we forward it downstream to let the next
 		// steps validate and potentially parse it as L1 DA inputs.
-		if data[0] != params.DerivationVersion1 {
+		if data[0] == 0xce {
+			// Wrap legacy celestia fork commitment as generic
+			s.comm = altda.NewGenericCommitment(append([]byte{0x0c}, data[1:]...))
+		} else if data[0] == params.DerivationVersion1 {
+			// validate batcher inbox data is a commitment.
+			// strip the transaction data version byte from the data before decoding.
+			comm, err := altda.DecodeCommitmentData(data[1:])
+			if err != nil {
+				s.log.Warn("invalid commitment", "commitment", data, "err", err)
+				return nil, NotEnoughData
+			}
+			s.comm = comm
+		} else {
+			// If the tx data type is not altDA, we forward it downstream to let the next
+			// steps validate and potentially parse it as L1 DA inputs.
 			return data, nil
 		}
-
-		// validate batcher inbox data is a commitment.
-		// strip the transaction data version byte from the data before decoding.
-		comm, err := altda.DecodeCommitmentData(data[1:])
-		if err != nil {
-			s.log.Warn("invalid commitment", "commitment", data, "err", err)
-			return nil, NotEnoughData
-		}
-		s.comm = comm
 	}
 	// use the commitment to fetch the input from the AltDA provider.
 	data, err := s.fetcher.GetInput(ctx, s.l1, s.comm, s.id)
