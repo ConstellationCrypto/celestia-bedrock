@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "chainId": "1",
+  "createdAt": 0,
+  "meta": {
+    "name": "Glamsterdam: upgrade OptimismPortal to 2.6.1 (towns-mainnet)",
+    "description": "ProxyAdmin.upgrade(0x9fDEEa19836A413C04e9672d3d09f482278e863c, 0x0e267C5Ead9232B361c69De550a6dd110fa949eA). Finalization now reverts when an L2CrossDomainMessenger withdrawal fails, so it can be retried with more gas.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x2876c43B17A5750CBea5E2A3C42718374E21D5a2",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x566c7DB023111D897F16b602B2B57f0F12f7bF44",
+      "value": "0",
+      "data": "0x99a88ec40000000000000000000000009fdeea19836a413c04e9672d3d09f482278e863c0000000000000000000000000e267c5ead9232b361c69de550a6dd110fa949ea",
+      "contractMethod": {
+        "inputs": [
+          { "internalType": "address payable", "name": "_proxy", "type": "address" },
+          { "internalType": "address", "name": "_implementation", "type": "address" }
+        ],
+        "name": "upgrade",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "_proxy": "0x9fDEEa19836A413C04e9672d3d09f482278e863c",
+        "_implementation": "0x0e267C5Ead9232B361c69De550a6dd110fa949eA"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "towns-glamsterdam-relay-guard",
+  "private": true,
+  "description": "Glamsterdam OptimismPortal relay guard (Towns mainnet): local tests, fork test and deployment script",
+  "scripts": {
+    "submodules": "cd ../../.. && git submodule update --init packages/contracts-bedrock/lib/openzeppelin-contracts packages/contracts-bedrock/lib/openzeppelin-contracts-upgradeable packages/contracts-bedrock/lib/solmate",
+    "test:local": "forge test --match-contract RelayGuardLocal -vv --evm-version amsterdam",
+    "test:local:osaka": "forge test --match-contract RelayGuardLocal -vv --evm-version osaka",
+    "plan": "forge script script/UpgradePortal.s.sol --sig 'plan(string)' towns-mainnet && git diff --exit-code -- deploy/out",
+    "test:fork": "NETWORK=towns-mainnet FORK_RPC_URL=$MAINNET_RPC_URL forge test --match-contract UpgradeFork -vv --evm-version osaka"
+  },
+  "devDependencies": {
+    "forge-std": "github:foundry-rs/forge-std#v1.9.6"
+  }
+}

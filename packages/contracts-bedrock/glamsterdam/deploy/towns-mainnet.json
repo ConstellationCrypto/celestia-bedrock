@@ -1,0 +1,21 @@
+{
+  "network": "towns-mainnet",
+  "description": "Towns (L1: Ethereum mainnet)",
+  "chainId": 1,
+  "observedAtBlock": 26341589,
+  "portalProxy": "0x9fDEEa19836A413C04e9672d3d09f482278e863c",
+  "proxyAdmin": "0x566c7DB023111D897F16b602B2B57f0F12f7bF44",
+  "proxyAdminOwner": "0x2876c43B17A5750CBea5E2A3C42718374E21D5a2",
+  "ownerIsSafe": true,
+  "safeThreshold": 4,
+  "currentImplementation": "0xCEa36be2e9724d88cB107C552c602a8025DB88bA",
+  "currentVersion": "2.6.0",
+  "newVersion": "2.6.1",
+  "l1CrossDomainMessenger": "0x22B0cd077c937b9912772B38519b6d2d91541c1A",
+  "storage": {
+    "l2Oracle": "0x29E7177837652ca00f05fbD2e8aA867d207B2EF8",
+    "systemConfig": "0xf565303B5326C8653E78e5f73a2984f6F778C9E8",
+    "superchainConfig": "0xb6aFBB2A7299e968c9f98f8b518bD89e670a420A"
+  },
+  "getters": ["l2Oracle()", "systemConfig()", "superchainConfig()", "guardian()", "paused()", "l2Sender()", "params()"]
+}
