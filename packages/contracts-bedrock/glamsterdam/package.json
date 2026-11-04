@@ -1,0 +1,15 @@
+{
+  "name": "manta-glamsterdam-relay-guard",
+  "private": true,
+  "description": "Foundry deps for the OptimismPortal relay-guard tests (Glamsterdam / EIP-8037+8038)",
+  "scripts": {
+    "test:local": "forge test --match-contract RelayGuardLocal -vv",
+    "test:local:osaka": "forge test --match-contract RelayGuardLocal -vv --evm-version osaka"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "4.7.3",
+    "@openzeppelin/contracts-upgradeable": "4.7.3",
+    "@rari-capital/solmate": "github:transmissions11/solmate#8f9b23f8838670afda0fd8983f2c41e8037ae6bc",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.6"
+  }
+}
