@@ -117,6 +117,9 @@ abstract contract CrossDomainMessenger is
     /// @notice Address of the paired CrossDomainMessenger contract on the other chain.
     address public immutable OTHER_MESSENGER;
 
+    /// @notice Decimal multiplier for the FPE token on the L1. Always set to 1 on the L2.
+    uint256 public immutable LOCAL_DECIMAL_MULTIPLIER;
+
     /// @notice Mapping of message hashes to boolean receipt values. Note that a message will only
     ///         be present in this mapping if it has successfully been relayed on this chain, and
     ///         can therefore not be relayed again.
@@ -172,8 +175,11 @@ abstract contract CrossDomainMessenger is
     event FailedRelayedMessage(bytes32 indexed msgHash);
 
     /// @param _otherMessenger Address of the messenger on the paired chain.
-    constructor(address _otherMessenger) {
+    /// @param _localDecimalMultiplier How much to multiply quantity by when bridging to the other chain.
+    /// This is set to 10^(18-fpe decimals) on the l1 and 1 on the l2.
+    constructor(address _otherMessenger, uint256 _localDecimalMultiplier) {
         OTHER_MESSENGER = _otherMessenger;
+        LOCAL_DECIMAL_MULTIPLIER = _localDecimalMultiplier;
     }
 
     /// @notice Sends a message to some target address on the other chain. Note that if the call
@@ -183,32 +189,33 @@ abstract contract CrossDomainMessenger is
     /// @param _target      Target contract or wallet address.
     /// @param _message     Message to trigger the target address with.
     /// @param _minGasLimit Minimum gas limit that the message can be executed with.
+    /// @param _value       Amount to send (must match msg.value if going from L2->L1 or FPE token is disabled)
     function sendMessage(
         address _target,
         bytes calldata _message,
-        uint32 _minGasLimit
+        uint32 _minGasLimit,
+        uint256 _value
     ) external payable {
         // Triggers a message to the other messenger. Note that the amount of gas provided to the
         // message is the amount of gas requested by the user PLUS the base gas value. We want to
         // guarantee the property that the call to the target contract will always have at least
         // the minimum gas limit specified by the user.
         _sendMessage(
-            OTHER_MESSENGER,
             baseGas(_message, _minGasLimit),
-            msg.value,
+            _value,
             abi.encodeWithSelector(
                 this.relayMessage.selector,
                 messageNonce(),
                 msg.sender,
                 _target,
-                msg.value,
+                _value * LOCAL_DECIMAL_MULTIPLIER,
                 _minGasLimit,
                 _message
             )
         );
 
         emit SentMessage(_target, msg.sender, _message, messageNonce(), _minGasLimit);
-        emit SentMessageExtension1(msg.sender, msg.value);
+        emit SentMessageExtension1(msg.sender, _value * LOCAL_DECIMAL_MULTIPLIER);
 
         unchecked {
             ++msgNonce;
@@ -262,7 +269,8 @@ abstract contract CrossDomainMessenger is
         if (_isOtherMessenger()) {
             // These properties should always hold when the message is first submitted (as
             // opposed to being replayed).
-            assert(msg.value == _value);
+            // may be FPE token instead when bridging from L2 -> L1
+            // assert(msg.value == _value);
             assert(!failedMessages[versionedHash]);
         } else {
             require(
@@ -285,6 +293,10 @@ abstract contract CrossDomainMessenger is
             successfulMessages[versionedHash] == false,
             "CrossDomainMessenger: message has already been relayed"
         );
+
+        if (_handleFpeTransfer(_target, _value)) {
+          _value = 0;
+        }
 
         // If there is not enough gas left to perform the external call and finish the execution,
         // return early and assign the message to the failedMessages mapping.
@@ -336,6 +348,12 @@ abstract contract CrossDomainMessenger is
         }
     }
 
+    /// used to transfer FPE tokens
+    function _handleFpeTransfer(address target, uint256 _value) internal virtual returns (bool);
+
+    // gas cost of transferring the FPE token
+    function _fpeGas() virtual internal pure returns (uint32);
+
     /// @notice Retrieves the address of the contract or wallet that initiated the currently
     ///         executing message on the other chain. Will throw an error if there is no message
     ///         currently being executed. Allows the recipient of a call to see who triggered it.
@@ -366,6 +384,7 @@ abstract contract CrossDomainMessenger is
     /// @return Amount of gas required to guarantee message receipt.
     function baseGas(bytes calldata _message, uint32 _minGasLimit) public pure returns (uint64) {
         return
+            _fpeGas() +
             // Constant overhead
             RELAY_CONSTANT_OVERHEAD +
             // Calldata overhead
@@ -393,12 +412,10 @@ abstract contract CrossDomainMessenger is
     /// @notice Sends a low-level message to the other messenger. Needs to be implemented by child
     ///         contracts because the logic for this depends on the network where the messenger is
     ///         being deployed.
-    /// @param _to       Recipient of the message on the other chain.
     /// @param _gasLimit Minimum gas limit the message can be executed with.
     /// @param _value    Amount of ETH to send with the message.
     /// @param _data     Message data.
     function _sendMessage(
-        address _to,
         uint64 _gasLimit,
         uint256 _value,
         bytes memory _data

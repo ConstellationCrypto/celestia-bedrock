@@ -71,4 +71,7 @@ library Predeploys {
 
     /// @notice Address of the GovernanceToken predeploy.
     address internal constant GOVERNANCE_TOKEN = 0x4200000000000000000000000000000000000042;
+
+    /// @notice Address of the L1 ETH OptimismMintableERC20 predeploy.
+    address internal constant L1_ETH = 0x42000000000000000000000000000000000000fF;
 }
