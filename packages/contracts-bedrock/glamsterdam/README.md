@@ -1,4 +1,9 @@
-# Glamsterdam relay guard: local tests
+# Glamsterdam relay guard
+
+- Deployment (configs, script, Safe batch, fork test): see [`deploy/README.md`](deploy/README.md).
+- Local tests: below.
+
+## Local tests
 
 Local (no RPC) gas-limit sweep of
 `OptimismPortal.finalizeWithdrawalTransaction` -> `L1CrossDomainMessenger.relayMessage`
@@ -16,8 +21,7 @@ model a blocked recipient.
 
 ```sh
 npm install
-npm run test:local          # evm_version = amsterdam (EIP-8037 + EIP-8038)
-forge test --match-contract RelayGuardSemantics -vv
+npm run test:local          # --evm-version amsterdam (EIP-8037 + EIP-8038)
 npm run test:local:osaka    # baseline
 ```
 

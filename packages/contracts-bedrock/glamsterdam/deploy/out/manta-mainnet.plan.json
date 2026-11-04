@@ -1,0 +1,16 @@
+{
+  "network": "manta-mainnet",
+  "chainId": 1,
+  "portalProxy": "0x9168765EE952de7C6f8fC6FaD5Ec209B960b7622",
+  "proxyAdmin": "0xa2DCa85BB892De55D8B262d1806114733106e8D1",
+  "proxyAdminOwner": "0x3c46C05c2eba8eDd0B0f0C8B1D2fBf9fc53ea01E",
+  "currentImplementation": "0x4fEee20712abF5724C2BC0476BD87CBf1F1eE388",
+  "currentVersion": "1.7.2",
+  "newVersion": "1.7.3",
+  "newImplementation": "0x8d5b2063EAC1bE69CE10AaA66F76AB5AC9601888",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "create2Salt": "0xe5d51a24b738170e5a9c71a3ee7cff0d0c542b9796b543c2d50466142ef1d0e0",
+  "initCodeHash": "0xb116b66804e6c24029960518b2b25a5fb4127a3db93ab43e1251c1f5082f715d",
+  "upgradeTo": "0xa2DCa85BB892De55D8B262d1806114733106e8D1",
+  "upgradeCalldata": "0x99a88ec40000000000000000000000009168765ee952de7c6f8fc6fad5ec209b960b76220000000000000000000000008d5b2063eac1be69ce10aaa66f76ab5ac9601888"
+}

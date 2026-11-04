@@ -1,0 +1,21 @@
+{
+  "network": "manta-sepolia",
+  "description": "Manta Pacific Sepolia testnet",
+  "chainId": 11155111,
+  "observedAtBlock": 12062556,
+  "portalProxy": "0x80f86c5d3AE8cF84596FF22DB2829F1b7a9Fe83d",
+  "proxyAdmin": "0x9F3e00A9eB428D026691aA1a5C8D47B53EFbC46b",
+  "proxyAdminOwner": "0x6A42a60E14EeEE588AD622159971963560D7F570",
+  "ownerIsSafe": false,
+  "safeThreshold": 0,
+  "currentImplementation": "0xc2692875541dB770A258d5025Aa4AfAA4F8716cd",
+  "currentVersion": "1.7.2",
+  "newVersion": "1.7.3",
+  "l1CrossDomainMessenger": "0xFe7cF31c4579bb1C578716e04E1Ae16Ac5549fF0",
+  "constructor": {
+    "l2Oracle": "0x2dd44d1b04170C5623cCc55DD5ed43FAB08b0B46",
+    "guardian": "0x6A42a60E14EeEE588AD622159971963560D7F570",
+    "systemConfig": "0x5BA649A9aaBC847cDF498d41113Da7701569FC47"
+  },
+  "getters": ["L2_ORACLE()", "GUARDIAN()", "SYSTEM_CONFIG()", "paused()", "l2Sender()", "params()"]
+}

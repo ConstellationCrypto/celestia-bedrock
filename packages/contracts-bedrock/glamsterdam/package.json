@@ -1,10 +1,13 @@
 {
   "name": "manta-glamsterdam-relay-guard",
   "private": true,
-  "description": "Foundry deps for the OptimismPortal relay-guard tests (Glamsterdam / EIP-8037+8038)",
+  "description": "Glamsterdam OptimismPortal relay guard: local tests, fork test and deployment script",
   "scripts": {
-    "test:local": "forge test --match-contract RelayGuardLocal -vv",
-    "test:local:osaka": "forge test --match-contract RelayGuardLocal -vv --evm-version osaka"
+    "test:local": "forge test --match-contract 'RelayGuardLocal|RelayGuardSemantics' -vv --evm-version amsterdam",
+    "test:local:osaka": "forge test --match-contract 'RelayGuardLocal|RelayGuardSemantics' -vv --evm-version osaka",
+    "plan": "for n in manta-mainnet manta-sepolia; do forge script script/UpgradePortal.s.sol --sig 'plan(string)' $n; done && git diff --exit-code -- deploy/out",
+    "test:fork:mainnet": "NETWORK=manta-mainnet FORK_RPC_URL=$MAINNET_RPC_URL forge test --match-contract UpgradeFork -vv --evm-version osaka",
+    "test:fork:sepolia": "NETWORK=manta-sepolia FORK_RPC_URL=$SEPOLIA_RPC_URL forge test --match-contract UpgradeFork -vv --evm-version amsterdam"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "4.7.3",

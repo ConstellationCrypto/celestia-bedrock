@@ -1,0 +1,16 @@
+{
+  "network": "manta-sepolia",
+  "chainId": 11155111,
+  "portalProxy": "0x80f86c5d3AE8cF84596FF22DB2829F1b7a9Fe83d",
+  "proxyAdmin": "0x9F3e00A9eB428D026691aA1a5C8D47B53EFbC46b",
+  "proxyAdminOwner": "0x6A42a60E14EeEE588AD622159971963560D7F570",
+  "currentImplementation": "0xc2692875541dB770A258d5025Aa4AfAA4F8716cd",
+  "currentVersion": "1.7.2",
+  "newVersion": "1.7.3",
+  "newImplementation": "0x5a95E7A8c50FfbF25cAea0e0175B581EB786AfC5",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "create2Salt": "0xe5d51a24b738170e5a9c71a3ee7cff0d0c542b9796b543c2d50466142ef1d0e0",
+  "initCodeHash": "0x8f54b460d7d637091703691eba2a9d6da3da4fb62daf7aed1323ac03b83872ab",
+  "upgradeTo": "0x9F3e00A9eB428D026691aA1a5C8D47B53EFbC46b",
+  "upgradeCalldata": "0x99a88ec400000000000000000000000080f86c5d3ae8cf84596ff22db2829f1b7a9fe83d0000000000000000000000005a95e7a8c50ffbf25caea0e0175b581eb786afc5"
+}

@@ -1,0 +1,21 @@
+{
+  "network": "manta-mainnet",
+  "description": "Manta Pacific (Ethereum mainnet)",
+  "chainId": 1,
+  "observedAtBlock": 26341589,
+  "portalProxy": "0x9168765EE952de7C6f8fC6FaD5Ec209B960b7622",
+  "proxyAdmin": "0xa2DCa85BB892De55D8B262d1806114733106e8D1",
+  "proxyAdminOwner": "0x3c46C05c2eba8eDd0B0f0C8B1D2fBf9fc53ea01E",
+  "ownerIsSafe": true,
+  "safeThreshold": 5,
+  "currentImplementation": "0x4fEee20712abF5724C2BC0476BD87CBf1F1eE388",
+  "currentVersion": "1.7.2",
+  "newVersion": "1.7.3",
+  "l1CrossDomainMessenger": "0x635ba609680c55C3bDd0B3627b4c5dB21b13c310",
+  "constructor": {
+    "l2Oracle": "0x30c789674ad3B458886BBC9abf42EEe19EA05C1D",
+    "guardian": "0x4b1A788B20bb85eb19f8e9B69B8a584e7fA29fe5",
+    "systemConfig": "0x895E00269A05848F3c9889EfA677D02fF7351a5D"
+  },
+  "getters": ["L2_ORACLE()", "GUARDIAN()", "SYSTEM_CONFIG()", "paused()", "l2Sender()", "params()"]
+}
