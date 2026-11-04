@@ -1,0 +1,23 @@
+{
+  "network": "towns-devnet",
+  "description": "Towns testnet (L1: Sepolia)",
+  "chainId": 11155111,
+  "observedAtBlock": 12062556,
+  "portalProxy": "0x83d872033Cf1e765EE51FF190e34D48A5E5Ec4B5",
+  "proxyAdmin": "0x71a1498d3Ff0C89d17360F9C0564Be9Cc70A110b",
+  "proxyAdminOwner": "0xc02D845827406B1543c64f8E0D9127ec76850F27",
+  "ownerIsSafe": false,
+  "safeThreshold": 0,
+  "currentImplementation": "0xdbEf4E03CE7B4509CD877a703673081C0e932d41",
+  "currentVersion": "2.7.2",
+  "newVersion": "2.7.3",
+  "l1CrossDomainMessenger": "0x987d4addf5C9Cc5EfaaAA5c6fC290a70C9fC340C",
+  "constructor": {
+    "l2Oracle": "0x5627B89Ec33CEce4D22Cf99d6C775490de31d18D",
+    "guardian": "0xc02D845827406B1543c64f8E0D9127ec76850F27",
+    "systemConfig": "0x7f0618B0307e7a0AFB0493b3685D9B4a2B141CF0",
+    "l1FpeToken": "0x0000000000000000000000000000000000000000",
+    "fpeDecimalMultiplier": 1
+  },
+  "getters": ["L2_ORACLE()", "GUARDIAN()", "SYSTEM_CONFIG()", "L1_FPE_TOKEN()", "FPE_DECIMAL_MULTIPLIER()", "paused()", "l2Sender()", "params()"]
+}

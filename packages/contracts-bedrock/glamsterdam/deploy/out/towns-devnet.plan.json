@@ -1,0 +1,16 @@
+{
+  "network": "towns-devnet",
+  "chainId": 11155111,
+  "portalProxy": "0x83d872033Cf1e765EE51FF190e34D48A5E5Ec4B5",
+  "proxyAdmin": "0x71a1498d3Ff0C89d17360F9C0564Be9Cc70A110b",
+  "proxyAdminOwner": "0xc02D845827406B1543c64f8E0D9127ec76850F27",
+  "currentImplementation": "0xdbEf4E03CE7B4509CD877a703673081C0e932d41",
+  "currentVersion": "2.7.2",
+  "newVersion": "2.7.3",
+  "newImplementation": "0x4E1061717Ecbc1F134898e8db16D83A3eda9C4F0",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "create2Salt": "0xe5d51a24b738170e5a9c71a3ee7cff0d0c542b9796b543c2d50466142ef1d0e0",
+  "initCodeHash": "0x6a2c94a76cbc9d2c3d5781e233b7694987af5a6bb213804329f8fa136ca0757b",
+  "upgradeTo": "0x71a1498d3Ff0C89d17360F9C0564Be9Cc70A110b",
+  "upgradeCalldata": "0x99a88ec400000000000000000000000083d872033cf1e765ee51ff190e34d48a5e5ec4b50000000000000000000000004e1061717ecbc1f134898e8db16d83a3eda9c4f0"
+}

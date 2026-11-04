@@ -1,0 +1,17 @@
+{
+  "name": "towns-glamsterdam-relay-guard",
+  "private": true,
+  "description": "Glamsterdam OptimismPortal relay guard (Towns testnet): local tests, fork test and deployment script",
+  "scripts": {
+    "test:local": "forge test --match-contract RelayGuardLocal -vv --evm-version amsterdam",
+    "test:local:osaka": "forge test --match-contract RelayGuardLocal -vv --evm-version osaka",
+    "plan": "forge script script/UpgradePortal.s.sol --sig 'plan(string)' towns-devnet && git diff --exit-code -- deploy/out",
+    "test:fork": "NETWORK=towns-devnet FORK_RPC_URL=$SEPOLIA_RPC_URL forge test --match-contract UpgradeFork -vv --evm-version amsterdam"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "4.7.3",
+    "@openzeppelin/contracts-upgradeable": "4.7.3",
+    "@rari-capital/solmate": "github:transmissions11/solmate#8f9b23f8838670afda0fd8983f2c41e8037ae6bc",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.6"
+  }
+}
