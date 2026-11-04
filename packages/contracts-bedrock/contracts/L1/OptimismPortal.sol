@@ -6,6 +6,7 @@ import { SafeCall } from "../libraries/SafeCall.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { SystemConfig } from "./SystemConfig.sol";
 import { Constants } from "../libraries/Constants.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { SecureMerkleTrie } from "../libraries/trie/SecureMerkleTrie.sol";
@@ -126,7 +127,7 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         SystemConfig _config,
         address _l1FpeToken,
         uint256 _fpeDecimalMultiplier
-    ) Semver(2, 7, 2) {
+    ) Semver(2, 7, 3) {
         L2_ORACLE = _l2Oracle;
         GUARDIAN = _guardian;
         SYSTEM_CONFIG = _config;
@@ -379,16 +380,35 @@ contract OptimismPortal is Initializable, ResourceMetering, Semver {
         // Reset the l2Sender back to the default value.
         l2Sender = Constants.DEFAULT_L2_SENDER;
 
-        // All withdrawals are immediately finalized. Replayability can
-        // be achieved through contracts built on top of this contract
-        emit WithdrawalFinalized(withdrawalHash, success);
-
         // Reverting here is useful for determining the exact gas cost to successfully execute the
         // sub call to the target contract if the minimum gas limit specified by the user would not
         // be sufficient to execute the sub call.
         if (success == false && tx.origin == Constants.ESTIMATION_ADDRESS) {
             revert("OptimismPortal: withdrawal failed");
         }
+
+        // A failed call means the L1CrossDomainMessenger reverted without recording the message,
+        // e.g. because it ran out of gas writing the outcome to a fresh storage slot under
+        // EIP-8037/8038. Revert so the withdrawal stays unfinalized and can be finalized again
+        // with more gas, instead of being finalized with no way to replay it. The revert also
+        // undoes the FPE token transfer above, if any.
+        //
+        // Not every messenger failure is a gas problem. The messenger reverts whatever the gas
+        // when the message targets an unsafe address (the L1CrossDomainMessenger or this
+        // contract) or is a legacy message that was already relayed. Such withdrawals can be
+        // proven but never finalized, where before they were finalized as failed. Their funds
+        // stay locked in the same place either way.
+        //
+        // Checking the sender is enough because the L2CrossDomainMessenger only initiates
+        // withdrawals to its OTHER_MESSENGER, and blocks L2ToL1MessagePasser as a relay target.
+        // Same check as upstream OptimismPortal2 6.0.0 (op-contracts v9.0.0).
+        if (success == false && _tx.sender == Predeploys.L2_CROSS_DOMAIN_MESSENGER) {
+            revert("OptimismPortal: L1CrossDomainMessenger call failed");
+        }
+
+        // All other withdrawals are immediately finalized. Replayability can
+        // be achieved through contracts built on top of this contract
+        emit WithdrawalFinalized(withdrawalHash, success);
     }
 
     // Compatibility layer
