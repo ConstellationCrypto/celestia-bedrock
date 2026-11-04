@@ -503,6 +503,11 @@
   },
   {
     "inputs": [],
+    "name": "L1CDMCallFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "LargeCalldata",
     "type": "error"
   },

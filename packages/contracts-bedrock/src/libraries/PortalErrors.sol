@@ -20,3 +20,6 @@ error Unauthorized();
 error CallPaused();
 /// @notice Error for special gas estimation.
 error GasEstimation();
+/// @notice Error for when a withdrawal from the L2CrossDomainMessenger fails in the
+///         L1CrossDomainMessenger (the relay did not complete, e.g. it ran out of gas).
+error L1CDMCallFailed();
